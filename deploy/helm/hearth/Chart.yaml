@@ -1,0 +1,14 @@
+apiVersion: v2
+name: hearth
+description: Hearth - Open-Source AI Productivity Platform for Teams
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - ai
+  - productivity
+  - teams
+  - mcp
+home: https://github.com/anthropics/hearth
+maintainers:
+  - name: Hearth Team

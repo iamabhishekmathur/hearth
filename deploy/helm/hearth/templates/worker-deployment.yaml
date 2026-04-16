@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hearth.fullname" . }}-worker
+  labels:
+    {{- include "hearth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  {{- if not .Values.worker.hpa.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hearth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "hearth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          command:
+            {{- toYaml .Values.worker.command | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "hearth.fullname" . }}-config
+            - secretRef:
+                name: {{ include "hearth.fullname" . }}-secret
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          {{- if or .Values.worker.dockerSocket.enabled .Values.fileStorage.enabled }}
+          volumeMounts:
+            {{- if .Values.worker.dockerSocket.enabled }}
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+            {{- end }}
+            {{- if .Values.fileStorage.enabled }}
+            - name: file-storage
+              mountPath: /data/files
+            {{- end }}
+          {{- end }}
+      {{- if or .Values.worker.dockerSocket.enabled .Values.fileStorage.enabled }}
+      volumes:
+        {{- if .Values.worker.dockerSocket.enabled }}
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        {{- end }}
+        {{- if .Values.fileStorage.enabled }}
+        - name: file-storage
+          persistentVolumeClaim:
+            claimName: {{ include "hearth.fullname" . }}-file-storage
+        {{- end }}
+      {{- end }}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

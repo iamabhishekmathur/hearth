@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hearth.fullname" . }}-api
+  labels:
+    {{- include "hearth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.hpa.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hearth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "hearth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "hearth.fullname" . }}-config
+            - secretRef:
+                name: {{ include "hearth.fullname" . }}-secret
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          {{- if or .Values.api.dockerSocket.enabled .Values.fileStorage.enabled }}
+          volumeMounts:
+            {{- if .Values.api.dockerSocket.enabled }}
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+            {{- end }}
+            {{- if .Values.fileStorage.enabled }}
+            - name: file-storage
+              mountPath: /data/files
+            {{- end }}
+          {{- end }}
+      {{- if or .Values.api.dockerSocket.enabled .Values.fileStorage.enabled }}
+      volumes:
+        {{- if .Values.api.dockerSocket.enabled }}
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        {{- end }}
+        {{- if .Values.fileStorage.enabled }}
+        - name: file-storage
+          persistentVolumeClaim:
+            claimName: {{ include "hearth.fullname" . }}-file-storage
+        {{- end }}
+      {{- end }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

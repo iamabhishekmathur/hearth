@@ -1,0 +1,18 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "hearth.fullname" . }}-redis
+  labels:
+    {{- include "hearth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.redis.storage.storageClass }}
+  storageClassName: {{ .Values.redis.storage.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.storage.size }}
+{{- end }}

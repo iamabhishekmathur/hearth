@@ -1,0 +1,503 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector"), uuidOssp(map: "uuid-ossp")]
+}
+
+// ──────────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  team_lead
+  member
+  viewer
+}
+
+enum AuthProvider {
+  email
+  google
+  github
+  saml
+}
+
+enum ChatSessionStatus {
+  active
+  archived
+}
+
+enum ChatMessageRole {
+  user
+  assistant
+  system
+  tool
+}
+
+enum TaskStatus {
+  auto_detected
+  backlog
+  planning
+  executing
+  review
+  done
+  failed
+  archived
+}
+
+enum TaskSource {
+  email
+  slack
+  meeting
+  manual
+  agent_proposed
+  sub_agent
+}
+
+enum TaskStepStatus {
+  pending
+  running
+  completed
+  failed
+  paused
+}
+
+enum TaskStepPhase {
+  planning
+  execution
+}
+
+enum ReviewDecision {
+  approved
+  changes_requested
+}
+
+enum MemoryLayer {
+  org
+  team
+  user
+  session
+}
+
+enum AgentFileType {
+  soul
+  identity
+}
+
+enum AgentIdentitySource {
+  manual
+  template
+  auto_generated
+}
+
+enum SkillScope {
+  personal
+  team
+  org
+}
+
+enum SkillStatus {
+  draft
+  pending_review
+  published
+  deprecated
+}
+
+enum RoutineRunStatus {
+  success
+  failed
+  running
+}
+
+enum IntegrationStatus {
+  active
+  inactive
+  error
+}
+
+// ──────────────────────────────────────────────
+// Core Models
+// ──────────────────────────────────────────────
+
+model Org {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  settings  Json     @default("{}")
+  ssoConfig Json?    @map("sso_config")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  teams           Team[]
+  memoryEntries   MemoryEntry[]
+  agentIdentities AgentIdentity[]
+  skills          Skill[]
+  integrations    Integration[]
+  auditLogs       AuditLog[]
+
+  @@map("orgs")
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  orgId     String   @map("org_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org           Org           @relation(fields: [orgId], references: [id])
+  users         User[]
+  memoryEntries MemoryEntry[]
+  skills        Skill[]
+
+  @@map("teams")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  role         UserRole      @default(member)
+  teamId       String?       @map("team_id")
+  authProvider AuthProvider? @map("auth_provider")
+  passwordHash String?       @map("password_hash")
+  preferences  Json          @default("{}")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  team             Team?                 @relation(fields: [teamId], references: [id])
+  chatSessions     ChatSession[]
+  tasks            Task[]
+  taskComments     TaskComment[]
+  taskReviews      TaskReview[]
+  memoryEntries    MemoryEntry[]
+  agentIdentities  AgentIdentity[]
+  skills           Skill[]               @relation("SkillAuthor")
+  userSkills       UserSkill[]
+  routines         Routine[]
+  auditLogs        AuditLog[]
+  authoredMessages ChatMessage[]         @relation("MessageAuthor")
+  collaborations   SessionCollaborator[]
+
+  @@map("users")
+}
+
+// ──────────────────────────────────────────────
+// Chat
+// ──────────────────────────────────────────────
+
+model ChatSession {
+  id         String            @id @default(uuid())
+  userId     String            @map("user_id")
+  title      String?
+  status     ChatSessionStatus @default(active)
+  visibility String            @default("private") // private | org
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  user          User                  @relation(fields: [userId], references: [id])
+  messages      ChatMessage[]
+  shares        SessionShare[]
+  collaborators SessionCollaborator[]
+
+  @@map("chat_sessions")
+}
+
+model SessionShare {
+  id        String    @id @default(uuid())
+  sessionId String    @map("session_id")
+  shareType String    @map("share_type") // full, results_only, template
+  token     String    @unique @default(uuid())
+  createdBy String    @map("created_by")
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id])
+
+  @@map("session_shares")
+}
+
+model ChatMessage {
+  id        String          @id @default(uuid())
+  sessionId String          @map("session_id")
+  role      ChatMessageRole
+  content   String
+  metadata  Json            @default("{}")
+  createdBy String?         @map("created_by")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id])
+  author  User?       @relation("MessageAuthor", fields: [createdBy], references: [id])
+
+  @@map("chat_messages")
+}
+
+model SessionCollaborator {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  userId    String   @map("user_id")
+  role      String   @default("viewer") // viewer | contributor
+  addedBy   String   @map("added_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id])
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@unique([sessionId, userId])
+  @@map("session_collaborators")
+}
+
+// ──────────────────────────────────────────────
+// Tasks (Kanban)
+// ──────────────────────────────────────────────
+
+model Task {
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  title        String
+  description  String?
+  status       TaskStatus @default(auto_detected)
+  source       TaskSource
+  sourceRef    Json?      @map("source_ref")
+  context      Json       @default("{}")
+  parentTaskId String?    @map("parent_task_id")
+  agentOutput  Json?      @map("agent_output")
+  priority     Int        @default(0)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  user           User                @relation(fields: [userId], references: [id])
+  parentTask     Task?               @relation("SubTasks", fields: [parentTaskId], references: [id])
+  subTasks       Task[]              @relation("SubTasks")
+  comments       TaskComment[]
+  executionSteps TaskExecutionStep[]
+  reviews        TaskReview[]
+  skillProposals Skill[]
+
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  userId    String?  @map("user_id")
+  isAgent   Boolean  @default(false) @map("is_agent")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task  @relation(fields: [taskId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("task_comments")
+}
+
+model TaskExecutionStep {
+  id          String         @id @default(uuid())
+  taskId      String         @map("task_id")
+  stepNumber  Int            @map("step_number")
+  description String
+  status      TaskStepStatus @default(pending)
+  phase       TaskStepPhase?
+  toolUsed    String?        @map("tool_used")
+  input       Json?
+  output      Json?
+  durationMs  Int?           @map("duration_ms")
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@map("task_execution_steps")
+}
+
+model TaskReview {
+  id         String         @id @default(uuid())
+  taskId     String         @map("task_id")
+  reviewerId String         @map("reviewer_id")
+  decision   ReviewDecision
+  feedback   String?
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  task     Task @relation(fields: [taskId], references: [id])
+  reviewer User @relation(fields: [reviewerId], references: [id])
+
+  @@map("task_reviews")
+}
+
+// ──────────────────────────────────────────────
+// Memory
+// ──────────────────────────────────────────────
+
+model MemoryEntry {
+  id        String                       @id @default(uuid())
+  orgId     String                       @map("org_id")
+  teamId    String?                      @map("team_id")
+  userId    String?                      @map("user_id")
+  layer     MemoryLayer
+  content   String
+  source    String?
+  sourceRef Json?                        @map("source_ref")
+  embedding Unsupported("vector(1536)")?
+  expiresAt DateTime?                    @map("expires_at")
+  createdAt DateTime                     @default(now()) @map("created_at")
+  updatedAt DateTime                     @updatedAt @map("updated_at")
+
+  org  Org   @relation(fields: [orgId], references: [id])
+  team Team? @relation(fields: [teamId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([orgId, teamId, userId, layer], map: "idx_memory_scope")
+  @@map("memory_entries")
+}
+
+// ──────────────────────────────────────────────
+// Agent Identity
+// ──────────────────────────────────────────────
+
+model AgentIdentity {
+  id        String              @id @default(uuid())
+  orgId     String              @map("org_id")
+  userId    String?             @map("user_id")
+  fileType  AgentFileType       @map("file_type")
+  content   String
+  source    AgentIdentitySource @default(manual)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  org  Org   @relation(fields: [orgId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("agent_identities")
+}
+
+// ──────────────────────────────────────────────
+// Skills
+// ──────────────────────────────────────────────
+
+model Skill {
+  id                   String      @id @default(uuid())
+  orgId                String      @map("org_id")
+  name                 String
+  description          String?
+  content              String
+  authorId             String      @map("author_id")
+  scope                SkillScope
+  teamId               String?     @map("team_id")
+  gitRef               String?     @map("git_ref")
+  requiredIntegrations String[]    @map("required_integrations")
+  requiredCapabilities String[]    @map("required_capabilities")
+  recommendedModel     String?     @map("recommended_model")
+  status               SkillStatus @default(draft)
+  installCount         Int         @default(0) @map("install_count")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  sourceTaskId String? @map("source_task_id")
+
+  org        Org         @relation(fields: [orgId], references: [id])
+  team       Team?       @relation(fields: [teamId], references: [id])
+  author     User        @relation("SkillAuthor", fields: [authorId], references: [id])
+  sourceTask Task?       @relation(fields: [sourceTaskId], references: [id], onDelete: SetNull)
+  users      UserSkill[]
+
+  @@unique([orgId, name], map: "skills_org_name_unique")
+  @@map("skills")
+}
+
+model UserSkill {
+  userId      String   @map("user_id")
+  skillId     String   @map("skill_id")
+  installedAt DateTime @default(now()) @map("installed_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@id([userId, skillId])
+  @@map("user_skills")
+}
+
+// ──────────────────────────────────────────────
+// Routines
+// ──────────────────────────────────────────────
+
+model Routine {
+  id            String            @id @default(uuid())
+  userId        String            @map("user_id")
+  name          String
+  description   String?
+  prompt        String
+  schedule      String
+  context       Json              @default("{}")
+  delivery      Json
+  enabled       Boolean           @default(true)
+  lastRunAt     DateTime?         @map("last_run_at")
+  lastRunStatus RoutineRunStatus? @map("last_run_status")
+  createdVia    String            @default("manual") @map("created_via")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  user User         @relation(fields: [userId], references: [id])
+  runs RoutineRun[]
+
+  @@map("routines")
+}
+
+model RoutineRun {
+  id          String           @id @default(uuid())
+  routineId   String           @map("routine_id")
+  status      RoutineRunStatus
+  output      Json?
+  error       String?
+  tokenCount  Int?             @map("token_count")
+  durationMs  Int?             @map("duration_ms")
+  startedAt   DateTime         @default(now()) @map("started_at")
+  completedAt DateTime?        @map("completed_at")
+
+  routine Routine @relation(fields: [routineId], references: [id])
+
+  @@map("routine_runs")
+}
+
+// ──────────────────────────────────────────────
+// Integrations
+// ──────────────────────────────────────────────
+
+model Integration {
+  id              String            @id @default(uuid())
+  orgId           String            @map("org_id")
+  provider        String
+  config          Json
+  status          IntegrationStatus @default(active)
+  healthCheckedAt DateTime?         @map("health_checked_at")
+  enabled         Boolean           @default(true)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@map("integrations")
+}
+
+// ──────────────────────────────────────────────
+// Audit Logs
+// ──────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  userId     String?  @map("user_id")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  org  Org   @relation(fields: [orgId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([orgId, createdAt(sort: Desc)], map: "idx_audit_org_time")
+  @@index([userId, createdAt(sort: Desc)], map: "idx_audit_user")
+  @@map("audit_logs")
+}

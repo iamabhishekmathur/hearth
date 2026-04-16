@@ -1,0 +1,35 @@
+{
+  "name": "hearth",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "test:coverage": "turbo test:coverage",
+    "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "db:migrate": "pnpm --filter @hearth/api exec prisma migrate dev",
+    "db:seed": "pnpm --filter @hearth/api exec prisma db seed",
+    "db:studio": "pnpm --filter @hearth/api exec prisma studio",
+    "docs:dev": "pnpm --filter @hearth/docs dev",
+    "docs:build": "pnpm --filter @hearth/docs build"
+  },
+  "pnpm": {
+    "overrides": {
+      "tar": ">=7.5.11",
+      "prismjs": ">=1.30.0"
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.0"
+  }
+}

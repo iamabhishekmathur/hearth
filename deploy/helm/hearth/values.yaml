@@ -1,0 +1,155 @@
+# Hearth Helm Chart - Default Values
+# Tuned for 500+ user deployment
+
+# -- Namespace configuration
+namespace:
+  create: false
+  name: hearth
+
+# -- Global image settings
+global:
+  imagePullPolicy: IfNotPresent
+  imageRegistry: ""
+
+# -- API server configuration
+api:
+  replicaCount: 2
+  image:
+    repository: hearth-api
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  port: 8000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Mount Docker socket for sandbox execution
+  dockerSocket:
+    enabled: false
+
+# -- Worker (BullMQ) configuration
+worker:
+  replicaCount: 1
+  image:
+    repository: hearth-api
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  command: ["node", "dist/worker.js"]
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  dockerSocket:
+    enabled: false
+
+# -- Web (frontend) configuration
+web:
+  replicaCount: 2
+  image:
+    repository: hearth-web
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  port: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -- Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  host: hearth.local
+  tls:
+    enabled: false
+    secretName: hearth-tls
+
+# -- PostgreSQL configuration
+postgres:
+  enabled: true
+  image:
+    repository: pgvector/pgvector
+    tag: pg16
+  port: 5432
+  database: hearth
+  user: hearth
+  password: hearth
+  storage:
+    size: 20Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+# -- Redis configuration
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7-alpine
+  port: 6379
+  storage:
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# -- Environment configuration
+env:
+  nodeEnv: production
+  apiPort: "8000"
+  webUrl: "http://hearth.local"
+  redisUrl: "redis://hearth-redis:6379"
+
+# -- Secrets (override in production - NEVER commit real values)
+secrets:
+  databaseUrl: "postgresql://hearth:hearth@hearth-postgres:5432/hearth"
+  encryptionKey: ""
+  sessionSecret: ""
+
+# -- File storage (shared between api and worker)
+fileStorage:
+  enabled: true
+  size: 10Gi
+  storageClass: ""

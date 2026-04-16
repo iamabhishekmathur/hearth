@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hearth.fullname" . }}-config
+  labels:
+    {{- include "hearth.labels" . | nindent 4 }}
+data:
+  NODE_ENV: {{ .Values.env.nodeEnv | quote }}
+  API_PORT: {{ .Values.env.apiPort | quote }}
+  WEB_URL: {{ .Values.env.webUrl | quote }}

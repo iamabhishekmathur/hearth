@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+apps/api/.env
+apps/web/.env
+
+# Build artifacts
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Test
+coverage/
+test-results/
+playwright-report/
+
+# Logs
+*.log
+
+# Docker
+docker/sandbox/*.tar
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Upstream scaffolding (agent-skills repo used during development)
+_upstream/
+.claude-plugin/
+.claude/.simplify-ignore-cache/
+
+# Internal docs (not for public repo)
+ARCHITECTURE.md
+CLAUDE.md
+SPEC.md
+TESTING.md
+TODO-phase5.md
+
+# GitHub workflows from upstream
+.github/workflows/test-plugin-install.yml
