@@ -266,6 +266,22 @@ export function emitToSession(sessionId: string, event: ChatEvent): void {
 }
 
 /**
+ * Emits a named event to all clients in a session room.
+ */
+export function emitToSessionEvent(
+  sessionId: string,
+  eventName: string,
+  payload: Record<string, unknown>,
+): void {
+  if (!ioInstance) {
+    logger.warn('Socket.io not initialized, cannot emit session event');
+    return;
+  }
+
+  ioInstance.to(`session:${sessionId}`).emit(eventName, payload);
+}
+
+/**
  * Emits a task event to all clients in a task room.
  */
 export function emitToTask(taskId: string, event: Record<string, unknown>): void {

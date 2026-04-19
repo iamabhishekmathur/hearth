@@ -16,6 +16,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import chatRouter from './routes/chat.js';
+import artifactRouter from './routes/artifacts.js';
 import skillsRouter from './routes/skills.js';
 import integrationsRouter from './routes/admin/integrations.js';
 import auditLogsRouter from './routes/admin/audit-logs.js';
@@ -29,16 +30,28 @@ import adminUsersRouter from './routes/admin/users.js';
 import adminTeamsRouter from './routes/admin/teams.js';
 import adminAnalyticsRouter from './routes/admin/analytics.js';
 import adminLlmConfigRouter from './routes/admin/llm-config.js';
+import adminComplianceRouter from './routes/admin/compliance.js';
+import adminGovernanceRouter from './routes/admin/governance.js';
+import adminCognitiveRouter from './routes/admin/cognitive.js';
 import routinesRouter from './routes/routines.js';
+import chainsRouter from './routes/chains.js';
+import approvalsRouter from './routes/approvals.js';
+import adminRoutinesRouter from './routes/admin/routines.js';
+import webhookIngestRouter from './routes/webhooks/ingest.js';
 import slackWebhookRouter from './routes/webhooks/slack.js';
 import slackOAuthRouter from './routes/auth-slack-oauth.js';
 import intakeRouter from './routes/intake.js';
 import recommendationsRouter from './routes/recommendations.js';
 import activityRouter from './routes/activity.js';
+import uploadsRouter from './routes/uploads.js';
+import decisionsRouter from './routes/decisions.js';
+import meetingsRouter from './routes/meetings.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { setupSocketManager } from './ws/socket-manager.js';
 import { loadProviders } from './llm/provider-loader.js';
 import { bootstrapIntegrations } from './mcp/bootstrap.js';
+import { requestContextMiddleware } from './middleware/request-context.js';
+import { bootstrapCompliance } from './compliance/bootstrap.js';
 
 const app: Express = express();
 const httpServer = createServer(app);
@@ -98,10 +111,14 @@ app.use(attachUser);
 // CSRF protection for state-changing requests
 app.use(csrfProtection);
 
+// Request context (AsyncLocalStorage) — must run after auth so req.user is available
+app.use(requestContextMiddleware);
+
 // Routes
 app.use('/api/v1', healthRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/chat', chatRouter);
+app.use('/api/v1/chat', artifactRouter);
 app.use('/api/v1/skills', skillsRouter);
 app.use('/api/v1/admin/integrations', integrationsRouter);
 app.use('/api/v1/admin/audit-logs', auditLogsRouter);
@@ -115,12 +132,22 @@ app.use('/api/v1/admin/users', adminUsersRouter);
 app.use('/api/v1/admin/teams', adminTeamsRouter);
 app.use('/api/v1/admin/analytics', adminAnalyticsRouter);
 app.use('/api/v1/admin/llm-config', adminLlmConfigRouter);
+app.use('/api/v1/admin/compliance', adminComplianceRouter);
+app.use('/api/v1/admin/governance', adminGovernanceRouter);
+app.use('/api/v1/admin/cognitive', adminCognitiveRouter);
 app.use('/api/v1/routines', routinesRouter);
+app.use('/api/v1/routines', chainsRouter);
+app.use('/api/v1/approvals', approvalsRouter);
+app.use('/api/v1/admin/routines', adminRoutinesRouter);
+app.use('/api/v1/webhooks/ingest', webhookIngestRouter);
 app.use('/api/v1/webhooks/slack', slackWebhookRouter);
 app.use('/api/v1/auth/slack', slackOAuthRouter);
 app.use('/api/v1/intake', intakeRouter);
 app.use('/api/v1/recommendations', recommendationsRouter);
 app.use('/api/v1/activity', activityRouter);
+app.use('/api/v1/uploads', uploadsRouter);
+app.use('/api/v1/decisions', decisionsRouter);
+app.use('/api/v1/meetings', meetingsRouter);
 
 // Error handling
 app.use(errorHandler);
@@ -130,7 +157,9 @@ setupSocketManager(io, sessionMiddleware);
 
 // Start server — skip listen when running under tests
 if (process.env.NODE_ENV !== 'test') {
-  loadProviders().catch((err) => logger.warn({ err }, 'Provider load failed at startup'));
+  loadProviders()
+    .then(() => bootstrapCompliance())
+    .catch((err) => logger.warn({ err }, 'Provider load or compliance bootstrap failed at startup'));
   bootstrapIntegrations().catch((err) => logger.warn({ err }, 'Integration bootstrap failed at startup'));
   httpServer.listen(env.API_PORT, () => {
     logger.info({ port: env.API_PORT }, 'Hearth API server started');

@@ -1,66 +1,244 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
-import { io, type Socket } from 'socket.io-client';
-import type { ActivityEvent } from '@hearth/shared';
+import { connectSocket } from '@/lib/socket-client';
+import { FEED_WORTHY_ACTIONS, type ActivityEvent, type FeedAction, type CursorPaginatedResponse, type ProactiveSignal } from '@hearth/shared';
 import { ActivityEventCard } from '@/components/activity/activity-event-card';
+import { ActivityEventGroup } from '@/components/activity/activity-event-group';
+import { ProactiveSignalCard } from '@/components/activity/proactive-signal-card';
 
-const WS_URL = import.meta.env.VITE_WS_URL || '';
+const ACTION_LABEL_MAP: Record<FeedAction, string> = {
+  task_completed: 'Tasks',
+  skill_published: 'Skills',
+  skill_install: 'Installs',
+  routine_run: 'Routines',
+  session_created: 'Sessions',
+  governance_violation: 'Governance',
+  decision_captured: 'Decisions',
+};
 
-type ActionFilter = '' | 'task_completed' | 'skill_published' | 'skill_install' | 'routine_run' | 'session_created';
+const filterOptions: { value: FeedAction | ''; label: string }[] = [
+  { value: '', label: 'All' },
+  ...FEED_WORTHY_ACTIONS.map((a) => ({ value: a, label: ACTION_LABEL_MAP[a] })),
+];
+
+// ── Time bucket grouping ──
+
+type TimeBucket = 'Today' | 'Yesterday' | 'This Week' | 'Older';
+
+function getTimeBucket(date: string): TimeBucket {
+  const now = new Date();
+  const d = new Date(date);
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  if (diffDays === 1 || (diffDays === 0 && d.getDate() !== now.getDate())) return 'Yesterday';
+  if (diffDays < 7) return 'This Week';
+  return 'Older';
+}
+
+interface BucketSection {
+  label: TimeBucket;
+  items: Array<{ type: 'single'; event: ActivityEvent } | { type: 'group'; action: string; events: ActivityEvent[] }>;
+}
+
+function groupEvents(events: ActivityEvent[]): BucketSection[] {
+  // Bucket events by time
+  const bucketMap = new Map<TimeBucket, ActivityEvent[]>();
+  for (const event of events) {
+    const bucket = getTimeBucket(event.createdAt);
+    if (!bucketMap.has(bucket)) bucketMap.set(bucket, []);
+    bucketMap.get(bucket)!.push(event);
+  }
+
+  const order: TimeBucket[] = ['Today', 'Yesterday', 'This Week', 'Older'];
+  const sections: BucketSection[] = [];
+
+  for (const label of order) {
+    const bucketEvents = bucketMap.get(label);
+    if (!bucketEvents || bucketEvents.length === 0) continue;
+
+    // Within each bucket, group by action if 3+ events share the same action
+    const actionCounts = new Map<string, ActivityEvent[]>();
+    for (const e of bucketEvents) {
+      if (!actionCounts.has(e.action)) actionCounts.set(e.action, []);
+      actionCounts.get(e.action)!.push(e);
+    }
+
+    const items: BucketSection['items'] = [];
+    const grouped = new Set<string>();
+
+    for (const [action, actionEvents] of actionCounts) {
+      if (actionEvents.length >= 3) {
+        items.push({ type: 'group', action, events: actionEvents });
+        for (const e of actionEvents) grouped.add(e.id);
+      }
+    }
+
+    // Add ungrouped events as singles, maintaining original order
+    for (const e of bucketEvents) {
+      if (!grouped.has(e.id)) {
+        items.push({ type: 'single', event: e });
+      }
+    }
+
+    sections.push({ label, items });
+  }
+
+  return sections;
+}
 
 export function ActivityPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionFilter, setActionFilter] = useState<ActionFilter>('');
-  const socketRef = useRef<Socket | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [actionFilter, setActionFilter] = useState<FeedAction | ''>('');
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [signals, setSignals] = useState<ProactiveSignal[]>([]);
+  const [dismissedSignals, setDismissedSignals] = useState<Set<string>>(new Set());
 
-  const fetchEvents = useCallback(async () => {
+  const filterRef = useRef<FeedAction | ''>(actionFilter);
+  useEffect(() => { filterRef.current = actionFilter; }, [actionFilter]);
+
+  const lastEventTimeRef = useRef<string | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+
+  const fetchEvents = useCallback(async (loadMore = false) => {
+    if (loadMore) setLoadingMore(true);
+    else setLoading(true);
+
     try {
       const params = new URLSearchParams();
       if (actionFilter) params.set('action', actionFilter);
-      const res = await api.get<{ data: ActivityEvent[] }>(`/activity?${params}`);
-      setEvents(res.data ?? []);
+      if (loadMore && cursor) params.set('cursor', cursor);
+      const res = await api.get<CursorPaginatedResponse<ActivityEvent>>(`/activity?${params}`);
+      const data = res.data ?? [];
+
+      if (loadMore) {
+        setEvents((prev) => {
+          const newEvents = data.filter((e) => !seenIdsRef.current.has(e.id));
+          for (const e of newEvents) seenIdsRef.current.add(e.id);
+          return [...prev, ...newEvents];
+        });
+      } else {
+        seenIdsRef.current = new Set(data.map((e) => e.id));
+        setEvents(data);
+        if (data.length > 0) {
+          lastEventTimeRef.current = data[0].createdAt;
+        }
+      }
+      setCursor(res.cursor ?? null);
+      setHasMore(res.hasMore ?? false);
     } catch {
-      setEvents([]);
+      if (!loadMore) setEvents([]);
     } finally {
-      setLoading(false);
+      if (loadMore) setLoadingMore(false);
+      else setLoading(false);
     }
+  }, [actionFilter, cursor]);
+
+  // Fetch proactive signals
+  useEffect(() => {
+    api.get<{ data: ProactiveSignal[] }>('/activity/signals')
+      .then((res) => setSignals(res.data ?? []))
+      .catch(() => {});
+  }, []);
+
+  // Initial fetch + refetch on filter change
+  useEffect(() => {
+    setCursor(null);
+    setHasMore(false);
+    fetchEvents(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionFilter]);
 
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+  const handleLoadMore = useCallback(() => {
+    if (!loadingMore && hasMore) fetchEvents(true);
+  }, [loadingMore, hasMore, fetchEvents]);
 
-  // Real-time updates via WebSocket
+  const handleDismissSignal = useCallback((id: string) => {
+    setDismissedSignals((prev) => new Set([...prev, id]));
+  }, []);
+
+  // Real-time updates via shared socket with reconnect catch-up
   useEffect(() => {
     if (!user?.orgId) return;
 
-    const socket = io(WS_URL, { path: '/ws', withCredentials: true });
-    socketRef.current = socket;
+    const socket = connectSocket();
+    socket.emit('join:org', user.orgId);
 
-    socket.on('connect', () => {
-      socket.emit('join:org', user.orgId);
-    });
-
-    socket.on('activity:event', (event: ActivityEvent) => {
+    const handleEvent = (event: ActivityEvent) => {
+      if (filterRef.current && event.action !== filterRef.current) return;
+      if (seenIdsRef.current.has(event.id)) return;
+      seenIdsRef.current.add(event.id);
+      lastEventTimeRef.current = event.createdAt;
       setEvents((prev) => [event, ...prev]);
-    });
+    };
+
+    socket.on('activity:event', handleEvent);
+
+    const handleReconnect = async () => {
+      socket.emit('join:org', user.orgId);
+      if (lastEventTimeRef.current) {
+        try {
+          const params = new URLSearchParams();
+          params.set('since', lastEventTimeRef.current);
+          if (filterRef.current) params.set('action', filterRef.current);
+          const res = await api.get<CursorPaginatedResponse<ActivityEvent>>(`/activity?${params}`);
+          const missed = (res.data ?? []).filter((e) => !seenIdsRef.current.has(e.id));
+          if (missed.length > 0) {
+            for (const e of missed) seenIdsRef.current.add(e.id);
+            setEvents((prev) => [...missed, ...prev]);
+            lastEventTimeRef.current = missed[0].createdAt;
+          }
+        } catch {
+          // Catch-up failed
+        }
+      }
+    };
+
+    socket.io.on('reconnect', handleReconnect);
+
+    const handleReaction = (payload: { auditLogId: string; emoji: string; userId: string; userName: string; added: boolean }) => {
+      setEvents((prev) =>
+        prev.map((e) => {
+          if (e.id !== payload.auditLogId) return e;
+          const reactions = [...(e.reactions ?? [])];
+          if (payload.added) {
+            const existing = reactions.find((r) => r.emoji === payload.emoji);
+            if (existing) {
+              existing.count += 1;
+              if (!existing.userIds.includes(payload.userId)) existing.userIds.push(payload.userId);
+            } else {
+              reactions.push({ emoji: payload.emoji, count: 1, userIds: [payload.userId] });
+            }
+          } else {
+            const existing = reactions.find((r) => r.emoji === payload.emoji);
+            if (existing) {
+              existing.count = Math.max(0, existing.count - 1);
+              existing.userIds = existing.userIds.filter((id) => id !== payload.userId);
+            }
+          }
+          return { ...e, reactions: reactions.filter((r) => r.count > 0) };
+        }),
+      );
+    };
+
+    socket.on('activity:reaction', handleReaction);
 
     return () => {
+      socket.off('activity:event', handleEvent);
+      socket.off('activity:reaction', handleReaction);
+      socket.io.off('reconnect', handleReconnect);
       if (user.orgId) socket.emit('leave:org', user.orgId);
-      socket.disconnect();
     };
   }, [user?.orgId]);
 
-  const filters: { value: ActionFilter; label: string }[] = [
-    { value: '', label: 'All' },
-    { value: 'task_completed', label: 'Tasks' },
-    { value: 'skill_published', label: 'Skills' },
-    { value: 'routine_run', label: 'Routines' },
-    { value: 'session_created', label: 'Sessions' },
-  ];
+  const grouped = useMemo(() => groupEvents(events), [events]);
+  const visibleSignals = signals.filter((s) => !dismissedSignals.has(s.id)).slice(0, 3);
 
   return (
     <div className="flex h-full flex-col">
@@ -75,7 +253,7 @@ export function ActivityPage() {
       {/* Filters */}
       <div className="border-b border-gray-200 px-6 py-3">
         <div role="group" aria-label="Filter activity" className="flex gap-2">
-          {filters.map((f) => (
+          {filterOptions.map((f) => (
             <button
               key={f.value}
               type="button"
@@ -101,7 +279,7 @@ export function ActivityPage() {
             <p className="mt-3 text-sm text-gray-400">Loading activity...</p>
           </div>
         </div>
-      ) : events.length === 0 ? (
+      ) : events.length === 0 && visibleSignals.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-hearth-50">
@@ -117,10 +295,56 @@ export function ActivityPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="mx-auto max-w-3xl space-y-2">
-            {events.map((event) => (
-              <ActivityEventCard key={event.id} event={event} />
+          <div className="mx-auto max-w-3xl space-y-4">
+            {/* Proactive signals */}
+            {visibleSignals.length > 0 && (
+              <div className="space-y-2">
+                {visibleSignals.map((signal) => (
+                  <ProactiveSignalCard
+                    key={signal.id}
+                    signal={signal}
+                    onDismiss={() => handleDismissSignal(signal.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Grouped timeline */}
+            {grouped.map((section) => (
+              <div key={section.label}>
+                <div className="sticky top-0 z-10 bg-gray-50/95 px-2 py-1.5 backdrop-blur-sm">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    {section.label}
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  {section.items.map((item) =>
+                    item.type === 'group' ? (
+                      <ActivityEventGroup
+                        key={`group-${item.action}-${item.events[0].id}`}
+                        action={item.action}
+                        events={item.events}
+                      />
+                    ) : (
+                      <ActivityEventCard key={item.event.id} event={item.event} />
+                    ),
+                  )}
+                </div>
+              </div>
             ))}
+
+            {hasMore && (
+              <div className="flex justify-center py-4">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {loadingMore ? 'Loading...' : 'Load more'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

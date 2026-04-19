@@ -1,6 +1,30 @@
-import type { ChatMessageRole, SessionVisibility, CollaboratorRole } from '@hearth/shared';
+import type { ChatMessageRole, SessionVisibility, CollaboratorRole, ChatAttachment } from '@hearth/shared';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+
+/**
+ * Transforms a DB attachment row into the shared API type,
+ * converting storagePath to a URL.
+ */
+export function toAttachmentResponse(a: {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  storagePath: string;
+  width: number | null;
+  height: number | null;
+}): ChatAttachment {
+  return {
+    id: a.id,
+    filename: a.filename,
+    mimeType: a.mimeType,
+    sizeBytes: a.sizeBytes,
+    url: `/api/v1/uploads/${a.storagePath}`,
+    width: a.width ?? undefined,
+    height: a.height ?? undefined,
+  };
+}
 
 /**
  * Creates a new chat session for a user.
@@ -34,7 +58,7 @@ export async function getSession(sessionId: string, userId: string) {
   const session = await prisma.chatSession.findFirst({
     where: { id: sessionId },
     include: {
-      messages: { orderBy: { createdAt: 'asc' } },
+      messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } },
       user: { select: { id: true, name: true, teamId: true, team: { select: { orgId: true } } } },
       collaborators: { select: { userId: true, role: true } },
     },
@@ -117,11 +141,27 @@ export async function addMessage(
 
 /**
  * Gets all messages for a session, ordered by creation time.
+ * Includes attachments for each message.
  */
 export async function getMessages(sessionId: string) {
   return prisma.chatMessage.findMany({
     where: { sessionId },
     orderBy: { createdAt: 'asc' },
+    include: { attachments: true },
+  });
+}
+
+/**
+ * Links uploaded attachments to a message by updating their messageId.
+ */
+export async function linkAttachments(messageId: string, attachmentIds: string[]) {
+  if (attachmentIds.length === 0) return;
+  await prisma.chatAttachment.updateMany({
+    where: {
+      id: { in: attachmentIds },
+      messageId: null, // Only link unlinked attachments
+    },
+    data: { messageId },
   });
 }
 

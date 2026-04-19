@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { generateEmbedding } from './embedding-service.js';
 import { chunkText } from '../lib/chunker.js';
 import { logger } from '../lib/logger.js';
+import { mcpGateway } from '../mcp/gateway.js';
 
 /** Max concurrent embedding API calls to avoid rate limits. */
 const EMBEDDING_CONCURRENCY = 5;
@@ -30,7 +31,7 @@ async function batchWithConcurrency<T>(
 
 /**
  * Runs the synthesis pipeline for a single user:
- * 1. Queries connected integrations via MCP gateway (stub for now)
+ * 1. Queries connected integrations via MCP gateway for recent content
  * 2. Chunks and embeds new content with bounded concurrency
  * 3. Deduplicates against existing memory (cosine > 0.95 = skip)
  * 4. Creates new entries in the user's personal memory layer
@@ -48,7 +49,7 @@ export async function synthesizeForUser(userId: string) {
 
   const orgId = user.team.orgId;
 
-  // Fetch integration data — this is a stub that will be wired to MCP gateway
+  // Fetch recent content from connected integrations
   const rawContent = await fetchIntegrationData(userId, orgId);
   if (!rawContent || rawContent.length === 0) {
     logger.info({ userId }, 'Synthesis: no new content from integrations');
@@ -158,8 +159,123 @@ export async function synthesizeForUser(userId: string) {
 }
 
 /**
- * Stub: fetches content from connected integrations via MCP gateway.
- * In a full implementation this would query each active integration.
+ * Per-provider strategy: which tool to call for recent content,
+ * how to build its input, and how to extract text from the output.
+ */
+interface FetchStrategy {
+  toolName: string;
+  buildInput: () => Record<string, unknown>;
+  extractContent: (
+    output: Record<string, unknown>,
+  ) => Array<{ text: string; sourceRef?: Record<string, unknown> }>;
+}
+
+function yesterdayDateStr(): string {
+  const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+const PROVIDER_STRATEGIES: Record<string, FetchStrategy> = {
+  slack: {
+    toolName: 'slack_search_messages',
+    buildInput: () => ({ query: `after:${yesterdayDateStr()}`, limit: 50 }),
+    extractContent: (output) => {
+      const messages = (output.messages as Array<Record<string, unknown>>) ?? [];
+      return messages
+        .filter((m) => typeof m.text === 'string' && (m.text as string).length > 0)
+        .map((m) => ({
+          text: m.text as string,
+          sourceRef: { ts: m.ts, channel: m.channel },
+        }));
+    },
+  },
+
+  gmail: {
+    toolName: 'gmail_search',
+    buildInput: () => ({ query: 'newer_than:1d', maxResults: 20 }),
+    extractContent: (output) => {
+      const messages = (output.messages as Array<Record<string, unknown>>) ?? [];
+      return messages
+        .filter((m) => typeof m.snippet === 'string' && (m.snippet as string).length > 0)
+        .map((m) => ({
+          text: m.snippet as string,
+          sourceRef: { messageId: m.id, threadId: m.threadId },
+        }));
+    },
+  },
+
+  notion: {
+    toolName: 'notion_search',
+    buildInput: () => ({ query: '' }), // empty query returns recently edited pages
+    extractContent: (output) => {
+      const results = (output.results as Array<Record<string, unknown>>) ?? [];
+      return results
+        .map((r) => {
+          const props = (r.properties as Record<string, unknown>) ?? {};
+          // Notion titles live under a "title" or "Name" property
+          const titleProp = (props.title ?? props.Name) as Record<string, unknown> | undefined;
+          let title = '';
+          if (titleProp) {
+            const titleArr = (titleProp.title as Array<Record<string, unknown>>) ?? [];
+            title = titleArr
+              .map((t) => ((t.text as Record<string, unknown>)?.content as string) ?? '')
+              .join('');
+          }
+          return {
+            text: title || `Notion page ${r.id}`,
+            sourceRef: { pageId: r.id, url: r.url },
+          };
+        })
+        .filter((r) => r.text.length > 0);
+    },
+  },
+
+  jira: {
+    toolName: 'jira_search',
+    buildInput: () => ({ jql: 'updated >= -1d ORDER BY updated DESC', maxResults: 20 }),
+    extractContent: (output) => {
+      const issues = (output.issues as Array<Record<string, unknown>>) ?? [];
+      return issues
+        .map((i) => {
+          const fields = (i.fields as Record<string, unknown>) ?? {};
+          const summary = (fields.summary as string) ?? '';
+          const description = (fields.description as string) ?? '';
+          return {
+            text: `${i.key}: ${summary}${description ? '\n' + description : ''}`,
+            sourceRef: { issueKey: i.key },
+          };
+        })
+        .filter((r) => r.text.length > 0);
+    },
+  },
+
+  gcalendar: {
+    toolName: 'gcalendar_list_events',
+    buildInput: () => {
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      return { timeMin: yesterday.toISOString(), timeMax: now.toISOString(), maxResults: 20 };
+    },
+    extractContent: (output) => {
+      const events = (output.events as Array<Record<string, unknown>>) ?? [];
+      return events
+        .map((e) => {
+          const summary = (e.summary as string) ?? '';
+          const description = (e.description as string) ?? '';
+          return {
+            text: `${summary}${description ? ': ' + description : ''}`,
+            sourceRef: { eventId: e.id },
+          };
+        })
+        .filter((r) => r.text.length > 0);
+    },
+  },
+};
+
+/**
+ * Fetches recent content from connected integrations via MCP gateway.
+ * Iterates active integrations, calls each provider's search/list tool,
+ * and normalises the output into a flat array for the synthesis pipeline.
  */
 async function fetchIntegrationData(
   userId: string,
@@ -167,19 +283,64 @@ async function fetchIntegrationData(
 ): Promise<
   Array<{ text: string; source: string; sourceRef?: Record<string, unknown> }>
 > {
-  // Query active integrations for this org
   const integrations = await prisma.integration.findMany({
     where: { orgId, status: 'active', enabled: true },
   });
 
   if (integrations.length === 0) return [];
 
-  // TODO: Wire up to MCP gateway to actually fetch data from integrations
-  // For now, return empty — the pipeline infrastructure is ready
-  logger.info(
-    { userId, integrationCount: integrations.length },
-    'Synthesis: would query integrations (stub)',
-  );
+  const connectedIds = new Set(mcpGateway.getConnectedIntegrations());
+  const results: Array<{ text: string; source: string; sourceRef?: Record<string, unknown> }> = [];
 
-  return [];
+  for (const integration of integrations) {
+    if (!connectedIds.has(integration.id)) {
+      logger.debug(
+        { integrationId: integration.id, provider: integration.provider },
+        'Synthesis: integration not connected to gateway, skipping',
+      );
+      continue;
+    }
+
+    const strategy = PROVIDER_STRATEGIES[integration.provider];
+    if (!strategy) {
+      logger.debug({ provider: integration.provider }, 'Synthesis: no fetch strategy for provider');
+      continue;
+    }
+
+    try {
+      const result = await mcpGateway.executeTool(
+        integration.id,
+        strategy.toolName,
+        strategy.buildInput(),
+      );
+
+      if (result.error) {
+        logger.warn(
+          { integrationId: integration.id, provider: integration.provider, error: result.error },
+          'Synthesis: tool execution returned error',
+        );
+        continue;
+      }
+
+      const items = strategy.extractContent(result.output);
+      for (const item of items) {
+        results.push({
+          text: item.text,
+          source: integration.provider,
+          sourceRef: item.sourceRef,
+        });
+      }
+    } catch (err) {
+      logger.error(
+        { err, integrationId: integration.id, provider: integration.provider },
+        'Synthesis: failed to fetch from integration',
+      );
+    }
+  }
+
+  logger.info(
+    { userId, integrationCount: integrations.length, resultCount: results.length },
+    'Synthesis: fetched integration data',
+  );
+  return results;
 }

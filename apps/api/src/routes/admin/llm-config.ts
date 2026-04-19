@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../../middleware/auth.js';
 import { prisma } from '../../lib/prisma.js';
 import { encrypt } from '../../mcp/token-store.js';
 import { loadProviders } from '../../llm/provider-loader.js';
+import { getEmbeddingStatus } from '../../services/embedding-service.js';
 import { env } from '../../config.js';
 
 const router: ReturnType<typeof Router> = Router();
@@ -13,6 +14,15 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   openai: ['gpt-4o', 'gpt-4o-mini', 'o3', 'o3-mini', 'o4-mini'],
   ollama: [],
 };
+
+const VISION_CAPABLE_MODELS = new Set([
+  'claude-sonnet-4-6',
+  'claude-opus-4-6',
+  'claude-haiku-4-5-20251001',
+  'gpt-4o',
+  'gpt-4o-mini',
+  'o4-mini',
+]);
 
 const PROVIDER_NAMES: Record<string, string> = {
   anthropic: 'Anthropic',
@@ -35,6 +45,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res, next) => {
       data: {
         defaultProvider: llm.defaultProvider ?? null,
         defaultModel: llm.defaultModel ?? null,
+        visionEnabled: llm.visionEnabled ?? true,
       },
     });
   } catch (err) {
@@ -47,9 +58,10 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res, next) => {
  */
 router.put('/', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
-    const { defaultProvider, defaultModel } = req.body as {
+    const { defaultProvider, defaultModel, visionEnabled } = req.body as {
       defaultProvider?: string;
       defaultModel?: string;
+      visionEnabled?: boolean;
     };
 
     const org = await prisma.org.findUnique({
@@ -61,7 +73,7 @@ router.put('/', requireAuth, requireRole('admin'), async (req, res, next) => {
     const llm = (currentSettings.llm ?? {}) as Record<string, unknown>;
     const newSettings = {
       ...currentSettings,
-      llm: { ...llm, defaultProvider, defaultModel },
+      llm: { ...llm, defaultProvider, defaultModel, visionEnabled },
     };
 
     await prisma.org.update({
@@ -72,7 +84,7 @@ router.put('/', requireAuth, requireRole('admin'), async (req, res, next) => {
     // Apply new default in the live registry
     await loadProviders();
 
-    res.json({ data: { defaultProvider, defaultModel }, message: 'LLM configuration updated' });
+    res.json({ data: { defaultProvider, defaultModel, visionEnabled }, message: 'LLM configuration updated' });
   } catch (err) {
     next(err);
   }
@@ -100,16 +112,35 @@ router.get('/providers', requireAuth, requireRole('admin'), async (req, res, nex
           ? !!env.OPENAI_API_KEY
           : !!env.OLLAMA_BASE_URL;
 
+      const visionModels = PROVIDER_MODELS[id].filter((m) => VISION_CAPABLE_MODELS.has(m));
+
       return {
         id,
         name: PROVIDER_NAMES[id],
         configured: hasDbKey || hasEnvKey,
         keySource: hasDbKey ? 'db' : hasEnvKey ? 'env' : null,
         models: PROVIDER_MODELS[id],
+        supportsVision: visionModels.length > 0 || id === 'ollama',
+        visionCapableModels: visionModels,
       };
     });
 
-    res.json({ data: providers });
+    // Include embedding status alongside providers
+    const embedding = getEmbeddingStatus();
+
+    res.json({ data: providers, embedding });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /admin/llm-config/embedding — return embedding provider status
+ */
+router.get('/embedding', requireAuth, requireRole('admin'), async (_req, res, next) => {
+  try {
+    const status = getEmbeddingStatus();
+    res.json({ data: status });
   } catch (err) {
     next(err);
   }

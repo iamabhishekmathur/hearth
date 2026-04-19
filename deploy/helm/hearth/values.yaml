@@ -83,6 +83,24 @@ web:
   tolerations: []
   affinity: {}
 
+# -- Docs (documentation site) configuration
+docs:
+  replicaCount: 1
+  image:
+    repository: hearth-docs
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  nodeSelector: {}
+  tolerations: []
+
 # -- Ingress configuration
 ingress:
   enabled: true

@@ -85,6 +85,7 @@ export async function getTask(id: string, userId: string) {
         orderBy: { createdAt: 'asc' },
         include: { reviewer: { select: { id: true, name: true } } },
       },
+      contextItems: { orderBy: { sortOrder: 'asc' } },
     },
   });
 }

@@ -1,6 +1,10 @@
+import { useState, useEffect, useCallback } from 'react';
 import type { ActivityEvent } from '@hearth/shared';
+import { api } from '@/lib/api-client';
+import { useAuth } from '@/hooks/use-auth';
+import { ReactionPicker } from './reaction-picker';
 
-interface ActivityEventCardProps {
+export interface ActivityEventCardProps {
   event: ActivityEvent;
 }
 
@@ -20,6 +24,20 @@ const ACTION_COLORS: Record<string, string> = {
   session_created: 'bg-gray-100 text-gray-600',
 };
 
+const ENTITY_ROUTE_MAP: Record<string, string> = {
+  session: '/#/chat',
+  task: '/#/workspace',
+  skill: '/#/skills',
+  routine: '/#/routines',
+};
+
+const ENTITY_PARAM_MAP: Record<string, string> = {
+  session: 'sessionId',
+  task: 'taskId',
+  skill: 'skillId',
+  routine: 'routineId',
+};
+
 function timeAgo(date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return 'just now';
@@ -31,11 +49,77 @@ function timeAgo(date: string): string {
   return `${days}d ago`;
 }
 
+function useTimeAgo(date: string): string {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+  return timeAgo(date);
+}
+
+function getEntityLink(entityType: string | null, entityId: string | null): string | null {
+  if (!entityType || !entityId) return null;
+  const route = ENTITY_ROUTE_MAP[entityType];
+  const param = ENTITY_PARAM_MAP[entityType];
+  if (!route || !param) return null;
+  return `${route}?${param}=${entityId}`;
+}
+
+function formatMetrics(event: ActivityEvent): string | null {
+  const m = event.metrics;
+  if (!m) return null;
+  if (m.installCount != null && m.installCount > 0) return `Installed by ${m.installCount} users`;
+  if (m.totalRuns != null && m.totalRuns > 0) return `Run ${m.totalRuns} times`;
+  if (m.timeSavedMs != null && m.timeSavedMs > 0) {
+    const mins = Math.round(m.timeSavedMs / 60000);
+    return mins > 0 ? `~${mins}min execution time` : null;
+  }
+  return null;
+}
+
 export function ActivityEventCard({ event }: ActivityEventCardProps) {
+  const { user } = useAuth();
+  const relativeTime = useTimeAgo(event.createdAt);
   const label = ACTION_LABELS[event.action] ?? event.action.replace(/_/g, ' ');
   const colorClass = ACTION_COLORS[event.action] ?? 'bg-gray-100 text-gray-600';
   const details = event.details ?? {};
   const entityName = (details.title ?? details.name ?? event.entityId ?? '') as string;
+  const entityLink = getEntityLink(event.entityType, event.entityId);
+  const metricsText = formatMetrics(event);
+  const [installing, setInstalling] = useState(false);
+  const [installed, setInstalled] = useState(false);
+
+  const showInstallButton = event.action === 'skill_published' && event.entityId;
+
+  const handleInstall = useCallback(async () => {
+    if (!event.entityId || installing || installed) return;
+    setInstalling(true);
+    try {
+      await api.post(`/skills/${event.entityId}/install`);
+      setInstalled(true);
+    } catch {
+      // Install failed
+    } finally {
+      setInstalling(false);
+    }
+  }, [event.entityId, installing, installed]);
+
+  const handleAddReaction = useCallback(async (emoji: string) => {
+    try {
+      await api.post(`/activity/${event.id}/reactions`, { emoji });
+    } catch {
+      // Reaction failed
+    }
+  }, [event.id]);
+
+  const handleRemoveReaction = useCallback(async (emoji: string) => {
+    try {
+      await api.delete(`/activity/${event.id}/reactions/${emoji}`);
+    } catch {
+      // Reaction removal failed
+    }
+  }, [event.id]);
 
   return (
     <div className="flex items-start gap-3 rounded-lg border border-gray-100 bg-white p-3">
@@ -49,7 +133,13 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
           {entityName && (
             <>
               {' '}
-              <span className="font-medium text-gray-700">{entityName}</span>
+              {entityLink ? (
+                <a href={entityLink} className="font-medium text-hearth-600 hover:underline">
+                  {entityName}
+                </a>
+              ) : (
+                <span className="font-medium text-gray-700">{entityName}</span>
+              )}
             </>
           )}
         </p>
@@ -57,7 +147,36 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
           <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${colorClass}`}>
             {event.action.replace(/_/g, ' ')}
           </span>
-          <span className="text-xs text-gray-400">{timeAgo(event.createdAt)}</span>
+          <span className="text-xs text-gray-400">{relativeTime}</span>
+          {metricsText && (
+            <span className="text-xs text-gray-400">{metricsText}</span>
+          )}
+        </div>
+
+        {/* Reactions + actions */}
+        <div className="mt-2 flex items-center gap-2">
+          {user && (
+            <ReactionPicker
+              reactions={event.reactions ?? []}
+              currentUserId={user.id}
+              onAdd={handleAddReaction}
+              onRemove={handleRemoveReaction}
+            />
+          )}
+          {showInstallButton && (
+            <button
+              type="button"
+              onClick={handleInstall}
+              disabled={installing || installed}
+              className={`ml-auto rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                installed
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-hearth-100 text-hearth-700 hover:bg-hearth-200'
+              } disabled:opacity-50`}
+            >
+              {installed ? 'Installed' : installing ? 'Installing...' : 'Install'}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -22,6 +22,48 @@ function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
+function ScopeBadge({ scope }: { scope?: string }) {
+  if (!scope || scope === 'personal') return null;
+  const label = scope === 'team' ? 'Team' : 'Org';
+  const styles =
+    scope === 'team'
+      ? 'bg-blue-50 text-blue-700 ring-blue-600/20'
+      : 'bg-purple-50 text-purple-700 ring-purple-600/20';
+  return (
+    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset ${styles}`}>
+      {label}
+    </span>
+  );
+}
+
+function LightningBoltIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 text-amber-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path d="M11.983 1.907a.75.75 0 0 0-1.292-.657l-8.5 9.5A.75.75 0 0 0 2.75 12h6.572l-1.305 6.093a.75.75 0 0 0 1.292.657l8.5-9.5A.75.75 0 0 0 17.25 8h-6.572l1.305-6.093Z" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function TriggerIcons({ routine }: { routine: Routine }) {
+  const hasTriggers = routine.triggers && routine.triggers.length > 0;
+  const hasSchedule = routine.schedule != null;
+  if (!hasTriggers && !hasSchedule) return null;
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {hasSchedule && <ClockIcon />}
+      {hasTriggers && <LightningBoltIcon />}
+    </span>
+  );
+}
+
 function formatSchedule(cron: string): string {
   const parts = cron.trim().split(/\s+/);
   if (parts.length !== 5) return cron;
@@ -50,6 +92,8 @@ export function RoutineList({ routines, selectedId, onSelect, onToggle, onRunNow
     <div role="list" aria-label="Routines" className="space-y-1">
       {routines.map((routine) => {
         const isSelected = routine.id === selectedId;
+        const routineWithUser = routine as Routine & { user?: { name?: string } };
+        const isShared = routine.scope && routine.scope !== 'personal';
         return (
           <div
             key={routine.id}
@@ -66,15 +110,25 @@ export function RoutineList({ routines, selectedId, onSelect, onToggle, onRunNow
               onClick={() => onSelect(routine)}
             >
               <div className="flex items-center gap-2">
-                <span className={`flex h-2 w-2 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className={`flex h-2 w-2 shrink-0 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-300'}`} />
                 <h3 className="truncate text-sm font-medium text-gray-900">{routine.name}</h3>
                 <StatusBadge status={routine.lastRunStatus} />
+                <ScopeBadge scope={routine.scope} />
               </div>
               {routine.description && (
                 <p className="mt-0.5 truncate pl-4 text-xs text-gray-500">{routine.description}</p>
               )}
               <div className="mt-1 flex items-center gap-3 pl-4 text-xs text-gray-400">
-                <span>{formatSchedule(routine.schedule)}</span>
+                <span className="inline-flex items-center gap-1">
+                  <TriggerIcons routine={routine} />
+                  {routine.schedule != null ? formatSchedule(routine.schedule) : 'Event-driven'}
+                </span>
+                {isShared && routineWithUser.user?.name && (
+                  <>
+                    <span aria-hidden="true">&middot;</span>
+                    <span>by {routineWithUser.user.name}</span>
+                  </>
+                )}
                 {routine.lastRunAt && (
                   <>
                     <span aria-hidden="true">&middot;</span>

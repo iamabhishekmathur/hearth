@@ -24,6 +24,48 @@ export type TaskStepPhase = 'planning' | 'execution';
 /** Review decision at the human-in-the-loop gate */
 export type ReviewDecision = 'approved' | 'changes_requested';
 
+// ── Rich Task Context ──
+
+export type TaskContextItemType = 'note' | 'link' | 'file' | 'image' | 'text_block' | 'mcp_reference';
+export type ExtractionStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
+
+export interface TaskContextItem {
+  id: string;
+  taskId: string;
+  type: TaskContextItemType;
+  label: string | null;
+  rawValue: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  storagePath: string | null;
+  extractedText: string | null;
+  extractedTitle: string | null;
+  extractionStatus: ExtractionStatus;
+  extractionError: string | null;
+  mcpIntegrationId: string | null;
+  mcpResourceType: string | null;
+  mcpResourceId: string | null;
+  visionAnalysis: string | null;
+  sortOrder: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskContextItemRequest {
+  type: TaskContextItemType;
+  rawValue: string;
+  label?: string;
+  mcpIntegrationId?: string;
+  mcpResourceType?: string;
+  mcpResourceId?: string;
+}
+
+export interface UpdateTaskContextItemRequest {
+  label?: string;
+  sortOrder?: number;
+}
+
 export interface Task {
   id: string;
   userId: string;
@@ -42,6 +84,7 @@ export interface Task {
   comments?: TaskComment[];
   executionSteps?: TaskExecutionStep[];
   reviews?: TaskReview[];
+  contextItems?: TaskContextItem[];
 }
 
 export interface TaskComment {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Routine } from '@hearth/shared';
+import type { Routine, RoutineScope } from '@hearth/shared';
 import { useRoutines } from '@/hooks/use-routines';
 import { RoutineList } from '@/components/routines/routine-list';
 import { RoutineForm } from '@/components/routines/routine-form';
@@ -8,6 +8,12 @@ import { RoutineTemplateBrowser } from '@/components/routines/routine-templates'
 import type { RoutineTemplate } from '@/components/routines/routine-templates';
 
 type View = 'list' | 'templates';
+
+const scopeTabs: { label: string; value: RoutineScope | undefined }[] = [
+  { label: 'My Routines', value: undefined },
+  { label: 'Team', value: 'team' },
+  { label: 'Organization', value: 'org' },
+];
 
 export function RoutinesPage() {
   const {
@@ -18,6 +24,7 @@ export function RoutinesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState<Routine | null>(null);
   const [view, setView] = useState<View>('list');
+  const [activeScope, setActiveScope] = useState<RoutineScope | undefined>(undefined);
   const [prefill, setPrefill] = useState<{
     name: string;
     description: string;
@@ -26,8 +33,23 @@ export function RoutinesPage() {
   } | null>(null);
 
   useEffect(() => {
-    fetchRoutines();
-  }, [fetchRoutines]);
+    fetchRoutines(activeScope);
+  }, [fetchRoutines, activeScope]);
+
+  // Auto-select routine from URL query param (e.g., ?routineId=abc)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const routineId = params.get('routineId');
+    if (routineId && routines.length > 0) {
+      const routine = routines.find((r) => r.id === routineId);
+      if (routine) setSelected(routine);
+    }
+  }, [routines]);
+
+  const handleScopeChange = (scope: RoutineScope | undefined) => {
+    setActiveScope(scope);
+    setSelected(null);
+  };
 
   const handleTemplateSelect = (template: RoutineTemplate) => {
     setPrefill({
@@ -41,17 +63,12 @@ export function RoutinesPage() {
     setSelected(null);
   };
 
-  const handleCreateSubmit = async (data: {
-    name: string;
-    description?: string;
-    prompt: string;
-    schedule: string;
-    delivery?: Record<string, unknown>;
-  }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleCreateSubmit = async (data: any) => {
     await createRoutine(data);
     setShowCreate(false);
     setPrefill(null);
-    fetchRoutines();
+    fetchRoutines(activeScope);
   };
 
   const handleCreateCancel = () => {
@@ -88,6 +105,26 @@ export function RoutinesPage() {
           >
             New Routine
           </button>
+        </div>
+
+        {/* Scope tabs */}
+        <div className="border-b border-gray-200 px-6">
+          <nav className="-mb-px flex gap-4" aria-label="Routine scope">
+            {scopeTabs.map((tab) => (
+              <button
+                key={tab.label}
+                type="button"
+                onClick={() => handleScopeChange(tab.value)}
+                className={`whitespace-nowrap border-b-2 px-1 py-2.5 text-sm font-medium transition-colors ${
+                  activeScope === tab.value
+                    ? 'border-hearth-600 text-hearth-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
         </div>
 
         {/* Empty state with inline template browser */}
@@ -136,6 +173,26 @@ export function RoutinesPage() {
         </div>
       </div>
 
+      {/* Scope tabs */}
+      <div className="border-b border-gray-200 px-6">
+        <nav className="-mb-px flex gap-4" aria-label="Routine scope">
+          {scopeTabs.map((tab) => (
+            <button
+              key={tab.label}
+              type="button"
+              onClick={() => handleScopeChange(tab.value)}
+              className={`whitespace-nowrap border-b-2 px-1 py-2.5 text-sm font-medium transition-colors ${
+                activeScope === tab.value
+                  ? 'border-hearth-600 text-hearth-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
       {/* Scrollable body below the header */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* Create form (inline bar) */}
@@ -181,7 +238,7 @@ export function RoutinesPage() {
                 onSelect={setSelected}
                 onToggle={async (id) => {
                   await toggleRoutine(id);
-                  fetchRoutines();
+                  fetchRoutines(activeScope);
                 }}
                 onRunNow={async (id) => {
                   await runNow(id);
@@ -197,15 +254,15 @@ export function RoutinesPage() {
                     routine={selected}
                     onUpdate={async (id, data) => {
                       await updateRoutine(id, data);
-                      fetchRoutines();
+                      fetchRoutines(activeScope);
                     }}
                     onDelete={async (id) => {
                       await deleteRoutine(id);
                       setSelected(null);
-                      fetchRoutines();
+                      fetchRoutines(activeScope);
                     }}
-                    onRunNow={async (id) => {
-                      await runNow(id);
+                    onRunNow={async (id, parameterValues) => {
+                      await runNow(id, parameterValues);
                     }}
                     fetchRuns={fetchRuns}
                     onClose={() => setSelected(null)}

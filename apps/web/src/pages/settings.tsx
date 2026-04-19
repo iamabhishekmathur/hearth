@@ -7,10 +7,14 @@ import { IntegrationHealth } from '@/components/admin/integration-health';
 import { LlmConfig } from '@/components/admin/llm-config';
 import { UsageAnalytics } from '@/components/admin/usage-analytics';
 import { SkillGovernance } from '@/components/admin/skill-governance';
+import { ComplianceConfig } from '@/components/admin/compliance-config';
+import { GovernanceConfig } from '@/components/admin/governance-config';
+import { CognitiveConfig } from '@/components/admin/cognitive-config';
+import { api } from '@/lib/api-client';
 
-type Tab = 'profile' | 'identity' | 'users' | 'teams' | 'integrations' | 'llm' | 'analytics' | 'skills';
+type Tab = 'profile' | 'identity' | 'users' | 'teams' | 'integrations' | 'llm' | 'compliance' | 'analytics' | 'skills' | 'governance' | 'cognitive' | 'decisions';
 
-const VALID_TABS = new Set<Tab>(['profile', 'identity', 'users', 'teams', 'integrations', 'llm', 'analytics', 'skills']);
+const VALID_TABS = new Set<Tab>(['profile', 'identity', 'users', 'teams', 'integrations', 'llm', 'compliance', 'analytics', 'skills', 'governance', 'cognitive', 'decisions']);
 
 const ALL_USER_TABS: { value: Tab; label: string }[] = [
   { value: 'profile', label: 'Profile' },
@@ -23,8 +27,12 @@ const ADMIN_TABS: { value: Tab; label: string }[] = [
   { value: 'teams', label: 'Teams' },
   { value: 'integrations', label: 'Integrations' },
   { value: 'llm', label: 'LLM Config' },
+  { value: 'compliance', label: 'Compliance' },
   { value: 'analytics', label: 'Analytics' },
   { value: 'skills', label: 'Skills' },
+  { value: 'governance', label: 'Governance' },
+  { value: 'cognitive', label: 'Digital Co-Worker' },
+  { value: 'decisions', label: 'Decision Graph' },
 ];
 
 function IdentityEditor() {
@@ -110,6 +118,68 @@ function IdentityEditor() {
   );
 }
 
+function CognitiveOptOut() {
+  const [status, setStatus] = useState<{ orgEnabled: boolean; userEnabled: boolean } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ data: { orgEnabled: boolean; userEnabled: boolean } }>('/chat/cognitive-profile/status')
+      .then((res) => setStatus(res.data))
+      .catch(() => {});
+  }, []);
+
+  if (!status || !status.orgEnabled) return null;
+
+  const handleToggle = async () => {
+    setSaving(true);
+    try {
+      await api.put('/chat/cognitive-profile/status', { enabled: !status.userEnabled });
+      setStatus({ ...status, userEnabled: !status.userEnabled });
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+      <h2 className="text-base font-semibold text-gray-900">Digital Co-Worker</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        Your organization has cognitive profiles enabled. Hearth learns how you think from
+        your conversations so coworkers can ask "How would you approach X?"
+      </p>
+      <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            Allow cognitive profile for my account
+          </p>
+          <p className="text-xs text-gray-500">
+            When disabled, no new patterns are extracted and your profile is hidden from queries.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={status.userEnabled}
+          disabled={saving}
+          onClick={handleToggle}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+            status.userEnabled ? 'bg-hearth-600' : 'bg-gray-200'
+          }`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+              status.userEnabled ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 interface SettingsPageProps {
   initialTab?: string;
 }
@@ -161,7 +231,7 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'profile' && (
-          <div className="mx-auto max-w-2xl">
+          <div className="mx-auto max-w-2xl space-y-4">
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
               <h2 className="text-base font-semibold text-gray-900">Profile</h2>
               <div className="mt-4 space-y-4">
@@ -179,6 +249,7 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
                 </div>
               </div>
             </div>
+            <CognitiveOptOut />
           </div>
         )}
 
@@ -208,6 +279,12 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
           </div>
         )}
 
+        {activeTab === 'compliance' && isAdmin && (
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+            <ComplianceConfig />
+          </div>
+        )}
+
         {activeTab === 'analytics' && isAdmin && (
           <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
             <UsageAnalytics />
@@ -217,6 +294,52 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
         {activeTab === 'skills' && isAdmin && (
           <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
             <SkillGovernance />
+          </div>
+        )}
+
+        {activeTab === 'governance' && isAdmin && (
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+            <GovernanceConfig />
+          </div>
+        )}
+
+        {activeTab === 'cognitive' && isAdmin && (
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+            <CognitiveConfig />
+          </div>
+        )}
+
+        {activeTab === 'decisions' && isAdmin && (
+          <div className="mx-auto max-w-2xl">
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+              <h2 className="text-base font-semibold text-gray-900">Decision Graph Settings</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Configure how decisions are automatically captured and processed.
+              </p>
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Auto-extract from chat</p>
+                    <p className="text-xs text-gray-500">Automatically detect and capture decisions from conversations</p>
+                  </div>
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Enabled</span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Pattern synthesis</p>
+                    <p className="text-xs text-gray-500">Nightly extraction of decision patterns and principles</p>
+                  </div>
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Enabled</span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Meeting ingestion</p>
+                    <p className="text-xs text-gray-500">Process meeting transcripts for decision extraction</p>
+                  </div>
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Enabled</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

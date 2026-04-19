@@ -1,10 +1,11 @@
-import type { ChatParams, ChatEvent, LLMMessage } from '@hearth/shared';
+import type { ChatParams, ChatEvent, LLMMessage, ContentPart } from '@hearth/shared';
 import type { LLMProvider } from './types.js';
 import { env } from '../config.js';
 
 interface OllamaChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  images?: string[]; // base64 encoded images
 }
 
 interface OllamaStreamChunk {
@@ -32,17 +33,30 @@ function toOllamaMessages(messages: LLMMessage[], systemPrompt?: string): Ollama
   for (const msg of messages) {
     if (msg.role === 'tool') {
       // Ollama doesn't support tool messages natively; inject as user context
+      const toolText = typeof msg.content === 'string' ? msg.content : msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join('');
       result.push({
         role: 'user',
-        content: `[Tool result for ${msg.toolCallId ?? 'unknown'}]: ${msg.content}`,
+        content: `[Tool result for ${msg.toolCallId ?? 'unknown'}]: ${toolText}`,
       });
       continue;
     }
 
-    result.push({
-      role: msg.role === 'system' ? 'system' : msg.role === 'assistant' ? 'assistant' : 'user',
-      content: msg.content,
-    });
+    if (Array.isArray(msg.content)) {
+      const textParts = msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text');
+      const imageParts = msg.content.filter((p): p is Extract<ContentPart, { type: 'image' }> => p.type === 'image');
+      const text = textParts.map((p) => p.text).join('\n');
+      const images = imageParts.map((p) => p.data);
+      result.push({
+        role: msg.role === 'system' ? 'system' : msg.role === 'assistant' ? 'assistant' : 'user',
+        content: text,
+        ...(images.length > 0 ? { images } : {}),
+      });
+    } else {
+      result.push({
+        role: msg.role === 'system' ? 'system' : msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content,
+      });
+    }
   }
 
   return result;
@@ -158,6 +172,25 @@ export class OllamaProvider implements LLMProvider {
       const message = err instanceof Error ? err.message : 'Ollama streaming error';
       yield { type: 'error', message };
     }
+  }
+
+  async embed(texts: string[]): Promise<number[][]> {
+    const response = await fetch(`${this.baseUrl}/api/embed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'nomic-embed-text',
+        input: texts.map((t) => t.slice(0, 8000)),
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => 'Unknown error');
+      throw new Error(`Ollama embed error (${response.status}): ${text}`);
+    }
+
+    const data = (await response.json()) as { embeddings: number[][] };
+    return data.embeddings;
   }
 
   async listModels(): Promise<string[]> {
