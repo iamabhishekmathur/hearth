@@ -1,0 +1,49 @@
+/**
+ * Hearth brand colors — matches the landing page at hearth-app.xyz.
+ * Primary: #e85d26 (Hearth orange)
+ */
+
+:root {
+  /* Brand */
+  --vp-c-brand-1: #e85d26;
+  --vp-c-brand-2: #d4521f;
+  --vp-c-brand-3: #f06c38;
+  --vp-c-brand-soft: rgba(232, 93, 38, 0.14);
+
+  /* "Important" badges / callouts */
+  --vp-c-important-1: #e85d26;
+  --vp-c-important-2: #d4521f;
+  --vp-c-important-3: #f06c38;
+  --vp-c-important-soft: rgba(232, 93, 38, 0.14);
+}
+
+.dark {
+  --vp-c-brand-1: #e85d26;
+  --vp-c-brand-2: #f06c38;
+  --vp-c-brand-3: #c94d1e;
+  --vp-c-brand-soft: rgba(232, 93, 38, 0.16);
+
+  --vp-c-important-1: #e85d26;
+  --vp-c-important-2: #f06c38;
+  --vp-c-important-3: #c94d1e;
+  --vp-c-important-soft: rgba(232, 93, 38, 0.16);
+
+  /* Match landing page dark surfaces */
+  --vp-c-bg: #0f1117;
+  --vp-c-bg-alt: #1a1d27;
+  --vp-c-bg-elv: #242836;
+  --vp-c-bg-soft: #1a1d27;
+
+  --vp-c-divider: #2e3348;
+  --vp-c-gutter: #0f1117;
+}
+
+/* Hero action button — primary */
+.VPButton.brand {
+  background-color: #e85d26;
+  border-color: #e85d26;
+}
+.VPButton.brand:hover {
+  background-color: #c94d1e;
+  border-color: #c94d1e;
+}
