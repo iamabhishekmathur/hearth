@@ -1,11 +1,21 @@
 import { Router } from 'express';
-import type { LLMMessage, SessionVisibility } from '@hearth/shared';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { ContentPart, LLMMessage, SessionVisibility } from '@hearth/shared';
 import { requireAuth } from '../middleware/auth.js';
 import * as chatService from '../services/chat-service.js';
 import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
-import { emitToSession, emitToUser } from '../ws/socket-manager.js';
+import { emitToSession, emitToUser, emitToSessionEvent } from '../ws/socket-manager.js';
 import { logger } from '../lib/logger.js';
+import { evaluateMessage, getGovernanceSettings, hasBlockPolicies } from '../services/governance-service.js';
+import { reflectOnSession } from '../services/experience-service.js';
+import { enqueueCognitiveExtraction } from '../jobs/cognitive-extraction-scheduler.js';
+import {
+  isCognitiveEnabledForOrg,
+  getCognitiveEnabled,
+  setCognitiveEnabled,
+} from '../services/cognitive-profile-service.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -62,7 +72,12 @@ router.get('/sessions/:id', requireAuth, async (req, res, next) => {
       res.status(404).json({ error: 'Session not found' });
       return;
     }
-    res.json({ data: session });
+    // Transform attachment storagePath -> url for the API response
+    const messages = session.messages.map((msg) => ({
+      ...msg,
+      attachments: (msg.attachments ?? []).map(chatService.toAttachmentResponse),
+    }));
+    res.json({ data: { ...session, messages } });
   } catch (err) {
     next(err);
   }
@@ -137,10 +152,13 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
   try {
     const sessionId = req.params.id as string;
     const userId = req.user!.id;
-    const { content, model, providerId } = req.body as {
+    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery } = req.body as {
       content?: string;
       model?: string;
       providerId?: string;
+      activeArtifactId?: string;
+      attachmentIds?: string[];
+      cognitiveQuery?: { subjectUserId: string };
     };
 
     if (!content) {
@@ -165,17 +183,60 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     // Save the user message with attribution
     const userMessage = await chatService.addMessage(sessionId, 'user', content, undefined, userId);
 
+    // Link uploaded attachments to this message
+    if (attachmentIds && attachmentIds.length > 0) {
+      await chatService.linkAttachments(userMessage.id, attachmentIds);
+    }
+
     // Auto-title: if the session has no title, derive one from the first message (owner only)
     if (!session.title && access === 'owner') {
       const title = deriveSessionTitle(content);
       await chatService.updateSessionTitle(sessionId, userId, title);
     }
 
+    // Governance compliance check
+    const orgId = req.user!.orgId;
+    if (orgId) {
+      const settings = await getGovernanceSettings(orgId);
+      if (settings.enabled && settings.checkUserMessages) {
+        const blocking = await hasBlockPolicies(orgId);
+
+        if (blocking) {
+          // Synchronous check — must complete before sending to LLM
+          const violations = await evaluateMessage({
+            orgId, userId, sessionId,
+            messageId: userMessage.id, messageRole: 'user', content,
+          });
+
+          const blocked = violations.find(v => v.enforcement === 'block');
+          if (blocked) {
+            emitToSessionEvent(sessionId, 'governance:blocked', {
+              messageId: userMessage.id,
+              policyName: blocked.policyName,
+              severity: blocked.severity,
+              reason: `This message was blocked by the "${blocked.policyName}" governance policy.`,
+            });
+            res.status(403).json({
+              error: 'Message blocked by governance policy',
+              data: { policyName: blocked.policyName, severity: blocked.severity },
+            });
+            return;
+          }
+        } else {
+          // No blocking policies — fire-and-forget
+          evaluateMessage({
+            orgId, userId, sessionId,
+            messageId: userMessage.id, messageRole: 'user', content,
+          }).catch(err => logger.error({ err }, 'Governance evaluation failed'));
+        }
+      }
+    }
+
     // Respond immediately with 202
     res.status(202).json({ data: { messageId: userMessage.id } });
 
     // Build agent context and run the agent loop asynchronously.
-    runAgent(sessionId, session.userId, model, providerId, content).catch((err) => {
+    runAgent(sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId).catch((err) => {
       logger.error({ err, sessionId }, 'Agent loop unhandled error');
     });
   } catch (err) {
@@ -293,6 +354,47 @@ router.get('/users/search', requireAuth, async (req, res, next) => {
 });
 
 /**
+ * GET /cognitive-profile/status — get user's cognitive profile opt-in status
+ */
+router.get('/cognitive-profile/status', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.json({ data: { orgEnabled: false, userEnabled: false } });
+      return;
+    }
+    const orgEnabled = await isCognitiveEnabledForOrg(orgId);
+    const userEnabled = orgEnabled ? await getCognitiveEnabled(req.user!.id, orgId) : false;
+    res.json({ data: { orgEnabled, userEnabled } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PUT /cognitive-profile/status — toggle user's cognitive profile opt-in/out
+ */
+router.put('/cognitive-profile/status', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.status(400).json({ error: 'No organization context' });
+      return;
+    }
+    const orgEnabled = await isCognitiveEnabledForOrg(orgId);
+    if (!orgEnabled) {
+      res.status(400).json({ error: 'Cognitive profiles are not enabled for this organization' });
+      return;
+    }
+    const { enabled } = req.body as { enabled?: boolean };
+    await setCognitiveEnabled(req.user!.id, orgId, !!enabled);
+    res.json({ message: 'Cognitive profile status updated' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * Derives a short session title from the first user message.
  * Truncates to 60 chars at a word boundary.
  */
@@ -315,13 +417,21 @@ async function runAgent(
   model?: string,
   providerId?: string,
   latestMessage?: string,
+  activeArtifactId?: string,
+  cognitiveQuerySubjectId?: string,
 ): Promise<void> {
   let assistantContent = '';
   let errorMessage: string | null = null;
   let sawErrorEvent = false;
+  const startTime = Date.now();
+  let iterationCount = 0;
+  let totalTokens = 0;
+  const toolFailures: string[] = [];
 
   try {
-    const context = await buildAgentContext(ownerUserId, sessionId, latestMessage);
+    const context = await buildAgentContext(ownerUserId, sessionId, latestMessage, activeArtifactId, {
+      cognitiveQuerySubjectId,
+    });
     if (model) context.model = model;
     if (providerId) context.providerId = providerId;
 
@@ -330,10 +440,45 @@ async function runAgent(
     const dbMessages = await chatService.getMessages(sessionId);
     const messages: LLMMessage[] = dbMessages
       .filter((m) => m.role !== 'tool')
-      .map((m) => ({
-        role: m.role as LLMMessage['role'],
-        content: m.content,
-      }));
+      .map((m) => {
+        // Check for image attachments on this message
+        const imageAttachments = (m.attachments ?? []).filter(
+          (a) => a.mimeType.startsWith('image/'),
+        );
+
+        if (imageAttachments.length > 0 && m.role === 'user' && context.visionEnabled !== false) {
+          // Build multimodal content with images + text
+          const parts: ContentPart[] = [];
+
+          for (const att of imageAttachments) {
+            try {
+              const filePath = join(process.cwd(), att.storagePath);
+              const buffer = readFileSync(filePath);
+              parts.push({
+                type: 'image',
+                mimeType: att.mimeType,
+                data: buffer.toString('base64'),
+              });
+            } catch {
+              // Skip unreadable attachments
+            }
+          }
+
+          if (m.content) {
+            parts.push({ type: 'text', text: m.content });
+          }
+
+          return {
+            role: m.role as LLMMessage['role'],
+            content: parts.length > 0 ? parts : m.content,
+          };
+        }
+
+        return {
+          role: m.role as LLMMessage['role'],
+          content: m.content,
+        };
+      });
 
     for await (const event of agentLoop(context, messages)) {
       emitToSession(sessionId, event);
@@ -343,6 +488,11 @@ async function runAgent(
       } else if (event.type === 'error') {
         sawErrorEvent = true;
         errorMessage = event.message;
+      } else if (event.type === 'done') {
+        totalTokens += (event.usage?.inputTokens ?? 0) + (event.usage?.outputTokens ?? 0);
+        iterationCount++;
+      } else if (event.type === 'tool_progress' && event.status === 'failed') {
+        toolFailures.push(event.toolName);
       }
     }
   } catch (err) {
@@ -370,6 +520,67 @@ async function runAgent(
       }
     } catch (persistErr) {
       logger.error({ err: persistErr, sessionId }, 'Failed to persist assistant message');
+    }
+
+    // Phase 2: Governance check on AI response
+    if (assistantContent && !errorMessage) {
+      try {
+        const session = await chatService.getSession(sessionId, ownerUserId);
+        if (session) {
+          // Look up user's org
+          const { prisma } = await import('../lib/prisma.js');
+          const owner = await prisma.user.findUnique({
+            where: { id: ownerUserId },
+            include: { team: { select: { orgId: true } } },
+          });
+          const orgId = owner?.team?.orgId;
+          if (orgId) {
+            evaluateMessage({
+              orgId, userId: ownerUserId, sessionId,
+              messageId: `assistant_${Date.now()}`, messageRole: 'assistant',
+              content: assistantContent,
+            }).catch(err => logger.error({ err }, 'Governance check on AI response failed'));
+          }
+        }
+      } catch (govErr) {
+        logger.error({ err: govErr }, 'Governance AI response check setup failed');
+      }
+    }
+
+    // Post-session reflection — fire-and-forget
+    const durationMs = Date.now() - startTime;
+    const user = await (async () => {
+      try {
+        const { prisma } = await import('../lib/prisma.js');
+        const u = await prisma.user.findUnique({
+          where: { id: ownerUserId },
+          include: { team: { select: { orgId: true } } },
+        });
+        return u;
+      } catch { return null; }
+    })();
+    const orgIdForReflection = user?.team?.orgId;
+    if (orgIdForReflection) {
+      reflectOnSession({
+        sessionId,
+        userId: ownerUserId,
+        orgId: orgIdForReflection,
+        durationMs,
+        iterationCount,
+        tokenCount: totalTokens || undefined,
+        toolFailures: toolFailures.length > 0 ? toolFailures : undefined,
+      }).catch(err => logger.error({ err, sessionId }, 'Post-session reflection failed'));
+
+      // Cognitive pattern extraction — gated behind org setting
+      isCognitiveEnabledForOrg(orgIdForReflection).then(enabled => {
+        if (enabled) {
+          enqueueCognitiveExtraction({
+            sessionId,
+            userId: ownerUserId,
+            orgId: orgIdForReflection,
+          }).catch(err => logger.error({ err, sessionId }, 'Cognitive extraction enqueue failed'));
+        }
+      }).catch(err => logger.error({ err }, 'Cognitive org check failed'));
     }
   }
 }

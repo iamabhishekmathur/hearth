@@ -18,6 +18,21 @@ vi.mock('../lib/prisma.js', () => ({
       count: vi.fn(),
       deleteMany: vi.fn(),
     },
+    approvalRequest: {
+      deleteMany: vi.fn(),
+    },
+    routineTrigger: {
+      deleteMany: vi.fn(),
+    },
+    approvalCheckpoint: {
+      deleteMany: vi.fn(),
+    },
+    routineChain: {
+      deleteMany: vi.fn(),
+    },
+    routineHealthAlert: {
+      deleteMany: vi.fn(),
+    },
   },
 }));
 
@@ -30,14 +45,16 @@ describe('routine-service', () => {
   });
 
   describe('listRoutines', () => {
-    it('queries routines for a given user', async () => {
+    it('queries routines for a given user with scope filter', async () => {
       const mockRoutines = [{ id: 'r1', name: 'Test', userId: 'u1' }];
       (prisma.routine.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(mockRoutines);
 
       const result = await routineService.listRoutines('u1');
 
       expect(prisma.routine.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'u1' } }),
+        expect.objectContaining({
+          where: expect.objectContaining({ OR: expect.any(Array) }),
+        }),
       );
       expect(result).toEqual(mockRoutines);
     });
@@ -91,14 +108,21 @@ describe('routine-service', () => {
   });
 
   describe('deleteRoutine', () => {
-    it('deletes runs then routine', async () => {
+    it('deletes related records then routine', async () => {
       (prisma.routine.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'r1' });
+      (prisma.approvalRequest.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
       (prisma.routineRun.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 5 });
+      (prisma.routineTrigger.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+      (prisma.approvalCheckpoint.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+      (prisma.routineChain.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
+      (prisma.routineHealthAlert.deleteMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 0 });
       (prisma.routine.delete as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'r1' });
 
       const result = await routineService.deleteRoutine('r1', 'u1');
 
+      expect(prisma.approvalRequest.deleteMany).toHaveBeenCalled();
       expect(prisma.routineRun.deleteMany).toHaveBeenCalledWith({ where: { routineId: 'r1' } });
+      expect(prisma.routineTrigger.deleteMany).toHaveBeenCalled();
       expect(prisma.routine.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
       expect(result).toBeTruthy();
     });

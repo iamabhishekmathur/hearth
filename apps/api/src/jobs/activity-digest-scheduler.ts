@@ -18,13 +18,27 @@ export const activityDigestQueue = new Queue(QUEUE_NAME, {
   },
 });
 
+/**
+ * Get the current hour (0-23) in a user's timezone. Defaults to UTC.
+ */
+function getUserLocalHour(preferences: unknown): number {
+  const prefs = preferences as Record<string, unknown> | null;
+  const tz = (prefs?.timezone as string) || 'UTC';
+  try {
+    const now = new Date();
+    const formatted = now.toLocaleString('en-US', { timeZone: tz, hour: 'numeric', hour12: false });
+    return parseInt(formatted, 10);
+  } catch {
+    return new Date().getUTCHours();
+  }
+}
+
 export function createActivityDigestWorker() {
   const worker = new Worker(
     QUEUE_NAME,
     async (job: Job<{ orgId?: string }>) => {
       logger.info('Running activity digest job');
 
-      // Get all orgs
       const orgs = job.data.orgId
         ? [await prisma.org.findUnique({ where: { id: job.data.orgId } })]
         : await prisma.org.findMany();
@@ -37,18 +51,20 @@ export function createActivityDigestWorker() {
 
         if (digest.eventCount === 0) continue;
 
-        // Deliver to org admins
-        const admins = await prisma.user.findMany({
+        // Deliver to all org members (not just admins) where local time is 9am
+        const members = await prisma.user.findMany({
           where: {
             team: { orgId: org.id },
-            role: 'admin',
           },
-          select: { id: true },
+          select: { id: true, preferences: true },
         });
 
-        for (const admin of admins) {
+        for (const member of members) {
+          const localHour = getUserLocalHour(member.preferences);
+          if (localHour !== 9) continue;
+
           await deliver({
-            userId: admin.id,
+            userId: member.id,
             title: `Daily Activity Digest — ${org.name}`,
             body: digest.summary,
             entityType: 'org',
@@ -74,7 +90,8 @@ export function createActivityDigestWorker() {
 }
 
 /**
- * Schedule daily activity digest.
+ * Schedule hourly activity digest checks. Each run checks if it's 9am
+ * in each user's timezone before delivering.
  */
 export async function scheduleActivityDigest() {
   const existing = await activityDigestQueue.getRepeatableJobs();
@@ -82,12 +99,12 @@ export async function scheduleActivityDigest() {
     await activityDigestQueue.removeRepeatableByKey(job.key);
   }
 
-  // Run daily at 9am
+  // Run hourly to support timezone-aware delivery
   await activityDigestQueue.add(
-    'daily-digest',
+    'digest-check',
     {},
-    { repeat: { pattern: '0 9 * * *' } },
+    { repeat: { pattern: '0 * * * *' } },
   );
 
-  logger.info('Scheduled daily activity digest');
+  logger.info('Scheduled hourly activity digest checks');
 }

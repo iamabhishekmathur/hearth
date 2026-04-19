@@ -115,6 +115,8 @@ describe('agentLoop', () => {
       { type: 'tool_call_start', id: 'tc-1', tool: 'search', input: {} },
       { type: 'tool_call_delta', id: 'tc-1', input: '{"q":"foo"}' },
       { type: 'tool_call_end', id: 'tc-1' },
+      { type: 'tool_progress', toolCallId: 'tc-1', toolName: 'search', status: 'started' },
+      { type: 'tool_progress', toolCallId: 'tc-1', toolName: 'search', status: 'completed', durationMs: expect.any(Number) },
       { type: 'text_delta', content: 'Found it' },
       { type: 'done', usage: { inputTokens: 20, outputTokens: 10 } },
     ]);

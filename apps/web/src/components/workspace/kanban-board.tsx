@@ -24,6 +24,16 @@ export function KanbanBoard() {
     fetchTasks();
   }, [fetchTasks]);
 
+  // Auto-select task from URL query param (e.g., ?taskId=abc)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const taskId = params.get('taskId');
+    if (taskId && tasks.length > 0) {
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) setSelectedTask(task);
+    }
+  }, [tasks]);
+
   const handleDrop = useCallback(
     async (taskId: string, newStatus: TaskStatus) => {
       const task = tasks.find((t) => t.id === taskId);

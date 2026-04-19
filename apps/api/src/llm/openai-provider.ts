@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { ChatParams, ChatEvent, LLMMessage, ToolDefinition } from '@hearth/shared';
+import type { ChatParams, ChatEvent, LLMMessage, ToolDefinition, ContentPart } from '@hearth/shared';
 import type { LLMProvider } from './types.js';
 import { env } from '../config.js';
 
@@ -15,18 +15,36 @@ function toOpenAIMessages(
 
   for (const msg of messages) {
     switch (msg.role) {
-      case 'system':
-        result.push({ role: 'system', content: msg.content });
+      case 'system': {
+        const systemText = typeof msg.content === 'string' ? msg.content : msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join('');
+        result.push({ role: 'system', content: systemText });
         break;
+      }
 
       case 'user':
-        result.push({ role: 'user', content: msg.content });
+        if (Array.isArray(msg.content)) {
+          result.push({
+            role: 'user',
+            content: msg.content.map((part) => {
+              if (part.type === 'image') {
+                return {
+                  type: 'image_url' as const,
+                  image_url: { url: `data:${part.mimeType};base64,${part.data}` },
+                };
+              }
+              return { type: 'text' as const, text: part.text };
+            }),
+          });
+        } else {
+          result.push({ role: 'user', content: msg.content });
+        }
         break;
 
       case 'assistant': {
+        const assistantText = typeof msg.content === 'string' ? msg.content : msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join('') || null;
         const assistantMsg: OpenAI.ChatCompletionAssistantMessageParam = {
           role: 'assistant',
-          content: msg.content || null,
+          content: assistantText,
         };
         if (msg.toolCalls?.length) {
           assistantMsg.tool_calls = msg.toolCalls.map((tc) => ({
@@ -42,13 +60,15 @@ function toOpenAIMessages(
         break;
       }
 
-      case 'tool':
+      case 'tool': {
+        const toolText = typeof msg.content === 'string' ? msg.content : msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join('');
         result.push({
           role: 'tool',
           tool_call_id: msg.toolCallId ?? '',
-          content: msg.content,
+          content: toolText,
         });
         break;
+      }
     }
   }
 

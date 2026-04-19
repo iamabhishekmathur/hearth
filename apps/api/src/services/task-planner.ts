@@ -7,6 +7,7 @@ import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
 import { emitToTask } from '../ws/socket-manager.js';
 import { enqueueExecution } from './task-executor.js';
+import { serializeTaskContext } from './task-context-service.js';
 
 const QUEUE_NAME = 'task-planning';
 const connection = { url: env.REDIS_URL };
@@ -76,19 +77,27 @@ function parseSubtasks(raw: string): PlannedSubtask[] {
   }
 }
 
-function buildPlanningPrompt(
-  task: { title: string; description: string | null; context: unknown },
+async function buildPlanningPrompt(
+  task: { id: string; title: string; description: string | null; context: unknown },
   reviewFeedback?: string,
-): string {
+): Promise<string> {
   const parts = [
     'You are a planning agent decomposing a task into concrete subtasks.',
     '',
     `Task: ${task.title}`,
   ];
   if (task.description) parts.push(`Description: ${task.description}`);
-  if (task.context && Object.keys(task.context as object).length > 0) {
-    parts.push(`Additional context: ${JSON.stringify(task.context)}`);
+
+  // Rich context (links, PDFs, files, text blocks, MCP data) with token budgeting
+  const contextStr = await serializeTaskContext(task.id, {
+    maxTokens: 4000,
+    query: task.title + ' ' + (task.description ?? ''),
+  });
+  if (contextStr) {
+    parts.push('');
+    parts.push(contextStr);
   }
+
   if (reviewFeedback) {
     parts.push('');
     parts.push('The previous attempt was sent back for changes. Reviewer feedback:');
@@ -131,8 +140,8 @@ export function createTaskPlanningWorker() {
 
       try {
         const context = await buildAgentContext(userId, taskId);
-        const prompt = buildPlanningPrompt(
-          { title: task.title, description: task.description, context: task.context },
+        const prompt = await buildPlanningPrompt(
+          { id: taskId, title: task.title, description: task.description, context: task.context },
           reviewFeedback,
         );
 

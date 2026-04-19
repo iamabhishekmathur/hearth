@@ -27,10 +27,20 @@ const envSchema = z.object({
     .string()
     .default('http://localhost:8000/api/v1/auth/oauth/google/callback'),
 
+  // Web search (optional)
+  BRAVE_SEARCH_API_KEY: z.string().optional(),
+
   // Slack (optional)
   SLACK_CLIENT_ID: z.string().optional(),
   SLACK_CLIENT_SECRET: z.string().optional(),
   SLACK_SIGNING_SECRET: z.string().optional(),
+
+  // SMTP / Email (optional)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default('Hearth <noreply@hearth.local>'),
 });
 
 export type Env = z.infer<typeof envSchema>;

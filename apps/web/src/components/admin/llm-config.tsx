@@ -7,12 +7,25 @@ interface Provider {
   configured: boolean;
   keySource: 'db' | 'env' | null;
   models: string[];
+  supportsVision: boolean;
+  visionCapableModels: string[];
+}
+
+interface EmbeddingStatus {
+  available: boolean;
+  providerId: string | null;
 }
 
 interface LLMSettings {
   defaultProvider: string | null;
   defaultModel: string | null;
+  visionEnabled: boolean;
 }
+
+const VISION_MODELS = new Set([
+  'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001',
+  'gpt-4o', 'gpt-4o-mini', 'o4-mini',
+]);
 
 const MODEL_LABELS: Record<string, string> = {
   'claude-sonnet-4-6': 'Claude Sonnet 4.6',
@@ -27,12 +40,81 @@ const MODEL_LABELS: Record<string, string> = {
 
 const OLLAMA_MODELS = ['llama3.2', 'llama3.1', 'mistral', 'qwen2.5'];
 
-function ProviderCard({
+const EMBEDDING_PROVIDER_LABELS: Record<string, string> = {
+  openai: 'OpenAI (text-embedding-3-small)',
+  ollama: 'Ollama (nomic-embed-text)',
+};
+
+// ── Shared UI primitives ──
+
+function StatusDot({ active }: { active: boolean }) {
+  return (
+    <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${active ? 'bg-green-500' : 'bg-gray-300'}`} />
+  );
+}
+
+function Badge({ children, variant }: { children: React.ReactNode; variant: 'green' | 'amber' | 'violet' | 'gray' }) {
+  const styles = {
+    green: 'bg-green-50 text-green-700 ring-green-600/20',
+    amber: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+    violet: 'bg-violet-50 text-violet-700 ring-violet-600/20',
+    gray: 'bg-gray-50 text-gray-600 ring-gray-500/20',
+  };
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${styles[variant]}`}>
+      {children}
+    </span>
+  );
+}
+
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white">
+      {children}
+    </div>
+  );
+}
+
+function SectionHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="border-b border-gray-100 px-4 py-3">
+      <p className="text-sm font-semibold text-gray-900">{title}</p>
+      {description && <p className="mt-0.5 text-xs text-gray-500">{description}</p>}
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-hearth-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+        checked ? 'bg-hearth-600' : 'bg-gray-200'
+      }`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+          checked ? 'translate-x-4' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  );
+}
+
+// ── Provider row (inside the Providers card) ──
+
+function ProviderRow({
   provider,
   onKeySaved,
+  isLast,
 }: {
   provider: Provider;
   onKeySaved: () => void;
+  isLast: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -84,18 +166,21 @@ function ProviderCard({
       : 'sk-...';
 
   return (
-    <div className={`rounded-lg border ${provider.configured ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'} p-4`}>
-      <div className="flex items-center justify-between">
+    <div className={!isLast ? 'border-b border-gray-100' : ''}>
+      <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <span className={`h-2 w-2 rounded-full ${provider.configured ? 'bg-green-500' : 'bg-gray-300'}`} />
+          <StatusDot active={provider.configured} />
           <span className="text-sm font-medium text-gray-900">{provider.name}</span>
           {provider.configured && (
-            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-              {provider.keySource === 'env' ? 'via env var' : 'configured'}
-            </span>
+            <Badge variant="green">
+              {provider.keySource === 'env' ? 'env var' : 'configured'}
+            </Badge>
+          )}
+          {provider.configured && provider.supportsVision && (
+            <Badge variant="violet">Vision</Badge>
           )}
         </div>
-        {provider.keySource !== 'env' && (
+        {provider.keySource !== 'env' ? (
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
@@ -103,14 +188,13 @@ function ProviderCard({
           >
             {provider.configured ? 'Update key' : 'Configure'}
           </button>
-        )}
-        {provider.keySource === 'env' && (
+        ) : (
           <span className="text-xs text-gray-400">Set via environment variable</span>
         )}
       </div>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-gray-200 pt-3">
+        <div className="space-y-3 border-t border-gray-100 bg-gray-50/50 px-4 py-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">{label}</label>
             <input
@@ -118,14 +202,14 @@ function ProviderCard({
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setTestResult(null); }}
               placeholder={placeholder}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 font-mono text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
               autoComplete="off"
             />
           </div>
 
           {testResult && (
             <p className={`text-xs ${testResult.ok ? 'text-green-600' : 'text-red-600'}`}>
-              {testResult.ok ? '✓ ' : '✗ '}{testResult.message}
+              {testResult.ok ? '\u2713 ' : '\u2717 '}{testResult.message}
             </p>
           )}
 
@@ -134,17 +218,17 @@ function ProviderCard({
               type="button"
               onClick={handleTest}
               disabled={!apiKey.trim() || testing}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
-              {testing ? 'Testing...' : 'Test'}
+              {testing ? 'Testing...' : 'Test Connection'}
             </button>
             <button
               type="button"
               onClick={handleSave}
               disabled={!testResult?.ok || saving}
-              className="rounded-lg bg-hearth-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
+              className="rounded-md bg-hearth-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Key'}
+              {saving ? 'Saving...' : 'Save'}
             </button>
             <button
               type="button"
@@ -160,9 +244,12 @@ function ProviderCard({
   );
 }
 
+// ── Main component ──
+
 export function LlmConfig() {
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [settings, setSettings] = useState<LLMSettings>({ defaultProvider: null, defaultModel: null });
+  const [embedding, setEmbedding] = useState<EmbeddingStatus>({ available: false, providerId: null });
+  const [settings, setSettings] = useState<LLMSettings>({ defaultProvider: null, defaultModel: null, visionEnabled: true });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
@@ -170,11 +257,12 @@ export function LlmConfig() {
   const fetchAll = useCallback(async () => {
     try {
       const [providersRes, settingsRes] = await Promise.all([
-        api.get<{ data: Provider[] }>('/admin/llm-config/providers'),
+        api.get<{ data: Provider[]; embedding: EmbeddingStatus }>('/admin/llm-config/providers'),
         api.get<{ data: LLMSettings }>('/admin/llm-config'),
       ]);
       setProviders(providersRes.data ?? []);
-      setSettings(settingsRes.data ?? { defaultProvider: null, defaultModel: null });
+      setEmbedding(providersRes.embedding ?? { available: false, providerId: null });
+      setSettings(settingsRes.data ?? { defaultProvider: null, defaultModel: null, visionEnabled: true });
     } catch {
       // ignore
     } finally {
@@ -185,6 +273,9 @@ export function LlmConfig() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const configuredProviders = providers.filter((p) => p.configured);
+  const hasEmbeddingCapableProvider = providers.some(
+    (p) => p.configured && (p.id === 'openai' || p.id === 'ollama'),
+  );
 
   const defaultProviderModels = (): string[] => {
     const p = providers.find((p) => p.id === settings.defaultProvider);
@@ -199,6 +290,7 @@ export function LlmConfig() {
       await api.put('/admin/llm-config', {
         defaultProvider: settings.defaultProvider,
         defaultModel: settings.defaultModel,
+        visionEnabled: settings.visionEnabled,
       });
       setSavedMsg('Saved');
       setTimeout(() => setSavedMsg(''), 2000);
@@ -207,78 +299,160 @@ export function LlmConfig() {
     }
   };
 
+  const selectedModelSupportsVision = settings.defaultModel ? VISION_MODELS.has(settings.defaultModel) : false;
+
   if (loading) return <p className="text-sm text-gray-400">Loading LLM config...</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Page header */}
       <div>
-        <h3 className="mb-1 text-base font-semibold text-gray-900">LLM Configuration</h3>
-        <p className="text-sm text-gray-500">Connect AI providers and set your org defaults.</p>
-      </div>
-
-      {/* Provider cards */}
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Providers</p>
-        <div className="space-y-2">
-          {providers.map((p) => (
-            <ProviderCard key={p.id} provider={p} onKeySaved={fetchAll} />
-          ))}
-        </div>
-      </div>
-
-      {/* Default settings */}
-      {configuredProviders.length > 0 && (
-        <div className="border-t border-gray-100 pt-5">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Defaults</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Default Provider</label>
-              <select
-                value={settings.defaultProvider ?? ''}
-                onChange={(e) => setSettings({ ...settings, defaultProvider: e.target.value, defaultModel: '' })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
-              >
-                <option value="">Select provider...</option>
-                {configuredProviders.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Default Model</label>
-              <select
-                value={settings.defaultModel ?? ''}
-                onChange={(e) => setSettings({ ...settings, defaultModel: e.target.value })}
-                disabled={!settings.defaultProvider}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
-              >
-                <option value="">Select model...</option>
-                {defaultProviderModels().map((m) => (
-                  <option key={m} value={m}>{MODEL_LABELS[m] ?? m}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleSaveDefaults}
-              disabled={saving || !settings.defaultProvider || !settings.defaultModel}
-              className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Defaults'}
-            </button>
-            {savedMsg && <span className="text-sm text-green-600">✓ {savedMsg}</span>}
-          </div>
-        </div>
-      )}
-
-      {configuredProviders.length === 0 && (
-        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          No providers configured yet. Add at least one API key above to enable chat.
+        <h3 className="text-base font-semibold text-gray-900">LLM Configuration</h3>
+        <p className="mt-0.5 text-sm text-gray-500">
+          Connect AI providers and configure model defaults for your organization.
         </p>
+      </div>
+
+      {/* Section 1: Providers */}
+      <SectionCard>
+        <SectionHeader
+          title="Providers"
+          description="API keys for the LLM services your team uses. At least one is required for chat."
+        />
+        {providers.map((p, i) => (
+          <ProviderRow
+            key={p.id}
+            provider={p}
+            onKeySaved={fetchAll}
+            isLast={i === providers.length - 1}
+          />
+        ))}
+        {configuredProviders.length === 0 && (
+          <div className="px-4 py-3">
+            <p className="text-xs text-amber-600">
+              No providers configured yet. Add at least one API key above to enable chat.
+            </p>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Section 2: Capabilities */}
+      <SectionCard>
+        <SectionHeader
+          title="Capabilities"
+          description="Features that depend on specific provider support."
+        />
+
+        {/* Embedding row */}
+        <div className="flex items-start justify-between border-b border-gray-100 px-4 py-3">
+          <div className="flex items-start gap-2.5">
+            <StatusDot active={embedding.available} />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900">Semantic Memory</span>
+                {embedding.available && embedding.providerId && (
+                  <Badge variant="green">
+                    {EMBEDDING_PROVIDER_LABELS[embedding.providerId] ?? embedding.providerId}
+                  </Badge>
+                )}
+                {!embedding.available && (
+                  <Badge variant="amber">keyword-only</Badge>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {embedding.available
+                  ? 'Vector embeddings enabled — memories are searchable by meaning.'
+                  : hasEmbeddingCapableProvider
+                    ? 'Provider detected but not active. Restart the server or re-save your key.'
+                    : 'Requires OpenAI or Ollama for vector embeddings.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Vision row */}
+        <div className="flex items-start justify-between px-4 py-3">
+          <div className="flex items-start gap-2.5">
+            <StatusDot active={settings.visionEnabled && selectedModelSupportsVision} />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-900">Image & Vision</span>
+                {settings.visionEnabled && selectedModelSupportsVision && (
+                  <Badge variant="green">active</Badge>
+                )}
+                {settings.visionEnabled && !selectedModelSupportsVision && settings.defaultModel && (
+                  <Badge variant="amber">model may not support vision</Badge>
+                )}
+                {!settings.visionEnabled && (
+                  <Badge variant="gray">disabled</Badge>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Analyze images, screenshots, and attachments shared in chat.
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={settings.visionEnabled}
+            onChange={() => setSettings({ ...settings, visionEnabled: !settings.visionEnabled })}
+          />
+        </div>
+      </SectionCard>
+
+      {/* Section 3: Defaults */}
+      {configuredProviders.length > 0 && (
+        <SectionCard>
+          <SectionHeader
+            title="Defaults"
+            description="The provider and model used for new chat sessions across your org."
+          />
+          <div className="space-y-4 px-4 py-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">Chat Provider</label>
+                <select
+                  value={settings.defaultProvider ?? ''}
+                  onChange={(e) => setSettings({ ...settings, defaultProvider: e.target.value, defaultModel: '' })}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                >
+                  <option value="">Select provider...</option>
+                  {configuredProviders.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">Chat Model</label>
+                <select
+                  value={settings.defaultModel ?? ''}
+                  onChange={(e) => setSettings({ ...settings, defaultModel: e.target.value })}
+                  disabled={!settings.defaultProvider}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500 disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="">Select model...</option>
+                  {defaultProviderModels().map((m) => (
+                    <option key={m} value={m}>
+                      {MODEL_LABELS[m] ?? m}{VISION_MODELS.has(m) ? ' \u00b7 Vision' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                onClick={handleSaveDefaults}
+                disabled={saving || !settings.defaultProvider || !settings.defaultModel}
+                className="rounded-md bg-hearth-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hearth-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Defaults'}
+              </button>
+              {savedMsg && <span className="text-sm font-medium text-green-600">{'\u2713'} {savedMsg}</span>}
+            </div>
+          </div>
+        </SectionCard>
       )}
     </div>
   );

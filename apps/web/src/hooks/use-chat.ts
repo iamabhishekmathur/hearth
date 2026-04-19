@@ -11,9 +11,13 @@ import {
 } from '@/lib/socket-client';
 import type { ChatMessage, AgentEvent, ApiResponse, PresenceUser } from '@hearth/shared';
 
+interface CognitiveQueryMeta {
+  subjectUserId: string;
+}
+
 interface UseChatReturn {
   messages: ChatMessage[];
-  sendMessage: (content: string, overrideSessionId?: string) => Promise<void>;
+  sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => Promise<void>;
   isStreaming: boolean;
   thinking: string | null;
   toolCalls: ToolCallInfo[];
@@ -226,7 +230,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
   }, [sessionId, subscribe]);
 
   const sendMessage = useCallback(
-    async (content: string, overrideSessionId?: string) => {
+    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => {
       const sid = overrideSessionId ?? sessionId;
       if (!sid) return;
 
@@ -248,7 +252,19 @@ export function useChat(sessionId: string | null): UseChatReturn {
       setIsStreaming(true);
 
       try {
-        await api.post(`/chat/sessions/${sid}/messages`, { content });
+        const body: Record<string, unknown> = { content };
+        if (activeArtifactId) {
+          body.activeArtifactId = activeArtifactId;
+        }
+        if (attachmentIds && attachmentIds.length > 0) {
+          body.attachmentIds = attachmentIds;
+        }
+
+        if (cognitiveQuery) {
+          body.cognitiveQuery = cognitiveQuery;
+        }
+
+        await api.post(`/chat/sessions/${sid}/messages`, body);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to send message');
         setIsStreaming(false);

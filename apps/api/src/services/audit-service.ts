@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { emitToOrg } from '../ws/socket-manager.js';
+import { FEED_WORTHY_ACTIONS } from '@hearth/shared';
 
 export type AuditAction =
   | 'llm_call'
@@ -17,7 +18,14 @@ export type AuditAction =
   | 'integration_connect'
   | 'integration_disconnect'
   | 'routine_run'
-  | 'session_created';
+  | 'session_created'
+  | 'compliance_scrub'
+  | 'governance_violation'
+  | 'governance_policy_change'
+  | 'decision_captured'
+  | 'decision_outcome_updated'
+  | 'pattern_extracted'
+  | 'principle_proposed';
 
 export type AuditEntityType =
   | 'session'
@@ -26,7 +34,10 @@ export type AuditEntityType =
   | 'skill'
   | 'memory'
   | 'integration'
-  | 'user';
+  | 'user'
+  | 'governance_policy'
+  | 'governance_violation'
+  | 'decision';
 
 interface AuditLogInput {
   orgId: string;
@@ -36,15 +47,6 @@ interface AuditLogInput {
   entityId?: string;
   details: Record<string, unknown>;
 }
-
-/** Actions that should appear in the activity feed */
-const FEED_WORTHY_ACTIONS: Set<AuditAction> = new Set([
-  'task_completed',
-  'skill_published',
-  'skill_install',
-  'routine_run',
-  'session_created',
-]);
 
 /**
  * Log an audit event. Fire-and-forget — errors are logged but not thrown.
@@ -64,10 +66,20 @@ export async function logAudit(input: AuditLogInput): Promise<void> {
     });
 
     // Emit to org room for activity feed
-    if (FEED_WORTHY_ACTIONS.has(input.action) && input.orgId) {
+    if ((FEED_WORTHY_ACTIONS as readonly string[]).includes(input.action) && input.orgId) {
+      let userName: string | null = null;
+      if (input.userId) {
+        const user = await prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { name: true },
+        });
+        userName = user?.name ?? null;
+      }
+
       emitToOrg(input.orgId, 'activity:event', {
         id: record.id,
         userId: input.userId,
+        userName,
         action: input.action,
         entityType: input.entityType,
         entityId: input.entityId,
@@ -152,6 +164,35 @@ export async function logAuthEvent(params: {
       email: params.email,
       success: params.success,
     },
+  });
+}
+
+/**
+ * Log a compliance scrub event.
+ */
+export async function logComplianceScrub(params: {
+  orgId: string;
+  userId?: string;
+  sessionId?: string;
+  packs: string[];
+  entityCounts: Record<string, number>;
+  direction: 'outbound' | 'inbound';
+  auditLevel: 'summary' | 'detailed';
+}): Promise<void> {
+  const details: Record<string, unknown> = {
+    packs: params.packs,
+    entityCounts: params.entityCounts,
+    direction: params.direction,
+    totalEntities: Object.values(params.entityCounts).reduce((a, b) => a + b, 0),
+  };
+
+  await logAudit({
+    orgId: params.orgId,
+    userId: params.userId,
+    action: 'compliance_scrub',
+    entityType: 'session',
+    entityId: params.sessionId,
+    details,
   });
 }
 

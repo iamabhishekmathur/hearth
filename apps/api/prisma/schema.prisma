@@ -95,6 +95,17 @@ enum AgentIdentitySource {
   auto_generated
 }
 
+enum ExperienceOutcome {
+  success
+  partial
+  failure
+}
+
+enum SkillSource {
+  manual
+  auto_generated
+}
+
 enum SkillScope {
   personal
   team
@@ -112,12 +123,145 @@ enum RoutineRunStatus {
   success
   failed
   running
+  awaiting_approval
+}
+
+enum TriggerStatus {
+  active
+  paused
+  error
+}
+
+enum RoutineScope {
+  personal
+  team
+  org
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  auto_approved
+  auto_rejected
+  edited
 }
 
 enum IntegrationStatus {
   active
   inactive
   error
+}
+
+enum ArtifactType {
+  code
+  document
+  diagram
+  table
+  html
+  image
+}
+
+enum TaskContextItemType {
+  note
+  link
+  file
+  image
+  text_block
+  mcp_reference
+}
+
+enum ExtractionStatus {
+  pending
+  processing
+  completed
+  failed
+  skipped
+}
+
+enum GovernanceSeverity {
+  info
+  warning
+  critical
+}
+
+enum GovernanceEnforcement {
+  monitor
+  warn
+  block
+}
+
+enum GovernanceViolationStatus {
+  open
+  acknowledged
+  dismissed
+  escalated
+}
+
+enum DecisionStatus {
+  draft
+  active
+  superseded
+  reversed
+  archived
+}
+
+enum DecisionSource {
+  chat
+  task
+  meeting
+  slack
+  email
+  routine
+  manual
+  external
+}
+
+enum DecisionScope {
+  org
+  team
+  personal
+}
+
+enum DecisionConfidence {
+  low
+  medium
+  high
+}
+
+enum DecisionRelationship {
+  depends_on
+  supersedes
+  related_to
+  informed_by
+  contradicts
+}
+
+enum OutcomeVerdict {
+  positive
+  negative
+  mixed
+  neutral
+  too_early
+}
+
+enum PatternStatus {
+  emerging
+  established
+  deprecated
+}
+
+enum PrincipleStatus {
+  proposed
+  active
+  principle_deprecated
+}
+
+enum MeetingProvider {
+  granola
+  otter
+  fireflies
+  manual
 }
 
 // ──────────────────────────────────────────────
@@ -132,12 +276,23 @@ model Org {
   ssoConfig Json?    @map("sso_config")
   createdAt DateTime @default(now()) @map("created_at")
 
-  teams           Team[]
-  memoryEntries   MemoryEntry[]
-  agentIdentities AgentIdentity[]
-  skills          Skill[]
-  integrations    Integration[]
-  auditLogs       AuditLog[]
+  teams              Team[]
+  memoryEntries      MemoryEntry[]
+  agentIdentities    AgentIdentity[]
+  skills             Skill[]
+  integrations       Integration[]
+  auditLogs          AuditLog[]
+  webhookEndpoints    WebhookEndpoint[]
+  routines            Routine[]
+  routineHealthAlerts RoutineHealthAlert[]
+  governancePolicies  GovernancePolicy[]
+  governanceViolations GovernanceViolation[]
+  agentExperiences   AgentExperience[]
+  cognitiveProfiles  CognitiveProfile[]
+  thoughtPatterns    ThoughtPattern[]
+  decisions          Decision[]
+  decisionPatterns   DecisionPattern[]
+  orgPrinciples      OrgPrinciple[]
 
   @@map("orgs")
 }
@@ -152,6 +307,9 @@ model Team {
   users         User[]
   memoryEntries MemoryEntry[]
   skills        Skill[]
+  routines      Routine[]
+  decisions          Decision[]
+  decisionPatterns   DecisionPattern[]
 
   @@map("teams")
 }
@@ -181,6 +339,19 @@ model User {
   auditLogs        AuditLog[]
   authoredMessages ChatMessage[]         @relation("MessageAuthor")
   collaborations   SessionCollaborator[]
+  artifacts          Artifact[]            @relation("ArtifactAuthor")
+  artifactVersions   ArtifactVersion[]     @relation("ArtifactVersionEditor")
+  activityReactions  ActivityReaction[]
+  approvalReviews    ApprovalRequest[]
+  createdPolicies    GovernancePolicy[]    @relation("PolicyCreator")
+  violations         GovernanceViolation[] @relation("ViolationUser")
+  violationReviews   GovernanceViolation[] @relation("ViolationReviewer")
+  agentExperiences   AgentExperience[]
+  cognitiveProfiles  CognitiveProfile[]
+  thoughtPatterns    ThoughtPattern[]
+  taskContextItems   TaskContextItem[]
+  decisionsCreated   Decision[]           @relation("DecisionsCreated")
+  outcomesObserved   DecisionOutcome[]    @relation("OutcomesObserved")
 
   @@map("users")
 }
@@ -198,10 +369,14 @@ model ChatSession {
   createdAt  DateTime          @default(now()) @map("created_at")
   updatedAt  DateTime          @updatedAt @map("updated_at")
 
-  user          User                  @relation(fields: [userId], references: [id])
-  messages      ChatMessage[]
-  shares        SessionShare[]
-  collaborators SessionCollaborator[]
+  user              User                  @relation(fields: [userId], references: [id])
+  messages          ChatMessage[]
+  shares            SessionShare[]
+  collaborators     SessionCollaborator[]
+  artifacts         Artifact[]
+  agentExperiences  AgentExperience[]
+  thoughtPatterns   ThoughtPattern[]
+  decisions          Decision[]
 
   @@map("chat_sessions")
 }
@@ -229,10 +404,27 @@ model ChatMessage {
   createdBy String?         @map("created_by")
   createdAt DateTime        @default(now()) @map("created_at")
 
-  session ChatSession @relation(fields: [sessionId], references: [id])
-  author  User?       @relation("MessageAuthor", fields: [createdBy], references: [id])
+  session     ChatSession      @relation(fields: [sessionId], references: [id])
+  author      User?            @relation("MessageAuthor", fields: [createdBy], references: [id])
+  attachments ChatAttachment[]
 
   @@map("chat_messages")
+}
+
+model ChatAttachment {
+  id          String   @id @default(uuid())
+  messageId   String?  @map("message_id")
+  filename    String
+  mimeType    String   @map("mime_type")
+  sizeBytes   Int      @map("size_bytes")
+  storagePath String   @map("storage_path")
+  width       Int?
+  height      Int?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  message ChatMessage? @relation(fields: [messageId], references: [id])
+
+  @@map("chat_attachments")
 }
 
 model SessionCollaborator {
@@ -248,6 +440,44 @@ model SessionCollaborator {
 
   @@unique([sessionId, userId])
   @@map("session_collaborators")
+}
+
+model Artifact {
+  id              String       @id @default(uuid())
+  sessionId       String       @map("session_id")
+  type            ArtifactType
+  title           String
+  content         String
+  language        String?
+  version         Int          @default(1)
+  createdBy       String       @map("created_by")
+  parentMessageId String?      @map("parent_message_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  session  ChatSession      @relation(fields: [sessionId], references: [id])
+  author   User             @relation("ArtifactAuthor", fields: [createdBy], references: [id])
+  versions ArtifactVersion[]
+
+  @@index([sessionId])
+  @@index([createdBy])
+  @@map("artifacts")
+}
+
+model ArtifactVersion {
+  id         String   @id @default(uuid())
+  artifactId String   @map("artifact_id")
+  version    Int
+  title      String
+  content    String
+  editedBy   String   @map("edited_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  artifact Artifact @relation(fields: [artifactId], references: [id])
+  editor   User     @relation("ArtifactVersionEditor", fields: [editedBy], references: [id])
+
+  @@index([artifactId])
+  @@map("artifact_versions")
 }
 
 // ──────────────────────────────────────────────
@@ -276,8 +506,50 @@ model Task {
   executionSteps TaskExecutionStep[]
   reviews        TaskReview[]
   skillProposals Skill[]
+  contextItems   TaskContextItem[]
 
   @@map("tasks")
+}
+
+model TaskContextItem {
+  id               String              @id @default(uuid())
+  taskId           String              @map("task_id")
+  type             TaskContextItemType
+  label            String?
+
+  // What the user provided
+  rawValue         String              @map("raw_value")
+  mimeType         String?             @map("mime_type")
+  sizeBytes        Int?                @map("size_bytes")
+  storagePath      String?             @map("storage_path")
+
+  // Extracted content
+  extractedText    String?             @map("extracted_text")
+  extractedTitle   String?             @map("extracted_title")
+  extractionStatus ExtractionStatus    @default(pending) @map("extraction_status")
+  extractionError  String?             @map("extraction_error")
+
+  // MCP reference
+  mcpIntegrationId String?             @map("mcp_integration_id")
+  mcpResourceType  String?             @map("mcp_resource_type")
+  mcpResourceId    String?             @map("mcp_resource_id")
+
+  // Image vision analysis
+  visionAnalysis   String?             @map("vision_analysis")
+
+  // Semantic search
+  embedding        Unsupported("vector")?
+
+  sortOrder        Int                 @default(0) @map("sort_order")
+  createdBy        String              @map("created_by")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [createdBy], references: [id])
+
+  @@index([taskId, sortOrder])
+  @@map("task_context_items")
 }
 
 model TaskComment {
@@ -339,7 +611,7 @@ model MemoryEntry {
   content   String
   source    String?
   sourceRef Json?                        @map("source_ref")
-  embedding Unsupported("vector(1536)")?
+  embedding Unsupported("vector")?
   expiresAt DateTime?                    @map("expires_at")
   createdAt DateTime                     @default(now()) @map("created_at")
   updatedAt DateTime                     @updatedAt @map("updated_at")
@@ -394,13 +666,16 @@ model Skill {
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
-  sourceTaskId String? @map("source_task_id")
+  sourceTaskId         String?     @map("source_task_id")
+  source               SkillSource @default(manual)
+  sourceExperienceId   String?     @map("source_experience_id")
 
-  org        Org         @relation(fields: [orgId], references: [id])
-  team       Team?       @relation(fields: [teamId], references: [id])
-  author     User        @relation("SkillAuthor", fields: [authorId], references: [id])
-  sourceTask Task?       @relation(fields: [sourceTaskId], references: [id], onDelete: SetNull)
-  users      UserSkill[]
+  org              Org              @relation(fields: [orgId], references: [id])
+  team             Team?            @relation(fields: [teamId], references: [id])
+  author           User             @relation("SkillAuthor", fields: [authorId], references: [id])
+  sourceTask       Task?            @relation(fields: [sourceTaskId], references: [id], onDelete: SetNull)
+  sourceExperience AgentExperience? @relation(fields: [sourceExperienceId], references: [id], onDelete: SetNull)
+  users            UserSkill[]
 
   @@unique([orgId, name], map: "skills_org_name_unique")
   @@map("skills")
@@ -428,7 +703,7 @@ model Routine {
   name          String
   description   String?
   prompt        String
-  schedule      String
+  schedule      String?
   context       Json              @default("{}")
   delivery      Json
   enabled       Boolean           @default(true)
@@ -438,9 +713,32 @@ model Routine {
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
 
-  user User         @relation(fields: [userId], references: [id])
-  runs RoutineRun[]
+  // Feature 1: Run-to-Run State
+  state       Json @default("{}") @map("state")
+  stateConfig Json @default("{}") @map("state_config")
 
+  // Feature 3: Team-Scoped Routines
+  scope  RoutineScope @default(personal)
+  teamId String?      @map("team_id")
+  orgId  String?      @map("org_id")
+
+  // Feature 4: Parameterized Routines
+  parameters Json @default("[]")
+
+  // Feature 5: Approval Gates
+  checkpoints Json @default("[]")
+
+  user               User                @relation(fields: [userId], references: [id])
+  team               Team?               @relation(fields: [teamId], references: [id])
+  org                Org?                @relation(fields: [orgId], references: [id])
+  runs               RoutineRun[]
+  triggers           RoutineTrigger[]
+  approvalCheckpoints ApprovalCheckpoint[]
+  chainsFrom         RoutineChain[]      @relation("ChainsFrom")
+  chainsTo           RoutineChain[]      @relation("ChainsTo")
+  healthAlerts       RoutineHealthAlert[]
+
+  @@index([orgId, teamId, scope])
   @@map("routines")
 }
 
@@ -455,9 +753,159 @@ model RoutineRun {
   startedAt   DateTime         @default(now()) @map("started_at")
   completedAt DateTime?        @map("completed_at")
 
-  routine Routine @relation(fields: [routineId], references: [id])
+  // Feature 1: Run-to-Run State
+  summary String?
+
+  // Feature 2: Event-Driven Triggers
+  triggerId    String? @map("trigger_id")
+  triggerEvent Json?   @map("trigger_event")
+
+  // Feature 4: Parameterized Routines
+  parameterValues Json?  @map("parameter_values")
+  triggeredBy     String? @map("triggered_by") // "schedule" | "manual" | "event"
+
+  // Feature 5: Approval Gates
+  pausedState Json? @map("paused_state")
+
+  routine          Routine            @relation(fields: [routineId], references: [id])
+  trigger          RoutineTrigger?    @relation(fields: [triggerId], references: [id])
+  approvalRequests ApprovalRequest[]
 
   @@map("routine_runs")
+}
+
+// ──────────────────────────────────────────────
+// Feature 2: Event-Driven Triggers
+// ──────────────────────────────────────────────
+
+model WebhookEndpoint {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  integrationId String?  @map("integration_id")
+  provider      String
+  urlToken      String   @unique @map("url_token")
+  secret        String
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  org        Org              @relation(fields: [orgId], references: [id])
+  integration Integration?   @relation(fields: [integrationId], references: [id])
+  triggers   RoutineTrigger[]
+
+  @@map("webhook_endpoints")
+}
+
+model RoutineTrigger {
+  id                String        @id @default(uuid())
+  routineId         String        @map("routine_id")
+  webhookEndpointId String        @map("webhook_endpoint_id")
+  eventType         String        @map("event_type")
+  filters           Json          @default("{}")
+  parameterMapping  Json          @default("{}") @map("parameter_mapping")
+  status            TriggerStatus @default(active)
+  lastTriggeredAt   DateTime?     @map("last_triggered_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  routine          Routine          @relation(fields: [routineId], references: [id])
+  webhookEndpoint  WebhookEndpoint  @relation(fields: [webhookEndpointId], references: [id])
+  runs             RoutineRun[]
+
+  @@map("routine_triggers")
+}
+
+// ──────────────────────────────────────────────
+// Feature 5: Approval Gates
+// ──────────────────────────────────────────────
+
+model ApprovalCheckpoint {
+  id              String   @id @default(uuid())
+  routineId       String   @map("routine_id")
+  name            String
+  description     String?
+  position        Int
+  approverPolicy  Json     @default("{}") @map("approver_policy")
+  timeoutMinutes  Int?     @map("timeout_minutes")
+  timeoutAction   String?  @map("timeout_action") // "approve" | "reject"
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  routine          Routine           @relation(fields: [routineId], references: [id])
+  approvalRequests ApprovalRequest[]
+
+  @@map("approval_checkpoints")
+}
+
+model ApprovalRequest {
+  id              String         @id @default(uuid())
+  runId           String         @map("run_id")
+  checkpointId    String         @map("checkpoint_id")
+  status          ApprovalStatus @default(pending)
+  agentOutput     String?        @map("agent_output")
+  editedOutput    String?        @map("edited_output")
+  reviewerId      String?        @map("reviewer_id")
+  reviewerComment String?        @map("reviewer_comment")
+  slackMessageTs  String?        @map("slack_message_ts")
+  timeoutAt       DateTime?      @map("timeout_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  resolvedAt      DateTime?      @map("resolved_at")
+
+  run        RoutineRun         @relation(fields: [runId], references: [id])
+  checkpoint ApprovalCheckpoint @relation(fields: [checkpointId], references: [id])
+  reviewer   User?              @relation(fields: [reviewerId], references: [id])
+
+  @@map("approval_requests")
+}
+
+// ──────────────────────────────────────────────
+// Feature 7: Cross-Routine Chaining
+// ──────────────────────────────────────────────
+
+model RoutineChain {
+  id               String   @id @default(uuid())
+  sourceRoutineId  String   @map("source_routine_id")
+  targetRoutineId  String   @map("target_routine_id")
+  condition        String   @default("on_success") // on_success | on_failure | always
+  parameterMapping Json     @default("{}") @map("parameter_mapping")
+  enabled          Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  sourceRoutine Routine @relation("ChainsFrom", fields: [sourceRoutineId], references: [id])
+  targetRoutine Routine @relation("ChainsTo", fields: [targetRoutineId], references: [id])
+
+  @@unique([sourceRoutineId, targetRoutineId])
+  @@map("routine_chains")
+}
+
+model PipelineRun {
+  id          String    @id @default(uuid())
+  rootRunId   String    @map("root_run_id")
+  status      String    @default("running") // running | completed | failed | partial
+  runIds      String[]
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@map("pipeline_runs")
+}
+
+// ──────────────────────────────────────────────
+// Feature 8: Org-Wide Observability
+// ──────────────────────────────────────────────
+
+model RoutineHealthAlert {
+  id          String    @id @default(uuid())
+  orgId       String    @map("org_id")
+  routineId   String    @map("routine_id")
+  alertType   String    @map("alert_type") // "consecutive_failures" | "missed_schedule" | "high_cost"
+  threshold   Json
+  enabled     Boolean   @default(true)
+  lastFiredAt DateTime? @map("last_fired_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  org     Org     @relation(fields: [orgId], references: [id])
+  routine Routine @relation(fields: [routineId], references: [id])
+
+  @@map("routine_health_alerts")
 }
 
 // ──────────────────────────────────────────────
@@ -475,7 +923,8 @@ model Integration {
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
-  org Org @relation(fields: [orgId], references: [id])
+  org              Org               @relation(fields: [orgId], references: [id])
+  webhookEndpoints WebhookEndpoint[]
 
   @@map("integrations")
 }
@@ -494,10 +943,379 @@ model AuditLog {
   details    Json
   createdAt  DateTime @default(now()) @map("created_at")
 
-  org  Org   @relation(fields: [orgId], references: [id])
-  user User? @relation(fields: [userId], references: [id])
+  org       Org                @relation(fields: [orgId], references: [id])
+  user      User?              @relation(fields: [userId], references: [id])
+  reactions ActivityReaction[]
 
   @@index([orgId, createdAt(sort: Desc)], map: "idx_audit_org_time")
   @@index([userId, createdAt(sort: Desc)], map: "idx_audit_user")
   @@map("audit_logs")
+}
+
+// ──────────────────────────────────────────────
+// Activity Reactions
+// ──────────────────────────────────────────────
+
+model ActivityReaction {
+  id         String   @id @default(uuid())
+  auditLogId String   @map("audit_log_id")
+  userId     String   @map("user_id")
+  emoji      String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  auditLog AuditLog @relation(fields: [auditLogId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([auditLogId, userId, emoji])
+  @@map("activity_reactions")
+}
+
+// ──────────────────────────────────────────────
+// Agent Experience (Self-Evolving Loop)
+// ──────────────────────────────────────────────
+
+model AgentExperience {
+  id        String            @id @default(uuid())
+  orgId     String            @map("org_id")
+  userId    String            @map("user_id")
+  sessionId String            @map("session_id")
+
+  // What happened
+  taskSummary String          @map("task_summary")
+  approach    String
+  outcome     ExperienceOutcome
+
+  // Structured learnings
+  learnings   String[]
+  toolsUsed   String[]        @map("tools_used")
+  tags        String[]
+
+  // Searchability
+  embedding   Unsupported("vector")?
+
+  // Metadata
+  tokenCount     Int?         @map("token_count")
+  iterationCount Int?         @map("iteration_count")
+  durationMs     Int?         @map("duration_ms")
+  quality        Float?
+
+  // Lifecycle
+  supersededById String?      @map("superseded_by_id")
+
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  org          Org            @relation(fields: [orgId], references: [id])
+  user         User           @relation(fields: [userId], references: [id])
+  session      ChatSession    @relation(fields: [sessionId], references: [id])
+  supersededBy AgentExperience? @relation("ExperienceSupersedes", fields: [supersededById], references: [id])
+  supersedes   AgentExperience[] @relation("ExperienceSupersedes")
+  proposedSkills Skill[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([orgId, createdAt(sort: Desc)])
+  @@map("agent_experiences")
+}
+
+// ──────────────────────────────────────────────
+// Governance
+// ──────────────────────────────────────────────
+
+model GovernancePolicy {
+  id          String                @id @default(uuid())
+  orgId       String                @map("org_id")
+  name        String
+  description String?
+  category    String                @default("custom")
+  severity    GovernanceSeverity    @default(warning)
+  ruleType    String                @map("rule_type")
+  ruleConfig  Json                  @map("rule_config")
+  enforcement GovernanceEnforcement @default(monitor)
+  scope       Json                  @default("{}")
+  enabled     Boolean               @default(true)
+  createdBy   String                @map("created_by")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  org        Org                    @relation(fields: [orgId], references: [id])
+  creator    User                   @relation("PolicyCreator", fields: [createdBy], references: [id])
+  violations GovernanceViolation[]
+
+  @@index([orgId, enabled])
+  @@map("governance_policies")
+}
+
+model GovernanceViolation {
+  id             String                     @id @default(uuid())
+  orgId          String                     @map("org_id")
+  policyId       String                     @map("policy_id")
+  userId         String                     @map("user_id")
+  sessionId      String                     @map("session_id")
+  messageId      String?                    @map("message_id")
+  messageRole    String                     @map("message_role")
+  severity       GovernanceSeverity
+  contentSnippet String                     @map("content_snippet") @db.VarChar(500)
+  matchDetails   Json                       @map("match_details")
+  enforcement    GovernanceEnforcement
+  status         GovernanceViolationStatus  @default(open)
+  reviewedBy     String?                    @map("reviewed_by")
+  reviewNote     String?                    @map("review_note")
+  reviewedAt     DateTime?                  @map("reviewed_at")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+
+  org      Org              @relation(fields: [orgId], references: [id])
+  policy   GovernancePolicy @relation(fields: [policyId], references: [id])
+  user     User             @relation("ViolationUser", fields: [userId], references: [id])
+  reviewer User?            @relation("ViolationReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([orgId, createdAt(sort: Desc)])
+  @@index([orgId, severity])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([policyId])
+  @@map("governance_violations")
+}
+
+// ──────────────────────────────────────────────
+// Cognitive Profiles (Digital Co-Worker)
+// ──────────────────────────────────────────────
+
+model CognitiveProfile {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  userId    String   @map("user_id")
+  profile   Json     @default("{}")
+  version   Int      @default(1)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  org  Org  @relation(fields: [orgId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([orgId, userId])
+  @@map("cognitive_profiles")
+}
+
+model ThoughtPattern {
+  id               String                  @id @default(uuid())
+  orgId            String                  @map("org_id")
+  userId           String                  @map("user_id")
+  pattern          String
+  category         String
+  sourceSessionId  String                  @map("source_session_id")
+  sourceExcerpt    String                  @map("source_excerpt")
+  confidence       Float                   @default(0.5)
+  observationCount Int                     @default(1) @map("observation_count")
+  firstObserved    DateTime                @default(now()) @map("first_observed")
+  lastReinforced   DateTime                @default(now()) @map("last_reinforced")
+  supersededById   String?                 @map("superseded_by_id")
+  supersededReason String?                 @map("superseded_reason")
+  embedding        Unsupported("vector")?
+  createdAt        DateTime                @default(now()) @map("created_at")
+
+  org           Org              @relation(fields: [orgId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  sourceSession ChatSession      @relation(fields: [sourceSessionId], references: [id])
+  supersededBy  ThoughtPattern?  @relation("PatternSupersedes", fields: [supersededById], references: [id])
+  supersedes    ThoughtPattern[] @relation("PatternSupersedes")
+
+  @@index([userId, category])
+  @@index([orgId, userId])
+  @@map("thought_patterns")
+}
+
+// ──────────────────────────────────────────────
+// Context Graph (Decision Intelligence)
+// ──────────────────────────────────────────────
+
+model Decision {
+  id               String                  @id @default(uuid())
+  orgId            String                  @map("org_id")
+  teamId           String?                 @map("team_id")
+  createdById      String                  @map("created_by_id")
+  sessionId        String?                 @map("session_id")
+
+  title            String
+  description      String?
+  reasoning        String
+  alternatives     Json                    @default("[]")
+
+  domain           String?
+  tags             String[]                @default([])
+  scope            DecisionScope           @default(org)
+  status           DecisionStatus          @default(active)
+  confidence       DecisionConfidence      @default(medium)
+  source           DecisionSource          @default(manual)
+  sourceRef        Json?                   @map("source_ref")
+  sensitivity      String                  @default("normal") // normal | restricted | confidential
+
+  participants     String[]                @default([])
+  contextSnapshot  Json?                   @map("context_snapshot")
+
+  quality          Float                   @default(0)
+  importance       Float                   @default(0.5)
+
+  supersededById   String?                 @map("superseded_by_id")
+
+  embedding        Unsupported("vector")?
+
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  org              Org                     @relation(fields: [orgId], references: [id])
+  team             Team?                   @relation(fields: [teamId], references: [id])
+  createdBy        User                    @relation("DecisionsCreated", fields: [createdById], references: [id])
+  session          ChatSession?            @relation(fields: [sessionId], references: [id])
+  supersededBy     Decision?               @relation("DecisionSupersedes", fields: [supersededById], references: [id])
+  supersedes       Decision[]              @relation("DecisionSupersedes")
+
+  contexts         DecisionContext[]
+  linksFrom        DecisionLink[]          @relation("LinkFrom")
+  linksTo          DecisionLink[]          @relation("LinkTo")
+  outcomes         DecisionOutcome[]
+  patternLinks     DecisionPatternLink[]
+
+  @@index([orgId, domain, createdAt(sort: Desc)], map: "idx_decision_org_domain_time")
+  @@index([orgId, teamId, scope], map: "idx_decision_org_team_scope")
+  @@index([createdById, createdAt(sort: Desc)], map: "idx_decision_creator")
+  @@map("decisions")
+}
+
+model DecisionContext {
+  id            String   @id @default(uuid())
+  decisionId    String   @map("decision_id")
+  contextType   String   @map("context_type") // memory | experience | document | person | meeting | integration
+  contextId     String?  @map("context_id")
+  label         String?
+  snippet       String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([decisionId])
+  @@map("decision_contexts")
+}
+
+model DecisionLink {
+  id                String               @id @default(uuid())
+  fromDecisionId    String               @map("from_decision_id")
+  toDecisionId      String               @map("to_decision_id")
+  relationship      DecisionRelationship
+  description       String?
+  createdById       String?              @map("created_by_id")
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  fromDecision Decision @relation("LinkFrom", fields: [fromDecisionId], references: [id], onDelete: Cascade)
+  toDecision   Decision @relation("LinkTo", fields: [toDecisionId], references: [id], onDelete: Cascade)
+
+  @@unique([fromDecisionId, toDecisionId, relationship])
+  @@map("decision_links")
+}
+
+model DecisionOutcome {
+  id            String         @id @default(uuid())
+  decisionId    String         @map("decision_id")
+  observedById  String         @map("observed_by_id")
+  verdict       OutcomeVerdict
+  description   String
+  impactScore   Float?         @map("impact_score")
+  evidence      Json?
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  decision   Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  observedBy User     @relation("OutcomesObserved", fields: [observedById], references: [id])
+
+  @@index([decisionId])
+  @@map("decision_outcomes")
+}
+
+model DecisionPattern {
+  id            String                  @id @default(uuid())
+  orgId         String                  @map("org_id")
+  teamId        String?                 @map("team_id")
+  name          String
+  description   String
+  domain        String?
+  conditions    String?
+  typicalOutcome String?                @map("typical_outcome")
+  status        PatternStatus           @default(emerging)
+  decisionCount Int                     @default(0) @map("decision_count")
+  confidence    Float                   @default(0.5)
+  embedding     Unsupported("vector")?
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  org              Org                    @relation(fields: [orgId], references: [id])
+  team             Team?                  @relation(fields: [teamId], references: [id])
+  decisionLinks    DecisionPatternLink[]
+  principleEvidence OrgPrincipleEvidence[]
+
+  @@index([orgId, domain])
+  @@map("decision_patterns")
+}
+
+model DecisionPatternLink {
+  decisionId String @map("decision_id")
+  patternId  String @map("pattern_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  decision Decision        @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  pattern  DecisionPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+
+  @@id([decisionId, patternId])
+  @@map("decision_pattern_links")
+}
+
+model OrgPrinciple {
+  id             String                  @id @default(uuid())
+  orgId          String                  @map("org_id")
+  domain         String?
+  title          String
+  description    String
+  guideline      String
+  antiPattern    String?                 @map("anti_pattern")
+  status         PrincipleStatus         @default(proposed)
+  confidence     Float                   @default(0.5)
+  version        Int                     @default(1)
+  lastSyncedToSoul DateTime?             @map("last_synced_to_soul")
+  lastSyncedToGov  DateTime?             @map("last_synced_to_gov")
+  embedding      Unsupported("vector")?
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  org           Org                      @relation(fields: [orgId], references: [id])
+  evidence      OrgPrincipleEvidence[]
+
+  @@index([orgId, domain])
+  @@map("org_principles")
+}
+
+model OrgPrincipleEvidence {
+  principleId String @map("principle_id")
+  patternId   String @map("pattern_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  principle OrgPrinciple    @relation(fields: [principleId], references: [id], onDelete: Cascade)
+  pattern   DecisionPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+
+  @@id([principleId, patternId])
+  @@map("org_principle_evidence")
+}
+
+model MeetingIngestion {
+  id                 String          @id @default(uuid())
+  orgId              String          @map("org_id")
+  provider           MeetingProvider
+  externalMeetingId  String?         @map("external_meeting_id")
+  title              String
+  participants       String[]        @default([])
+  meetingDate        DateTime        @map("meeting_date")
+  transcript         String?
+  summary            String?
+  calendarEventId    String?         @map("calendar_event_id")
+  processedAt        DateTime?       @map("processed_at")
+  decisionsExtracted Int             @default(0) @map("decisions_extracted")
+  createdAt          DateTime        @default(now()) @map("created_at")
+
+  @@index([orgId, meetingDate(sort: Desc)])
+  @@map("meeting_ingestions")
 }

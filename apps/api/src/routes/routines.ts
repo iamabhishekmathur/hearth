@@ -3,7 +3,11 @@ import { requireAuth } from '../middleware/auth.js';
 import * as routineService from '../services/routine-service.js';
 import { enqueueRoutineNow, updateRoutineSchedule } from '../jobs/routine-scheduler.js';
 import * as integrationService from '../services/integration-service.js';
+import * as webhookService from '../services/webhook-service.js';
+import { validateParameterSchema, validateParameterValues, resolveDefaults } from '../services/routine-parameter-service.js';
 import { mcpGateway } from '../mcp/gateway.js';
+import { prisma } from '../lib/prisma.js';
+import type { RoutineParameter, RoutineScope, RoutineStateConfig, ApprovalCheckpointDef } from '@hearth/shared';
 
 /** UUID v4 format check */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -15,7 +19,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function isValidCron(expr: string): boolean {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) return false;
-  // Each field: number, *, ranges, lists, steps
   const fieldRe = /^(\*|[0-9]{1,2})([,-/][0-9*]{1,3})*$/;
   return parts.every((p) => fieldRe.test(p));
 }
@@ -30,7 +33,6 @@ const PROVIDER_LABELS: Record<string, string> = {
   gcalendar: 'Google Calendar',
 };
 
-// Resource-like parameters that represent locations within an integration
 const RESOURCE_PARAM_NAMES = new Set([
   'channel', 'repo', 'owner', 'project', 'database_id',
   'page_id', 'board', 'label', 'calendarId',
@@ -52,8 +54,7 @@ function extractResourceParams(tool: { name: string; inputSchema?: Record<string
 const router: ReturnType<typeof Router> = Router();
 
 /**
- * GET /integrations — list connected integrations with their tools (for @ mentions in prompt)
- * Non-admin endpoint: returns provider names, tools, and resource hints — no credentials.
+ * GET /integrations — list connected integrations with their tools
  */
 router.get('/integrations', requireAuth, async (req, res, next) => {
   try {
@@ -68,7 +69,6 @@ router.get('/integrations', requireAuth, async (req, res, next) => {
 
     const result = await Promise.all(
       active.map(async (integ) => {
-        // Try live tools from gateway; fall back to static definitions for the provider
         let tools = await mcpGateway.listTools(integ.id);
         if (tools.length === 0) {
           tools = mcpGateway.getStaticTools(integ.provider);
@@ -80,7 +80,6 @@ router.get('/integrations', requireAuth, async (req, res, next) => {
           tools: tools.map((t) => ({
             name: t.name,
             description: t.description,
-            // Extract resource parameters from input schema (channels, repos, etc.)
             resourceParams: extractResourceParams(t),
           })),
         };
@@ -94,7 +93,7 @@ router.get('/integrations', requireAuth, async (req, res, next) => {
 });
 
 /**
- * POST /test-run — execute a prompt once without saving a routine, and return the output
+ * POST /test-run — execute a prompt once without saving a routine
  */
 router.post('/test-run', requireAuth, async (req, res, next) => {
   try {
@@ -104,17 +103,15 @@ router.post('/test-run', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Create a temporary routine, run it, return output, then delete
     const tempRoutine = await routineService.createRoutine(req.user!.id, {
       name: `_test_${Date.now()}`,
       description: 'Temporary test run',
       prompt: prompt.trim(),
-      schedule: '0 0 31 2 *', // Feb 31 — will never fire
+      schedule: '0 0 31 2 *',
     });
 
     try {
       await enqueueRoutineNow(tempRoutine.id, req.user!.id);
-      // Poll for completion (max 30 seconds)
       const startTime = Date.now();
       let run = null;
       while (Date.now() - startTime < 30000) {
@@ -135,7 +132,6 @@ router.post('/test-run', requireAuth, async (req, res, next) => {
           : { status: 'timeout', output: null, error: 'Test run did not complete within 30 seconds' },
       });
     } finally {
-      // Clean up temp routine
       await routineService.deleteRoutine(tempRoutine.id, req.user!.id).catch(() => {});
     }
   } catch (err) {
@@ -144,18 +140,23 @@ router.post('/test-run', requireAuth, async (req, res, next) => {
 });
 
 /**
- * GET / — list current user's routines
+ * GET / — list routines (Feature 3: scope-aware)
  */
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const routines = await routineService.listRoutines(req.user!.id);
+    const scope = req.query.scope as RoutineScope | undefined;
+    const routines = await routineService.listRoutines(req.user!.id, {
+      scope,
+      orgId: req.user!.orgId,
+      teamId: req.user!.teamId,
+    });
     res.json({ data: routines });
   } catch (err) {
     next(err);
   }
 });
 
-// Validate :id param on all parameterized routes
+// Validate :id param
 router.param('id', (req, res, next, id) => {
   if (!UUID_RE.test(id)) {
     res.status(400).json({ error: 'Invalid ID format' });
@@ -185,23 +186,41 @@ router.get('/:id', requireAuth, async (req, res, next) => {
  */
 router.post('/', requireAuth, async (req, res, next) => {
   try {
-    const { name, description, prompt, schedule, context, delivery } = req.body as {
+    const {
+      name, description, prompt, schedule, context, delivery,
+      stateConfig, scope, teamId, parameters, checkpoints,
+    } = req.body as {
       name?: string;
       description?: string;
       prompt?: string;
       schedule?: string;
       context?: Record<string, unknown>;
       delivery?: Record<string, unknown>;
+      stateConfig?: RoutineStateConfig;
+      scope?: RoutineScope;
+      teamId?: string;
+      parameters?: RoutineParameter[];
+      checkpoints?: ApprovalCheckpointDef[];
     };
 
-    if (!name || !prompt || !schedule) {
-      res.status(400).json({ error: 'name, prompt, and schedule are required' });
+    if (!name || !prompt) {
+      res.status(400).json({ error: 'name and prompt are required' });
       return;
     }
 
-    if (!isValidCron(schedule)) {
+    // Schedule is optional (event-only routines don't need one)
+    if (schedule && !isValidCron(schedule)) {
       res.status(400).json({ error: 'Invalid cron schedule. Use 5-field cron format (e.g. "0 9 * * 1-5")' });
       return;
+    }
+
+    // Validate parameters schema if provided
+    if (parameters && parameters.length > 0) {
+      const validation = validateParameterSchema(parameters);
+      if (!validation.valid) {
+        res.status(400).json({ error: validation.error });
+        return;
+      }
     }
 
     const routine = await routineService.createRoutine(req.user!.id, {
@@ -211,9 +230,17 @@ router.post('/', requireAuth, async (req, res, next) => {
       schedule,
       context,
       delivery,
+      stateConfig,
+      scope,
+      teamId: teamId ?? req.user!.teamId ?? undefined,
+      orgId: req.user!.orgId ?? undefined,
+      parameters,
+      checkpoints,
     });
 
-    await updateRoutineSchedule(routine.id);
+    if (routine.schedule) {
+      await updateRoutineSchedule(routine.id);
+    }
     res.status(201).json({ data: routine });
   } catch (err) {
     next(err);
@@ -225,13 +252,22 @@ router.post('/', requireAuth, async (req, res, next) => {
  */
 router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
-    const { name, description, prompt, schedule, context, delivery } = req.body as {
+    const {
+      name, description, prompt, schedule, context, delivery,
+      stateConfig, state, scope, teamId, parameters, checkpoints,
+    } = req.body as {
       name?: string;
       description?: string;
       prompt?: string;
       schedule?: string;
       context?: Record<string, unknown>;
       delivery?: Record<string, unknown>;
+      stateConfig?: RoutineStateConfig;
+      state?: Record<string, unknown>;
+      scope?: RoutineScope;
+      teamId?: string;
+      parameters?: RoutineParameter[];
+      checkpoints?: ApprovalCheckpointDef[];
     };
 
     if (schedule && !isValidCron(schedule)) {
@@ -239,13 +275,17 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       return;
     }
 
+    if (parameters && parameters.length > 0) {
+      const validation = validateParameterSchema(parameters);
+      if (!validation.valid) {
+        res.status(400).json({ error: validation.error });
+        return;
+      }
+    }
+
     const routine = await routineService.updateRoutine(req.params.id as string, req.user!.id, {
-      name,
-      description,
-      prompt,
-      schedule,
-      context,
-      delivery,
+      name, description, prompt, schedule, context, delivery,
+      stateConfig, state, scope, teamId, parameters, checkpoints,
     });
 
     if (!routine) {
@@ -295,7 +335,7 @@ router.post('/:id/toggle', requireAuth, async (req, res, next) => {
 });
 
 /**
- * POST /:id/run-now — trigger immediate execution
+ * POST /:id/run-now — trigger immediate execution (Feature 4: with parameters)
  */
 router.post('/:id/run-now', requireAuth, async (req, res, next) => {
   try {
@@ -304,7 +344,21 @@ router.post('/:id/run-now', requireAuth, async (req, res, next) => {
       res.status(404).json({ error: 'Routine not found' });
       return;
     }
-    await enqueueRoutineNow(routine.id, req.user!.id);
+
+    const { parameterValues } = req.body as { parameterValues?: Record<string, unknown> } || {};
+
+    // Validate parameter values if routine has parameters
+    const parameters = (routine.parameters as unknown as RoutineParameter[]) ?? [];
+    if (parameters.length > 0 && parameterValues) {
+      const resolved = resolveDefaults(parameters, parameterValues);
+      const validation = validateParameterValues(parameters, resolved);
+      if (!validation.valid) {
+        res.status(400).json({ error: validation.error });
+        return;
+      }
+    }
+
+    await enqueueRoutineNow(routine.id, req.user!.id, { parameterValues });
     res.json({ message: 'Routine execution enqueued' });
   } catch (err) {
     next(err);
@@ -323,6 +377,175 @@ router.get('/:id/runs', requireAuth, async (req, res, next) => {
       return;
     }
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Feature 1: State endpoints ──
+
+/**
+ * GET /:id/state — get routine state
+ */
+router.get('/:id/state', requireAuth, async (req, res, next) => {
+  try {
+    const state = await routineService.getState(req.params.id as string);
+    res.json({ data: state });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PUT /:id/state — update routine state
+ */
+router.put('/:id/state', requireAuth, async (req, res, next) => {
+  try {
+    const state = req.body as Record<string, unknown>;
+    await routineService.updateState(req.params.id as string, state);
+    res.json({ data: state });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /:id/state — reset routine state
+ */
+router.delete('/:id/state', requireAuth, async (req, res, next) => {
+  try {
+    await routineService.resetState(req.params.id as string);
+    res.json({ data: {} });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Feature 2: Trigger CRUD ──
+
+/**
+ * GET /:id/triggers — list triggers for a routine
+ */
+router.get('/:id/triggers', requireAuth, async (req, res, next) => {
+  try {
+    const triggers = await prisma.routineTrigger.findMany({
+      where: { routineId: req.params.id as string },
+      include: { webhookEndpoint: { select: { id: true, provider: true, urlToken: true } } },
+    });
+    res.json({ data: triggers });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /:id/triggers — create a trigger for a routine
+ */
+router.post('/:id/triggers', requireAuth, async (req, res, next) => {
+  try {
+    const { webhookEndpointId, eventType, filters, parameterMapping } = req.body as {
+      webhookEndpointId?: string;
+      eventType?: string;
+      filters?: Record<string, unknown>;
+      parameterMapping?: Record<string, string>;
+    };
+
+    if (!webhookEndpointId || !eventType) {
+      res.status(400).json({ error: 'webhookEndpointId and eventType are required' });
+      return;
+    }
+
+    const trigger = await prisma.routineTrigger.create({
+      data: {
+        routineId: req.params.id as string,
+        webhookEndpointId,
+        eventType,
+        filters: (filters ?? {}) as never,
+        parameterMapping: (parameterMapping ?? {}) as never,
+      },
+    });
+    res.status(201).json({ data: trigger });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /:id/triggers/:triggerId — delete a trigger
+ */
+router.delete('/:id/triggers/:triggerId', requireAuth, async (req, res, next) => {
+  try {
+    await prisma.routineTrigger.delete({ where: { id: req.params.triggerId as string } });
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Feature 2: Webhook endpoint CRUD ──
+
+/**
+ * GET /webhook-endpoints — list webhook endpoints for the org
+ */
+router.get('/webhook-endpoints', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.json({ data: [] });
+      return;
+    }
+    const endpoints = await webhookService.listWebhookEndpoints(orgId);
+    res.json({ data: endpoints });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /webhook-endpoints — create a webhook endpoint
+ */
+router.post('/webhook-endpoints', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.status(400).json({ error: 'Organization context required' });
+      return;
+    }
+
+    const { provider, integrationId } = req.body as {
+      provider?: string;
+      integrationId?: string;
+    };
+
+    if (!provider) {
+      res.status(400).json({ error: 'provider is required' });
+      return;
+    }
+
+    const result = await webhookService.createWebhookEndpoint(orgId, { provider, integrationId });
+    res.status(201).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /webhook-endpoints/:endpointId — delete a webhook endpoint
+ */
+router.delete('/webhook-endpoints/:endpointId', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.status(400).json({ error: 'Organization context required' });
+      return;
+    }
+
+    const result = await webhookService.deleteWebhookEndpoint(req.params.endpointId as string, orgId);
+    if (!result) {
+      res.status(404).json({ error: 'Webhook endpoint not found' });
+      return;
+    }
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

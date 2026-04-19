@@ -63,6 +63,32 @@ vi.mock('../services/delivery-service.js', () => ({
   deliver: vi.fn(),
 }));
 
+vi.mock('../services/routine-context-service.js', () => ({
+  buildRoutineRunContext: vi.fn().mockResolvedValue({ state: {}, previousRuns: [], stateConfig: {} }),
+}));
+
+vi.mock('../services/delivery-rule-engine.js', () => ({
+  evaluateDeliveryRules: vi.fn().mockReturnValue([]),
+  applyTemplate: vi.fn((_: unknown, output: string) => output),
+}));
+
+vi.mock('../services/routine-parameter-service.js', () => ({
+  resolveDefaults: vi.fn((_: unknown, vals: unknown) => vals),
+  resolvePromptTemplate: vi.fn((prompt: string) => prompt),
+  validateParameterValues: vi.fn().mockReturnValue({ valid: true }),
+}));
+
+vi.mock('../services/chain-service.js', () => ({
+  getDownstreamChains: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../services/pipeline-service.js', () => ({
+  createPipelineRun: vi.fn(),
+  addRunToPipeline: vi.fn(),
+  findPipelineByRunId: vi.fn(),
+  completePipeline: vi.fn(),
+}));
+
 import { routineQueue, syncRoutineSchedules, enqueueRoutineNow } from './routine-scheduler.js';
 import * as bullmq from 'bullmq';
 
@@ -80,7 +106,7 @@ describe('routine-scheduler', () => {
     await enqueueRoutineNow('r1', 'u1');
     expect(routineQueue.add).toHaveBeenCalledWith(
       'execute-routine',
-      { routineId: 'r1', userId: 'u1' },
+      expect.objectContaining({ routineId: 'r1', userId: 'u1', triggeredBy: 'manual' }),
       expect.objectContaining({ jobId: expect.stringContaining('routine-now-r1-') }),
     );
   });

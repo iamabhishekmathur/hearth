@@ -76,6 +76,16 @@ export function SkillsPage() {
     fetchSkills();
   }, [fetchSkills]);
 
+  // Auto-select skill from URL query param (e.g., ?skillId=abc)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const skillId = params.get('skillId');
+    if (skillId && skills.length > 0) {
+      const skill = skills.find((s) => s.id === skillId);
+      if (skill) setPanel({ type: 'detail', skill });
+    }
+  }, [skills]);
+
   const handleInstall = useCallback(async (id: string) => {
     try {
       await api.post(`/skills/${id}/install`);

@@ -13,6 +13,7 @@ const WorkspacePage = lazy(() => import('@/pages/workspace').then((m) => ({ defa
 const SharedSessionPage = lazy(() => import('@/pages/shared-session').then((m) => ({ default: m.SharedSessionPage })));
 const RoutinesPage = lazy(() => import('@/pages/routines').then((m) => ({ default: m.RoutinesPage })));
 const ActivityPage = lazy(() => import('@/pages/activity').then((m) => ({ default: m.ActivityPage })));
+const DecisionsPage = lazy(() => import('@/pages/decisions').then((m) => ({ default: m.DecisionsPage })));
 
 function PageFallback() {
   return (
@@ -117,6 +118,7 @@ function Router() {
           {route === '/skills' && <SkillsPage />}
           {route === '/routines' && <RoutinesPage />}
           {route === '/activity' && <ActivityPage />}
+          {route === '/decisions' && <DecisionsPage />}
           {route.startsWith('/settings') && <SettingsPage initialTab={route.split('/')[2]} />}
         </Suspense>
       </PageErrorBoundary>

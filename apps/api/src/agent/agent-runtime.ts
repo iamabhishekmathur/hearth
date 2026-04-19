@@ -33,14 +33,17 @@ export async function* agentLoop(
   context: AgentContext,
   messages: LLMMessage[],
 ): AsyncGenerator<ChatEvent> {
-  const toolDefs: ToolDefinition[] = context.tools.map((t) => ({
+  // Filter out unavailable tools before sending to LLM
+  const availableTools = context.tools.filter((t) => !t.isAvailable || t.isAvailable());
+
+  const toolDefs: ToolDefinition[] = availableTools.map((t) => ({
     name: t.name,
     description: t.description,
     inputSchema: t.inputSchema,
   }));
 
-  // Build tool handler map for execution
-  const toolMap = new Map(context.tools.map((t) => [t.name, t]));
+  // Build tool handler map for execution (only available tools)
+  const toolMap = new Map(availableTools.map((t) => [t.name, t]));
 
   const conversationMessages: LLMMessage[] = [...messages];
   const model = context.model ?? DEFAULT_MODEL;
@@ -136,8 +139,30 @@ export async function* agentLoop(
     };
     conversationMessages.push(assistantMessage);
 
+    // Yield 'started' progress for all tools before execution
     for (const toolCall of pendingToolCalls) {
-      const result = await executeTool(toolCall.name, toolCall.input, toolMap);
+      yield { type: 'tool_progress', toolCallId: toolCall.id, toolName: toolCall.name, status: 'started' as const };
+    }
+
+    // Execute tool calls in parallel
+    const toolResults = await Promise.all(
+      pendingToolCalls.map(async (toolCall) => {
+        const startTime = Date.now();
+        const result = await executeTool(toolCall.name, toolCall.input, toolMap);
+        const durationMs = Date.now() - startTime;
+        return { toolCall, result, durationMs };
+      }),
+    );
+
+    // Yield completion progress and add results to conversation
+    for (const { toolCall, result, durationMs } of toolResults) {
+      yield {
+        type: 'tool_progress',
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        status: result.error ? 'failed' as const : 'completed' as const,
+        durationMs,
+      };
 
       // Add tool result message for the LLM — include error so model doesn't retry blindly
       conversationMessages.push({

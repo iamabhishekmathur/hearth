@@ -119,6 +119,7 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
 
         {activeTab === 'Context' && (
           <TaskContextPanel
+            taskId={task.id}
             context={task.context}
             editable={editable}
             onAddContext={updateContext}

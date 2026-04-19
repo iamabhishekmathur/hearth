@@ -1,20 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Routine, RoutineRun } from '@hearth/shared';
+import type { Routine, RoutineRun, RoutineParameter } from '@hearth/shared';
+import { useRoutines } from '@/hooks/use-routines';
 import { RoutineForm } from './routine-form';
 
 interface RoutineDetailProps {
   routine: Routine;
   onUpdate: (id: string, data: Record<string, unknown>) => Promise<unknown>;
   onDelete: (id: string) => Promise<void>;
-  onRunNow: (id: string) => Promise<void>;
+  onRunNow: (id: string, parameterValues?: Record<string, unknown>) => Promise<void>;
   fetchRuns: (routineId: string, page?: number) => Promise<{ data: RoutineRun[]; total: number }>;
   onClose: () => void;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// -- Helpers ------------------------------------------------------------------
 
 function RunStatusDot({ status }: { status: string }) {
-  const color = status === 'success' ? 'bg-green-500' : status === 'failed' ? 'bg-red-500' : 'bg-yellow-500';
+  const color =
+    status === 'success'
+      ? 'bg-green-500'
+      : status === 'failed'
+        ? 'bg-red-500'
+        : status === 'awaiting_approval'
+          ? 'bg-amber-500'
+          : 'bg-yellow-500';
   return <span className={`inline-block h-2 w-2 rounded-full ${color}`} />;
 }
 
@@ -23,10 +31,29 @@ function StatusBadge({ status }: { status: string }) {
     success: 'bg-green-50 text-green-700 ring-green-600/20',
     failed: 'bg-red-50 text-red-700 ring-red-600/20',
     running: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20',
+    awaiting_approval: 'bg-amber-50 text-amber-700 ring-amber-600/20',
+  };
+  const label = status === 'awaiting_approval' ? 'Awaiting Approval' : status;
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${styles[status] ?? 'bg-gray-50 text-gray-600 ring-gray-500/10'}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ScopeBadge({ scope }: { scope: string }) {
+  const styles: Record<string, string> = {
+    personal: 'bg-blue-50 text-blue-700 ring-blue-600/20',
+    team: 'bg-purple-50 text-purple-700 ring-purple-600/20',
+    org: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20',
   };
   return (
-    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${styles[status] ?? 'bg-gray-50 text-gray-600 ring-gray-500/10'}`}>
-      {status}
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${styles[scope] ?? 'bg-gray-50 text-gray-600 ring-gray-500/10'}`}
+    >
+      {scope}
     </span>
   );
 }
@@ -66,7 +93,117 @@ function formatSchedule(cron: string): string {
   return cron;
 }
 
-// ─── Run Detail Expanded View ───────────────────────────────────────────────
+function getTriggerType(routine: Routine): string {
+  const hasSchedule = !!routine.schedule;
+  const hasTriggers = routine.triggers && routine.triggers.length > 0;
+  if (hasSchedule && hasTriggers) return 'Both';
+  if (hasTriggers) return 'Event';
+  if (hasSchedule) return 'Schedule';
+  return 'Manual';
+}
+
+// -- Parameter Input Form -----------------------------------------------------
+
+function ParameterInputForm({
+  parameters,
+  onSubmit,
+  onCancel,
+}: {
+  parameters: RoutineParameter[];
+  onSubmit: (values: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const [values, setValues] = useState<Record<string, unknown>>(() => {
+    const initial: Record<string, unknown> = {};
+    for (const param of parameters) {
+      if (param.default !== undefined) {
+        initial[param.name] = param.default;
+      } else if (param.type === 'boolean') {
+        initial[param.name] = false;
+      } else {
+        initial[param.name] = '';
+      }
+    }
+    return initial;
+  });
+
+  const handleChange = (name: string, type: string, raw: string | boolean) => {
+    let value: unknown = raw;
+    if (type === 'number' && typeof raw === 'string') {
+      value = raw === '' ? '' : Number(raw);
+    }
+    setValues((prev) => ({ ...prev, [name]: value }));
+  };
+
+  return (
+    <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        Parameter Values
+      </h4>
+      {parameters.map((param) => (
+        <div key={param.name}>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            {param.label || param.name}
+            {param.required && <span className="ml-0.5 text-red-500">*</span>}
+          </label>
+          {param.description && (
+            <p className="mb-1 text-xs text-gray-400">{param.description}</p>
+          )}
+          {param.type === 'boolean' ? (
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!values[param.name]}
+                onChange={(e) => handleChange(param.name, param.type, e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-hearth-600 focus:ring-hearth-500"
+              />
+              <span className="text-sm text-gray-700">Enabled</span>
+            </label>
+          ) : param.type === 'enum' && param.options ? (
+            <select
+              value={String(values[param.name] ?? '')}
+              onChange={(e) => handleChange(param.name, param.type, e.target.value)}
+              className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:ring-hearth-500"
+            >
+              <option value="">Select...</option>
+              {param.options.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type={param.type === 'number' ? 'number' : param.type === 'date' ? 'date' : 'text'}
+              value={String(values[param.name] ?? '')}
+              onChange={(e) => handleChange(param.name, param.type, e.target.value)}
+              className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:ring-hearth-500"
+              placeholder={`Enter ${param.label || param.name}`}
+            />
+          )}
+        </div>
+      ))}
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => onSubmit(values)}
+          className="rounded-lg bg-hearth-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-hearth-700"
+        >
+          Run
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// -- Run Detail Expanded View -------------------------------------------------
 
 function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
   const outputText =
@@ -86,7 +223,11 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z"
+              clipRule="evenodd"
+            />
           </svg>
           Back to history
         </button>
@@ -95,6 +236,16 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5">
+        {/* Summary */}
+        {run.summary && (
+          <div className="mb-4">
+            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Summary
+            </h4>
+            <p className="text-sm text-gray-800">{run.summary}</p>
+          </div>
+        )}
+
         {/* Metadata */}
         <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3">
           <div>
@@ -119,12 +270,25 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
               <p className="text-sm text-gray-900">{run.tokenCount.toLocaleString()}</p>
             </div>
           )}
+          {run.triggeredBy === 'event' && (
+            <div>
+              <span className="text-xs font-medium text-gray-400">Triggered By</span>
+              <p className="text-sm text-gray-900">
+                Event
+                {run.triggerEvent?.eventType && (
+                  <span className="ml-1 text-xs text-gray-500">({run.triggerEvent.eventType})</span>
+                )}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Error */}
         {run.error && (
           <div className="mb-4">
-            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-red-500">Error</h4>
+            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-red-500">
+              Error
+            </h4>
             <div className="rounded-lg border border-red-200 bg-red-50 p-3">
               <pre className="whitespace-pre-wrap text-sm text-red-700">{run.error}</pre>
             </div>
@@ -134,7 +298,9 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
         {/* Output */}
         {outputText && (
           <div>
-            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Output</h4>
+            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Output
+            </h4>
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <div className="prose prose-sm max-w-none text-gray-800">
                 <pre className="whitespace-pre-wrap text-sm leading-relaxed">{outputText}</pre>
@@ -152,7 +318,7 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
   );
 }
 
-// ─── Run History List ───────────────────────────────────────────────────────
+// -- Run History List ---------------------------------------------------------
 
 function RunHistoryList({
   routineId,
@@ -171,18 +337,21 @@ function RunHistoryList({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const pageSize = 20;
 
-  const loadRuns = useCallback(async (p: number) => {
-    setLoading(true);
-    try {
-      const res = await fetchRuns(routineId, p);
-      setRuns(res.data ?? []);
-      setTotal(res.total ?? 0);
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [routineId, fetchRuns]);
+  const loadRuns = useCallback(
+    async (p: number) => {
+      setLoading(true);
+      try {
+        const res = await fetchRuns(routineId, p);
+        setRuns(res.data ?? []);
+        setTotal(res.total ?? 0);
+      } catch {
+        // Ignore
+      } finally {
+        setLoading(false);
+      }
+    },
+    [routineId, fetchRuns],
+  );
 
   useEffect(() => {
     loadRuns(page);
@@ -200,7 +369,8 @@ function RunHistoryList({
     return <RunDetail run={selectedRun} onClose={() => setSelectedRun(null)} />;
   }
 
-  const filteredRuns = statusFilter === 'all' ? runs : runs.filter((r) => r.status === statusFilter);
+  const filteredRuns =
+    statusFilter === 'all' ? runs : runs.filter((r) => r.status === statusFilter);
   const totalPages = Math.ceil(total / pageSize);
 
   const statusCounts = runs.reduce<Record<string, number>>((acc, r) => {
@@ -214,9 +384,15 @@ function RunHistoryList({
       <div className="flex items-center justify-between border-b border-gray-200 px-5 py-2.5">
         <div className="flex items-center gap-1.5">
           {/* Filter pills */}
-          {['all', 'success', 'failed', 'running'].map((s) => {
+          {['all', 'success', 'failed', 'running', 'awaiting_approval'].map((s) => {
             const count = s === 'all' ? runs.length : (statusCounts[s] ?? 0);
             if (s !== 'all' && count === 0) return null;
+            const label =
+              s === 'all'
+                ? 'All'
+                : s === 'awaiting_approval'
+                  ? 'Awaiting'
+                  : s.charAt(0).toUpperCase() + s.slice(1);
             return (
               <button
                 key={s}
@@ -228,7 +404,7 @@ function RunHistoryList({
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)} {count > 0 && `(${count})`}
+                {label} {count > 0 && `(${count})`}
               </button>
             );
           })}
@@ -240,7 +416,11 @@ function RunHistoryList({
           aria-label="Refresh"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H4.598a.75.75 0 0 0-.75.75v3.634a.75.75 0 0 0 1.5 0v-2.033l.312.312a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.391Zm-10.624-2.85a5.5 5.5 0 0 1 9.201-2.465l.312.311H11.77a.75.75 0 0 0 0 1.5h3.634a.75.75 0 0 0 .75-.75V3.536a.75.75 0 0 0-1.5 0v2.033l-.312-.312A7 7 0 0 0 2.63 8.395a.75.75 0 0 0 1.449.391l.009-.021Z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H4.598a.75.75 0 0 0-.75.75v3.634a.75.75 0 0 0 1.5 0v-2.033l.312.312a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.391Zm-10.624-2.85a5.5 5.5 0 0 1 9.201-2.465l.312.311H11.77a.75.75 0 0 0 0 1.5h3.634a.75.75 0 0 0 .75-.75V3.536a.75.75 0 0 0-1.5 0v2.033l-.312-.312A7 7 0 0 0 2.63 8.395a.75.75 0 0 0 1.449.391l.009-.021Z"
+              clipRule="evenodd"
+            />
           </svg>
         </button>
       </div>
@@ -253,8 +433,16 @@ function RunHistoryList({
           </div>
         ) : filteredRuns.length === 0 ? (
           <div className="py-12 text-center">
-            <svg className="mx-auto h-10 w-10 text-gray-300" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
+            <svg
+              className="mx-auto h-10 w-10 text-gray-300"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z"
+                clipRule="evenodd"
+              />
             </svg>
             {statusFilter !== 'all' ? (
               <>
@@ -270,7 +458,9 @@ function RunHistoryList({
             ) : (
               <>
                 <p className="mt-2 text-sm text-gray-500">No runs yet</p>
-                <p className="mt-0.5 text-xs text-gray-400">Runs will appear here after the routine executes.</p>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Runs will appear here after the routine executes.
+                </p>
                 <button
                   type="button"
                   onClick={() => onRunNow(routineId)}
@@ -305,9 +495,18 @@ function RunHistoryList({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium capitalize text-gray-900">{run.status}</span>
+                        <span className="text-sm font-medium capitalize text-gray-900">
+                          {run.status === 'awaiting_approval' ? 'Awaiting Approval' : run.status}
+                        </span>
                         {run.durationMs != null && (
-                          <span className="text-xs text-gray-400">{formatDuration(run.durationMs)}</span>
+                          <span className="text-xs text-gray-400">
+                            {formatDuration(run.durationMs)}
+                          </span>
+                        )}
+                        {run.triggeredBy === 'event' && (
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 ring-1 ring-inset ring-blue-500/20">
+                            Event
+                          </span>
                         )}
                       </div>
                       <span className="flex-shrink-0 text-xs text-gray-400">
@@ -315,20 +514,33 @@ function RunHistoryList({
                       </span>
                     </div>
 
+                    {/* Summary */}
+                    {run.summary && (
+                      <p className="mt-0.5 truncate text-xs text-gray-600">{run.summary}</p>
+                    )}
+
                     {/* Error preview */}
-                    {run.error && (
+                    {run.error && !run.summary && (
                       <p className="mt-0.5 truncate text-xs text-red-600">{run.error}</p>
                     )}
 
                     {/* Output preview */}
-                    {outputPreview && !run.error && (
+                    {outputPreview && !run.error && !run.summary && (
                       <p className="mt-0.5 truncate text-xs text-gray-500">{outputPreview}</p>
                     )}
                   </div>
 
                   {/* Chevron */}
-                  <svg className="mt-1.5 h-4 w-4 flex-shrink-0 text-gray-300 group-hover:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  <svg
+                    className="mt-1.5 h-4 w-4 flex-shrink-0 text-gray-300 group-hover:text-gray-400"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
               );
@@ -370,18 +582,156 @@ function RunHistoryList({
   );
 }
 
-// ─── Main Component ─────────────────────────────────────────────────────────
+// -- State Tab ----------------------------------------------------------------
 
-export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns, onClose }: RoutineDetailProps) {
+function StateTab({ routineId }: { routineId: string }) {
+  const { fetchState, resetState } = useRoutines();
+  const [state, setState] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchState(routineId);
+      setState(data ?? {});
+    } catch {
+      setState(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [routineId, fetchState]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleReset = async () => {
+    setResetting(true);
+    try {
+      await resetState(routineId);
+      setState({});
+    } catch {
+      // Ignore
+    } finally {
+      setResetting(false);
+      setConfirmReset(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+          Routine State
+        </h4>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={load}
+            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Refresh state"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H4.598a.75.75 0 0 0-.75.75v3.634a.75.75 0 0 0 1.5 0v-2.033l.312.312a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.391Zm-10.624-2.85a5.5 5.5 0 0 1 9.201-2.465l.312.311H11.77a.75.75 0 0 0 0 1.5h3.634a.75.75 0 0 0 .75-.75V3.536a.75.75 0 0 0-1.5 0v2.033l-.312-.312A7 7 0 0 0 2.63 8.395a.75.75 0 0 0 1.449.391l.009-.021Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+          {!confirmReset ? (
+            <button
+              type="button"
+              onClick={() => setConfirmReset(true)}
+              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+            >
+              Reset State
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500">Are you sure?</span>
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={resetting}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {resetting ? 'Resetting...' : 'Confirm'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmReset(false)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {state && Object.keys(state).length > 0 ? (
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-800">
+            {JSON.stringify(state, null, 2)}
+          </pre>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-gray-300 py-8 text-center">
+          <p className="text-sm text-gray-500">No state stored</p>
+          <p className="mt-0.5 text-xs text-gray-400">
+            State will be populated after the routine runs with stateful mode enabled.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -- Main Component -----------------------------------------------------------
+
+export function RoutineDetail({
+  routine,
+  onUpdate,
+  onDelete,
+  onRunNow,
+  fetchRuns,
+  onClose,
+}: RoutineDetailProps) {
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'state'>('overview');
   const [deleting, setDeleting] = useState(false);
+  const [showParamForm, setShowParamForm] = useState(false);
 
   // Reset tab when routine changes
   useEffect(() => {
     setActiveTab('overview');
     setEditing(false);
+    setShowParamForm(false);
   }, [routine.id]);
+
+  const handleRunNow = () => {
+    if (routine.parameters && routine.parameters.length > 0) {
+      setShowParamForm(true);
+    } else {
+      onRunNow(routine.id);
+    }
+  };
+
+  const handleRunWithParams = (values: Record<string, unknown>) => {
+    onRunNow(routine.id, values);
+    setShowParamForm(false);
+  };
 
   if (editing) {
     return (
@@ -392,7 +742,7 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
             name: routine.name,
             description: routine.description ?? '',
             prompt: routine.prompt,
-            schedule: routine.schedule,
+            schedule: routine.schedule ?? '',
           }}
           onSubmit={async (data) => {
             await onUpdate(routine.id, data);
@@ -405,13 +755,17 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
     );
   }
 
+  const triggerType = getTriggerType(routine);
+
   return (
     <div className="flex h-full flex-col">
       {/* Panel header */}
       <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className={`flex h-2.5 w-2.5 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-300'}`} />
+            <span
+              className={`flex h-2.5 w-2.5 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
+            />
             <h3 className="truncate text-base font-semibold text-gray-900">{routine.name}</h3>
           </div>
           {routine.description && (
@@ -432,20 +786,23 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 px-5">
-        {(['overview', 'history'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
-              activeTab === tab
-                ? 'border-hearth-600 text-hearth-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            {tab === 'history' ? 'Run History' : tab}
-          </button>
-        ))}
+        {(['overview', 'history', 'state'] as const).map((tab) => {
+          const label = tab === 'history' ? 'Run History' : tab === 'state' ? 'State' : 'Overview';
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
+                activeTab === tab
+                  ? 'border-hearth-600 text-hearth-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab content */}
@@ -454,7 +811,9 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
           <div className="space-y-5">
             {/* Prompt */}
             <div>
-              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Prompt</h4>
+              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Prompt
+              </h4>
               <div className="rounded-lg bg-gray-50 p-3">
                 <p className="whitespace-pre-wrap text-sm text-gray-800">{routine.prompt}</p>
               </div>
@@ -463,37 +822,189 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
             {/* Metadata grid */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Schedule</h4>
-                <p className="text-sm text-gray-900">{formatSchedule(routine.schedule)}</p>
-                <p className="mt-0.5 font-mono text-xs text-gray-400">{routine.schedule}</p>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Schedule
+                </h4>
+                <p className="text-sm text-gray-900">
+                  {routine.schedule ? formatSchedule(routine.schedule) : 'None'}
+                </p>
+                {routine.schedule && (
+                  <p className="mt-0.5 font-mono text-xs text-gray-400">{routine.schedule}</p>
+                )}
               </div>
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Status</h4>
-                <span className={`inline-flex items-center gap-1.5 text-sm ${routine.enabled ? 'text-green-700' : 'text-gray-500'}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Status
+                </h4>
+                <span
+                  className={`inline-flex items-center gap-1.5 text-sm ${routine.enabled ? 'text-green-700' : 'text-gray-500'}`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
+                  />
                   {routine.enabled ? 'Active' : 'Paused'}
                 </span>
               </div>
+
+              {/* Scope */}
+              {routine.scope && (
+                <div>
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Scope
+                  </h4>
+                  <ScopeBadge scope={routine.scope} />
+                </div>
+              )}
+
+              {/* Trigger type */}
+              <div>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Trigger
+                </h4>
+                <p className="text-sm text-gray-900">{triggerType}</p>
+              </div>
+
               {routine.lastRunAt && (
                 <div>
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Last Run</h4>
-                  <p className="text-sm text-gray-900">{new Date(routine.lastRunAt).toLocaleString()}</p>
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Last Run
+                  </h4>
+                  <p className="text-sm text-gray-900">
+                    {new Date(routine.lastRunAt).toLocaleString()}
+                  </p>
                   <p className="text-xs text-gray-400">{formatRelativeTime(routine.lastRunAt)}</p>
                 </div>
               )}
               {routine.lastRunStatus && (
                 <div>
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Last Result</h4>
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Last Result
+                  </h4>
                   <StatusBadge status={routine.lastRunStatus} />
                 </div>
               )}
             </div>
 
-            {/* Quick run history peek — last 3 */}
+            {/* Parameters */}
+            {routine.parameters && routine.parameters.length > 0 && (
+              <div>
+                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Parameters
+                </h4>
+                <div className="rounded-lg border border-gray-200 bg-white">
+                  <div className="divide-y divide-gray-100">
+                    {routine.parameters.map((param) => (
+                      <div key={param.name} className="flex items-center justify-between px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm text-gray-900">{param.name}</span>
+                          {param.required && (
+                            <span className="text-[10px] font-medium text-red-500">required</span>
+                          )}
+                        </div>
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-500">
+                          {param.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Checkpoints */}
+            {routine.checkpoints && routine.checkpoints.length > 0 && (
+              <div>
+                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Approval Checkpoints
+                </h4>
+                <div className="space-y-1.5">
+                  {routine.checkpoints.map((cp, i) => (
+                    <div
+                      key={cp.name}
+                      className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2"
+                    >
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-200 text-[10px] font-bold text-amber-800">
+                        {i + 1}
+                      </span>
+                      <span className="text-sm font-medium text-amber-900">{cp.name}</span>
+                      {cp.description && (
+                        <span className="text-xs text-amber-600">- {cp.description}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Chain connections */}
+            {((routine.chainsFrom && routine.chainsFrom.length > 0) ||
+              (routine.chainsTo && routine.chainsTo.length > 0)) && (
+              <div>
+                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Chain Connections
+                </h4>
+                <div className="space-y-1.5">
+                  {routine.chainsFrom?.map((chain) => (
+                    <div
+                      key={chain.id}
+                      className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2"
+                    >
+                      <svg
+                        className="h-4 w-4 text-blue-500"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M3 10a.75.75 0 0 1 .75-.75h10.638l-3.96-4.158a.75.75 0 1 1 1.085-1.034l5.25 5.5a.75.75 0 0 1 0 1.034l-5.25 5.5a.75.75 0 1 1-1.085-1.034l3.96-4.158H3.75A.75.75 0 0 1 3 10Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-sm text-blue-900">
+                        Chains to{' '}
+                        <span className="font-medium">{chain.targetRoutineId}</span>
+                      </span>
+                      <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                        {chain.condition.replace('_', ' ')}
+                      </span>
+                    </div>
+                  ))}
+                  {routine.chainsTo?.map((chain) => (
+                    <div
+                      key={chain.id}
+                      className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2"
+                    >
+                      <svg
+                        className="h-4 w-4 text-green-500"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M17 10a.75.75 0 0 1-.75.75H5.612l3.96 4.158a.75.75 0 1 1-1.085 1.034l-5.25-5.5a.75.75 0 0 1 0-1.034l5.25-5.5a.75.75 0 1 1 1.085 1.034L5.612 9.25H16.25A.75.75 0 0 1 17 10Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-sm text-green-900">
+                        Chained from{' '}
+                        <span className="font-medium">{chain.sourceRoutineId}</span>
+                      </span>
+                      <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                        {chain.condition.replace('_', ' ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick run history peek -- last 3 */}
             {routine.runs && routine.runs.length > 0 && (
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Recent Runs</h4>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Recent Runs
+                  </h4>
                   <button
                     type="button"
                     onClick={() => setActiveTab('history')}
@@ -504,27 +1015,53 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
                 </div>
                 <div className="space-y-1.5">
                   {routine.runs.slice(0, 3).map((run) => (
-                    <div key={run.id} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <RunStatusDot status={run.status} />
-                        <span className="text-xs font-medium capitalize text-gray-700">{run.status}</span>
-                        {run.durationMs != null && (
-                          <span className="text-xs text-gray-400">{formatDuration(run.durationMs)}</span>
-                        )}
+                    <div
+                      key={run.id}
+                      className="rounded-md bg-gray-50 px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <RunStatusDot status={run.status} />
+                          <span className="text-xs font-medium capitalize text-gray-700">
+                            {run.status === 'awaiting_approval'
+                              ? 'Awaiting Approval'
+                              : run.status}
+                          </span>
+                          {run.durationMs != null && (
+                            <span className="text-xs text-gray-400">
+                              {formatDuration(run.durationMs)}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {formatRelativeTime(run.startedAt)}
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-400">{formatRelativeTime(run.startedAt)}</span>
+                      {run.summary && (
+                        <p className="mt-0.5 truncate pl-4 text-xs text-gray-500">{run.summary}</p>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* Parameter input form for Run Now */}
+            {showParamForm && routine.parameters && routine.parameters.length > 0 && (
+              <ParameterInputForm
+                parameters={routine.parameters}
+                onSubmit={handleRunWithParams}
+                onCancel={() => setShowParamForm(false)}
+              />
+            )}
+
             {/* Actions */}
             <div className="flex gap-2 border-t border-gray-100 pt-4">
               <button
                 type="button"
-                onClick={() => onRunNow(routine.id)}
-                className="rounded-lg bg-hearth-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-hearth-700"
+                onClick={handleRunNow}
+                disabled={showParamForm}
+                className="rounded-lg bg-hearth-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
               >
                 Run Now
               </button>
@@ -537,7 +1074,10 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
               </button>
               <button
                 type="button"
-                onClick={async () => { setDeleting(true); await onDelete(routine.id); }}
+                onClick={async () => {
+                  setDeleting(true);
+                  await onDelete(routine.id);
+                }}
                 disabled={deleting}
                 className="rounded-lg border border-red-200 px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
               >
@@ -549,8 +1089,14 @@ export function RoutineDetail({ routine, onUpdate, onDelete, onRunNow, fetchRuns
       )}
 
       {activeTab === 'history' && (
-        <RunHistoryList routineId={routine.id} fetchRuns={fetchRuns} onRunNow={onRunNow} />
+        <RunHistoryList
+          routineId={routine.id}
+          fetchRuns={fetchRuns}
+          onRunNow={async (id) => onRunNow(id)}
+        />
       )}
+
+      {activeTab === 'state' && <StateTab routineId={routine.id} />}
     </div>
   );
 }

@@ -1,25 +1,58 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Test embedding service behavior without OPENAI_API_KEY
+vi.mock('../llm/provider-registry.js', () => ({
+  providerRegistry: {
+    getEmbeddingProvider: vi.fn(),
+  },
+}));
 
-describe('Embedding service — graceful degradation', () => {
-  it('returns null when OPENAI_API_KEY is not set', async () => {
-    // The actual function checks env.OPENAI_API_KEY
-    // This test verifies the pattern: no key = null return
-    const generateEmbedding = (text: string): number[] | null => {
-      const apiKey = undefined; // simulating no key
-      if (!apiKey) return null;
-      // Would call OpenAI API here
-      return [];
-    };
+import { providerRegistry } from '../llm/provider-registry.js';
 
-    expect(generateEmbedding('hello world')).toBeNull();
+describe('Embedding service', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
   });
 
-  it('truncates text to 8000 chars before sending', () => {
-    const maxLength = 8000;
+  it('returns null when no embedding provider is available', async () => {
+    vi.mocked(providerRegistry.getEmbeddingProvider).mockReturnValue(undefined);
+
+    const { generateEmbedding } = await import('./embedding-service.js');
+    const result = await generateEmbedding('hello world');
+    expect(result).toBeNull();
+  });
+
+  it('calls provider.embed with truncated text', async () => {
+    const mockEmbed = vi.fn().mockResolvedValue([[0.1, 0.2, 0.3]]);
+    vi.mocked(providerRegistry.getEmbeddingProvider).mockReturnValue({
+      id: 'openai',
+      name: 'OpenAI',
+      embed: mockEmbed,
+      chat: vi.fn() as any,
+      listModels: vi.fn(),
+    });
+
+    const { generateEmbedding } = await import('./embedding-service.js');
+    const result = await generateEmbedding('hello world');
+
+    expect(mockEmbed).toHaveBeenCalledWith(['hello world']);
+    expect(result).toEqual([0.1, 0.2, 0.3]);
+  });
+
+  it('truncates text to 8000 chars', async () => {
+    const mockEmbed = vi.fn().mockResolvedValue([[0.1]]);
+    vi.mocked(providerRegistry.getEmbeddingProvider).mockReturnValue({
+      id: 'openai',
+      name: 'OpenAI',
+      embed: mockEmbed,
+      chat: vi.fn() as any,
+      listModels: vi.fn(),
+    });
+
+    const { generateEmbedding } = await import('./embedding-service.js');
     const longText = 'a'.repeat(10000);
-    const truncated = longText.slice(0, maxLength);
-    expect(truncated.length).toBe(8000);
+    await generateEmbedding(longText);
+
+    const calledWith = mockEmbed.mock.calls[0][0][0] as string;
+    expect(calledWith.length).toBe(8000);
   });
 });

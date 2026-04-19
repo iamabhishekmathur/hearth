@@ -17,6 +17,7 @@ spec:
   tls:
     - hosts:
         - {{ .Values.ingress.host }}
+        - docs.{{ .Values.ingress.host }}
       secretName: {{ .Values.ingress.tls.secretName }}
   {{- end }}
   rules:
@@ -44,4 +45,14 @@ spec:
                 name: {{ include "hearth.fullname" . }}-web
                 port:
                   number: {{ .Values.web.port }}
+    - host: docs.{{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "hearth.fullname" . }}-docs
+                port:
+                  number: {{ .Values.docs.port }}
 {{- end }}

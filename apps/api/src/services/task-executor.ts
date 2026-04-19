@@ -8,6 +8,7 @@ import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
 import { emitToTask } from '../ws/socket-manager.js';
 import { enqueueSkillProposal } from '../jobs/skill-proposal-job.js';
+import { serializeTaskContext } from './task-context-service.js';
 
 const QUEUE_NAME = 'task-execution';
 const connection = { url: env.REDIS_URL };
@@ -58,10 +59,14 @@ export function createTaskExecutionWorker() {
         emitToTask(taskId, { type: 'task:step', step });
 
         // Run the agent loop with task as the prompt
+        const richContext = await serializeTaskContext(taskId, {
+          maxTokens: 6000,
+          query: task.title,
+        });
         const prompt = [
           task.title,
           task.description ?? '',
-          task.context ? `Context: ${JSON.stringify(task.context)}` : '',
+          richContext,
         ]
           .filter(Boolean)
           .join('\n');

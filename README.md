@@ -48,8 +48,13 @@ We know the big labs are moving fast. Anthropic, OpenAI, and others will likely 
 | **Multi-Layer Memory** | Org, team, and personal memory with pgvector semantic search. The AI remembers context across every conversation. |
 | **Skills Marketplace** | Install, share, and create reusable AI workflows. The agent proposes new skills from experience. |
 | **Collaborative Chat** | Real-time multiplayer sessions. Share with your team, invite collaborators, or publish a link. |
-| **Routines** | Scheduled AI workflows — daily standups, weekly reports, recurring analysis — running on your data, on your schedule. |
+| **Activity Feed** | Real-time social layer — reactions, AI-curated digests, impact metrics, proactive signals, and one-click skill installs. Not just a log, a team intelligence dashboard. |
+| **Routines** | Programmable, event-driven, stateful AI workflows. Schedule-based or webhook-triggered. Run-to-run state for delta reports, parameterized templates, approval gates, conditional delivery routing, cross-routine chaining, and org-wide health monitoring. |
 | **Provider Agnostic** | Anthropic, OpenAI, Ollama, or any OpenAI-compatible endpoint. Switch models per session or per task. |
+| **Compliance Packs** | Automatic detection and scrubbing of sensitive data (PII, PCI, PHI, GDPR, FERPA, financial) before it reaches external LLM providers. Regex + validation-based detectors (Luhn for credit cards, ABA checksums for routing numbers). Transparent round-trip: users see original values, LLMs see placeholders. Per-pack toggles, per-detector overrides, dry-run testing, audit trail, and 30-day stats dashboard. |
+| **Governance & Compliance** | Define organizational policies that monitor every chat message. Keyword, regex, or AI-powered semantic rules. Three enforcement modes: monitor (log), warn (notify user), block (prevent message). Violation dashboard, review workflows, trend charts, CSV/JSON export for auditors. System prompt injection makes the AI proactively avoid violations. |
+| **Digital Co-Worker** | Cognitive profiles that model how each team member thinks. Extracted automatically from chat conversations. `@mention` anyone in chat to ask "How would Sarah think about this?" — grounded in observed patterns with cited evidence. Off by default, individual opt-out, full audit trail. |
+| **Decision Graph** | Organizational decision intelligence — captures what was decided, why, by whom, and what happened after. Auto-detects decisions from chat and meetings, builds patterns from clusters, distills principles, and feeds them back into the agent's context. Timeline explorer, graph view, and admin controls. |
 | **MCP Integrations** | Connect Slack, Gmail, Google Calendar, Jira, GitHub, Notion, and more via Model Context Protocol. |
 | **Self-Hosted** | Docker Compose up. Your infrastructure, your data, your keys. Helm charts for Kubernetes. |
 
@@ -87,17 +92,29 @@ git clone https://github.com/iamabhishekmathur/hearth.git
 cd hearth
 ```
 
+Generate your secrets:
+
+```bash
+# Generate encryption key (64-char hex string)
+openssl rand -hex 32
+
+# Generate session secret
+openssl rand -base64 32
+```
+
 Create a `.env` file with your production config:
 
 ```bash
 # Required
-ENCRYPTION_KEY=<random-64-char-hex-string>    # openssl rand -hex 32
-SESSION_SECRET=<random-string>                 # openssl rand -base64 32
+ENCRYPTION_KEY=<paste-64-char-hex-string>
+SESSION_SECRET=<paste-session-secret>
 
 # Add at least one LLM provider
 ANTHROPIC_API_KEY=sk-ant-...
 # or
 OPENAI_API_KEY=sk-...
+# or
+OLLAMA_BASE_URL=http://host.docker.internal:11434
 ```
 
 Start everything:
@@ -115,16 +132,74 @@ This runs:
 
 Data is persisted in Docker volumes (`pg_data`, `redis_data`, `file_storage`).
 
+To stop:
+
+```bash
+docker compose down          # Stop all services (data preserved)
+docker compose down -v       # Stop and delete all data
+```
+
+To update to a new version:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
 ### Kubernetes (Helm)
 
-For larger deployments, Helm charts are available in `deploy/helm/`.
+For larger deployments (500+ users), Helm charts with horizontal pod autoscaling are available in `deploy/helm/`.
+
+**Prerequisites:** Kubernetes 1.25+, Helm 3.x, nginx Ingress Controller, a default StorageClass.
+
+```bash
+# Basic install
+helm install hearth deploy/helm/hearth \
+  --namespace hearth --create-namespace \
+  --set secrets.encryptionKey="$(openssl rand -hex 32)" \
+  --set secrets.sessionSecret="$(openssl rand -base64 32)" \
+  --set ingress.host=hearth.example.com \
+  --set env.webUrl=https://hearth.example.com
+
+# Or use a custom values file
+helm install hearth deploy/helm/hearth -f my-values.yaml
+```
+
+The chart deploys: API (2-10 pods), Worker (1-5 pods), Web frontend, PostgreSQL with pgvector, Redis, and an nginx Ingress routing `/api/` and `/socket.io/` to the API and `/` to the frontend.
+
+**Enable TLS:**
 
 ```bash
 helm install hearth deploy/helm/hearth \
-  --set secrets.encryptionKey=<your-key> \
-  --set secrets.sessionSecret=<your-secret> \
-  --set secrets.databaseUrl=<your-postgres-url>
+  --set ingress.tls.enabled=true \
+  --set ingress.tls.secretName=hearth-tls \
+  --set ingress.host=hearth.example.com
 ```
+
+**Use external managed databases** (recommended for production):
+
+```bash
+helm install hearth deploy/helm/hearth \
+  --set postgres.enabled=false \
+  --set secrets.databaseUrl="postgresql://user:pass@your-rds-host:5432/hearth" \
+  --set redis.enabled=false \
+  --set env.redisUrl="redis://your-elasticache-host:6379"
+```
+
+**Upgrade:**
+
+```bash
+helm upgrade hearth deploy/helm/hearth -f my-values.yaml
+```
+
+**Uninstall:**
+
+```bash
+helm uninstall hearth
+kubectl delete pvc -l app.kubernetes.io/instance=hearth  # Remove persistent data
+```
+
+See [`deploy/helm/hearth/README.md`](deploy/helm/hearth/README.md) for the full configuration reference and production checklist.
 
 ### Environment Variables
 
@@ -139,6 +214,17 @@ helm install hearth deploy/helm/hearth \
 | `OLLAMA_BASE_URL` | One LLM required | Ollama endpoint (e.g. `http://localhost:11434`) |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client ID for SSO |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
+
+### Production Checklist
+
+- [ ] Generate unique `ENCRYPTION_KEY` and `SESSION_SECRET` (never reuse dev defaults)
+- [ ] Enable TLS/HTTPS with a valid certificate
+- [ ] Use strong, unique PostgreSQL and Redis passwords
+- [ ] Consider external managed databases (RDS, Cloud SQL, ElastiCache) for durability
+- [ ] Set up automated backups for PostgreSQL
+- [ ] Configure monitoring and alerting (API health: `GET /api/v1/health`)
+- [ ] Restrict Docker socket access if sandbox execution is not needed
+- [ ] Place behind a reverse proxy or load balancer with rate limiting
 
 ---
 
@@ -216,11 +302,16 @@ ChatGPT and Claude are great for one person, one conversation, one task. Hearth 
 - [x] Proactive work intake (LLM classification)
 - [x] Multi-layer memory with semantic search
 - [x] Skills framework with marketplace
-- [x] Routines and scheduling engine
+- [x] Routines engine — stateful, event-driven, composable, with approval gates and chaining
 - [x] MCP integration layer (Slack, Gmail, Jira, GitHub, etc.)
 - [x] Real-time WebSocket updates
-- [ ] Collaborative chat sessions (multiplayer)
-- [ ] Artifact window (code, documents, tables)
+- [x] Activity feed with reactions, AI digests, proactive signals, and impact metrics
+- [x] Collaborative chat sessions (multiplayer)
+- [x] Artifact window (code, documents, tables)
+- [x] Governance logging — policy-based message monitoring with keyword, regex, and AI evaluation; blocking, warning, and monitoring modes; violation dashboard, review workflow, compliance export
+- [x] Compliance packs — automatic PII/PCI/PHI/GDPR/FERPA/financial data scrubbing at the LLM provider boundary; regex + validation detectors; transparent scrub/descrub round-trip; per-pack admin controls; audit trail
+- [x] Digital co-worker — cognitive profiles extracted from chat conversations; `@mention` to query someone's thinking perspective; evidence-backed responses with cited patterns; org-level toggle (default off); individual opt-out; audit trail
+- [x] Context Graph — organizational decision intelligence with automated capture from chat and meeting transcripts, pattern extraction, principle distillation, graph explorer, and 5 agent tools for decision-aware conversations
 - [ ] Tool invocation in chat (sandbox, web search, file ops)
 - [ ] Public leaderboard for AI adoption metrics
 

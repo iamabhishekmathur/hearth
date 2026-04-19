@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ChatParams, ChatEvent, LLMMessage, ToolDefinition } from '@hearth/shared';
+import type { ChatParams, ChatEvent, LLMMessage, ToolDefinition, ContentPart } from '@hearth/shared';
 import type { LLMProvider } from './types.js';
 import { env } from '../config.js';
 
@@ -12,13 +12,14 @@ function toAnthropicMessages(
     if (msg.role === 'system') continue; // handled via system param
 
     if (msg.role === 'tool') {
+      const toolText = typeof msg.content === 'string' ? msg.content : msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join('');
       result.push({
         role: 'user',
         content: [
           {
             type: 'tool_result',
             tool_use_id: msg.toolCallId ?? '',
-            content: msg.content,
+            content: toolText,
           },
         ],
       });
@@ -27,8 +28,9 @@ function toAnthropicMessages(
 
     if (msg.role === 'assistant' && msg.toolCalls?.length) {
       const content: Anthropic.ContentBlockParam[] = [];
-      if (msg.content) {
-        content.push({ type: 'text', text: msg.content });
+      const assistantText = typeof msg.content === 'string' ? msg.content : msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join('');
+      if (assistantText) {
+        content.push({ type: 'text', text: assistantText });
       }
       for (const tc of msg.toolCalls) {
         content.push({
@@ -42,10 +44,30 @@ function toAnthropicMessages(
       continue;
     }
 
-    result.push({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    });
+    if (msg.role === 'user' && Array.isArray(msg.content)) {
+      result.push({
+        role: 'user',
+        content: msg.content.map((part) => {
+          if (part.type === 'image') {
+            return {
+              type: 'image' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: part.mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+                data: part.data,
+              },
+            };
+          }
+          return { type: 'text' as const, text: part.text };
+        }),
+      });
+    } else {
+      const textContent = typeof msg.content === 'string' ? msg.content : msg.content.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join('');
+      result.push({
+        role: msg.role as 'user' | 'assistant',
+        content: textContent,
+      });
+    }
   }
 
   return result;
@@ -75,9 +97,14 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async *chat(params: ChatParams): AsyncIterable<ChatEvent> {
+    const systemMsgContent = params.messages.find((m) => m.role === 'system')?.content;
     const systemPrompt =
       params.systemPrompt ??
-      params.messages.find((m) => m.role === 'system')?.content;
+      (systemMsgContent == null
+        ? undefined
+        : typeof systemMsgContent === 'string'
+          ? systemMsgContent
+          : systemMsgContent.filter((p): p is Extract<ContentPart, { type: 'text' }> => p.type === 'text').map((p) => p.text).join(''));
 
     const requestParams: Anthropic.MessageCreateParams = {
       model: params.model,

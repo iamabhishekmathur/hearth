@@ -2,6 +2,7 @@ import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { emitToUser } from '../ws/socket-manager.js';
 import * as slackService from './slack-service.js';
+import * as emailService from './email-service.js';
 import { decrypt } from '../mcp/token-store.js';
 
 export type DeliveryChannel = 'in_app' | 'slack' | 'email';
@@ -18,7 +19,7 @@ export interface DeliveryPayload {
 
 /**
  * Delivers a message to the user via configured channels.
- * Currently supports in-app (WebSocket). Slack and email added later.
+ * Supports in-app (WebSocket), Slack, and email (SMTP).
  */
 export async function deliver(payload: DeliveryPayload): Promise<void> {
   for (const channel of payload.channels) {
@@ -67,10 +68,26 @@ export async function deliver(payload: DeliveryPayload): Promise<void> {
           break;
         }
 
-        case 'email':
-          // Email delivery future implementation
-          logger.info({ userId: payload.userId, title: payload.title }, 'Email delivery not yet implemented');
+        case 'email': {
+          if (!emailService.isEmailConfigured()) {
+            logger.info({ userId: payload.userId }, 'Email delivery skipped: SMTP not configured');
+            break;
+          }
+
+          const emailUser = await prisma.user.findUnique({
+            where: { id: payload.userId },
+            select: { email: true, name: true },
+          });
+          if (!emailUser?.email) break;
+
+          await emailService.sendEmail({
+            to: emailUser.email,
+            subject: payload.title,
+            text: payload.body,
+            html: `<h2>${payload.title}</h2><p>${payload.body}</p><br/><small><em>Powered by Hearth</em></small>`,
+          });
           break;
+        }
       }
     } catch (err) {
       logger.error({ err, channel, userId: payload.userId }, 'Delivery failed');

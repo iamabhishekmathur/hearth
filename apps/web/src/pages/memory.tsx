@@ -8,7 +8,6 @@ const LAYERS: { value: MemoryLayer | 'all'; label: string }[] = [
   { value: 'org', label: 'Organization' },
   { value: 'team', label: 'Team' },
   { value: 'user', label: 'Personal' },
-  { value: 'session', label: 'Session' },
 ];
 
 const LAYER_COLORS: Record<MemoryLayer, string> = {

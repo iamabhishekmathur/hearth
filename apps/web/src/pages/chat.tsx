@@ -1,11 +1,14 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useChat } from '@/hooks/use-chat';
 import { useSessions } from '@/hooks/use-sessions';
+import { useArtifacts } from '@/hooks/use-artifacts';
 import { api } from '@/lib/api-client';
 import { MessageList } from '@/components/chat/message-list';
-import { ChatInput } from '@/components/chat/chat-input';
+import { ChatInput, type PendingAttachment, type MentionUser } from '@/components/chat/chat-input';
 import { SessionTabs } from '@/components/chat/session-tabs';
 import { ShareDialog } from '@/components/chat/share-dialog';
+import { ArtifactPanel } from '@/components/chat/artifact-panel';
+import { uploadFile } from '@/lib/upload-client';
 import type { PresenceUser, SessionVisibility } from '@hearth/shared';
 
 export function ChatPage() {
@@ -16,6 +19,16 @@ export function ChatPage() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const { messages, sendMessage, isStreaming, thinking, toolCalls, error, presenceUsers } =
     useChat(activeSessionId);
+  const {
+    artifacts,
+    activeArtifact,
+    panelOpen,
+    versions,
+    openArtifact,
+    closePanel,
+    togglePanel,
+    fetchVersions,
+  } = useArtifacts(activeSessionId);
 
   // Track session metadata for the active session
   const [activeVisibility, setActiveVisibility] = useState<SessionVisibility>('private');
@@ -84,8 +97,17 @@ export function ChatPage() {
     setActiveSessionId(id);
   }, []);
 
+  // Check if cognitive profiles are enabled for @mention
+  const [cognitiveEnabled, setCognitiveEnabled] = useState(false);
+  useEffect(() => {
+    api
+      .get<{ data: { orgEnabled: boolean } }>('/chat/cognitive-profile/status')
+      .then((res) => setCognitiveEnabled(res.data.orgEnabled))
+      .catch(() => {});
+  }, []);
+
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser) => {
       let sessionId = activeSessionId;
 
       // Create a new session if none is selected
@@ -100,9 +122,26 @@ export function ChatPage() {
         }
       }
 
-      sendMessage(content, sessionId);
+      // Upload attachments first
+      let attachmentIds: string[] = [];
+      if (attachments.length > 0) {
+        const results = await Promise.all(
+          attachments.map((att) => uploadFile(att.file)),
+        );
+        attachmentIds = results
+          .filter((r) => r !== null)
+          .map((r) => r!.id);
+      }
+
+      sendMessage(
+        content,
+        sessionId,
+        activeArtifact?.id,
+        attachmentIds.length > 0 ? attachmentIds : undefined,
+        mentionUser ? { subjectUserId: mentionUser.id } : undefined,
+      );
     },
-    [activeSessionId, createSession, sendMessage],
+    [activeSessionId, createSession, sendMessage, activeArtifact],
   );
 
   const handleNewSession = useCallback(() => {
@@ -190,66 +229,84 @@ export function ChatPage() {
         onDelete={handleDeleteSession}
       />
 
-      {/* Main chat area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header — share button + presence avatars */}
-        {activeSessionId && (
-          <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-1.5">
-            {/* Presence avatars */}
-            <div className="flex items-center gap-1">
-              {presenceUsers.length > 1 && (
-                <PresenceAvatars users={presenceUsers} />
-              )}
+      {/* Main chat area + artifact panel (flex row) */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Chat area — 40% when artifact panel is open, 100% otherwise */}
+        <div className={`flex flex-col overflow-hidden ${panelOpen && activeArtifact ? 'w-2/5 min-w-[320px]' : 'flex-1'}`}>
+          {/* Header — share button + presence avatars */}
+          {activeSessionId && (
+            <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-1.5">
+              {/* Presence avatars */}
+              <div className="flex items-center gap-1">
+                {presenceUsers.length > 1 && (
+                  <PresenceAvatars users={presenceUsers} />
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowShareDialog(true)}
+                className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                Share
+              </button>
             </div>
+          )}
 
-            <button
-              type="button"
-              onClick={() => setShowShareDialog(true)}
-              className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            >
-              Share
-            </button>
-          </div>
-        )}
+          {/* Share dialog */}
+          {showShareDialog && activeSessionId && (
+            <ShareDialog
+              sessionId={activeSessionId}
+              visibility={activeVisibility}
+              onClose={() => setShowShareDialog(false)}
+              onVisibilityChange={handleVisibilityChange}
+            />
+          )}
 
-        {/* Share dialog */}
-        {showShareDialog && activeSessionId && (
-          <ShareDialog
-            sessionId={activeSessionId}
-            visibility={activeVisibility}
-            onClose={() => setShowShareDialog(false)}
-            onVisibilityChange={handleVisibilityChange}
+          {/* Error banner */}
+          {error && (
+            <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {/* Messages */}
+          <MessageList
+            messages={messages}
+            isStreaming={isStreaming}
+            thinking={thinking}
+            toolCalls={toolCalls}
+            authors={messageAuthors}
+            isCollaborative={isCollaborative}
+            onDuplicateFromMessage={handleDuplicateFromMessage}
+            artifacts={artifacts}
+            onOpenArtifact={openArtifact}
+          />
+
+          {/* Input — shows access prompt for non-contributors viewing org-shared sessions */}
+          <ChatInput
+            onSend={handleSendMessage}
+            disabled={isStreaming}
+            cognitiveEnabled={cognitiveEnabled}
+            accessPrompt={
+              activeVisibility === 'org' && !isOwner
+                ? { label: 'Join conversation', onClick: handleJoinSession }
+                : undefined
+            }
+          />
+        </div>
+
+        {/* Artifact panel — slides in from right */}
+        {panelOpen && activeArtifact && (
+          <ArtifactPanel
+            artifact={activeArtifact}
+            artifacts={artifacts}
+            versions={versions}
+            onSelectArtifact={openArtifact}
+            onClose={closePanel}
+            onFetchVersions={fetchVersions}
           />
         )}
-
-        {/* Error banner */}
-        {error && (
-          <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Messages */}
-        <MessageList
-          messages={messages}
-          isStreaming={isStreaming}
-          thinking={thinking}
-          toolCalls={toolCalls}
-          authors={messageAuthors}
-          isCollaborative={isCollaborative}
-          onDuplicateFromMessage={handleDuplicateFromMessage}
-        />
-
-        {/* Input — shows access prompt for non-contributors viewing org-shared sessions */}
-        <ChatInput
-          onSend={handleSendMessage}
-          disabled={isStreaming}
-          accessPrompt={
-            activeVisibility === 'org' && !isOwner
-              ? { label: 'Join conversation', onClick: handleJoinSession }
-              : undefined
-          }
-        />
       </div>
     </div>
   );

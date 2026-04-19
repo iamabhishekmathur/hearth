@@ -74,6 +74,103 @@ async function main() {
     }
   }
 
+  // Seed default Soul & Identity documents
+  const orgSoulContent = `# Organization SOUL.md
+
+You are Hearth, an AI productivity assistant embedded in our team workspace.
+
+## Personality & Tone
+- Be direct and action-oriented — do things, don't just explain them
+- Use a professional but approachable tone
+- Keep responses concise — lead with the answer, not the reasoning
+- Use markdown formatting when it helps readability
+
+## Communication Norms
+- When asked to do something, do it. Don't ask for permission or confirmation unless the action is irreversible
+- If you need to make a reasonable assumption, state it briefly and proceed
+- Surface results first, process second
+- Use bullet points for lists, prose for explanations
+
+## Standards
+- Default to TypeScript for code examples
+- Cite sources when referencing external information
+- Respect data privacy — never share one user's context with another`;
+
+  const userSoulContent = `# My SOUL.md
+
+## How I want you to communicate
+- Be direct and concise — skip preamble
+- When I ask a question, give me the answer first, then context if needed
+- Use code blocks for any code snippets
+- Don't over-explain things I likely already know`;
+
+  const userIdentityContent = `# My IDENTITY.md
+
+## About me
+- I'm setting up Hearth for my team
+- I'm interested in productivity tooling and AI workflows
+
+## Preferences
+- I prefer seeing working examples over theoretical explanations
+- When creating artifacts, default to clean, well-structured content`;
+
+  // Org SOUL.md
+  const existingOrgSoul = await prisma.agentIdentity.findFirst({
+    where: { orgId: org.id, userId: null, fileType: 'soul' },
+  });
+  if (!existingOrgSoul) {
+    await prisma.agentIdentity.create({
+      data: {
+        orgId: org.id,
+        userId: null,
+        fileType: 'soul',
+        content: orgSoulContent,
+        source: 'template',
+      },
+    });
+    console.log('Identity: Org SOUL.md (created)');
+  } else {
+    console.log('Identity: Org SOUL.md (already exists)');
+  }
+
+  // User SOUL.md
+  const existingUserSoul = await prisma.agentIdentity.findFirst({
+    where: { orgId: org.id, userId: admin.id, fileType: 'soul' },
+  });
+  if (!existingUserSoul) {
+    await prisma.agentIdentity.create({
+      data: {
+        orgId: org.id,
+        userId: admin.id,
+        fileType: 'soul',
+        content: userSoulContent,
+        source: 'template',
+      },
+    });
+    console.log('Identity: User SOUL.md (created)');
+  } else {
+    console.log('Identity: User SOUL.md (already exists)');
+  }
+
+  // User IDENTITY.md
+  const existingUserIdentity = await prisma.agentIdentity.findFirst({
+    where: { orgId: org.id, userId: admin.id, fileType: 'identity' },
+  });
+  if (!existingUserIdentity) {
+    await prisma.agentIdentity.create({
+      data: {
+        orgId: org.id,
+        userId: admin.id,
+        fileType: 'identity',
+        content: userIdentityContent,
+        source: 'template',
+      },
+    });
+    console.log('Identity: User IDENTITY.md (created)');
+  } else {
+    console.log('Identity: User IDENTITY.md (already exists)');
+  }
+
   console.log('Seeding complete.');
 }
 
