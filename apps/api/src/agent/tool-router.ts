@@ -319,7 +319,7 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
     },
   });
 
-  // ── Memory: save ──
+  // ── Memory: save (persistent, user-layer) ──
   tools.set('save_memory', {
     name: 'save_memory',
     description:
@@ -355,6 +355,39 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
         source: (input.source as string | undefined) ?? 'assistant',
       });
       return { output: { id: entry.id, saved: true } };
+    },
+  });
+
+  // ── Memory: session note (ephemeral, auto-expires) ──
+  tools.set('session_note', {
+    name: 'session_note',
+    description:
+      'Save a short-term note for this conversation. Use when context is important for this session but not worth storing permanently — e.g., a file the user is working on, a constraint they mentioned, intermediate results. Session notes auto-expire after 24 hours.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The context to remember for this session',
+        },
+      },
+      required: ['content'],
+    },
+    handler: async (input) => {
+      const scope = {
+        userId: ctx.userId,
+        orgId: ctx.orgId,
+        teamId: ctx.teamId,
+        role: 'member',
+      };
+      const entry = await createMemory(scope, {
+        layer: 'session',
+        content: input.content as string,
+        source: 'session',
+        sourceRef: { sessionId: ctx.sessionId },
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h TTL
+      });
+      return { output: { id: entry.id, saved: true, expiresIn: '24h' } };
     },
   });
 

@@ -44,7 +44,7 @@ We know the big labs are moving fast. Anthropic, OpenAI, and others will likely 
 | | |
 |---|---|
 | **Proactive Work Intake** | LLM-powered task detection from Slack, email, and meetings. Tasks appear on your board automatically. |
-| **Agent Kanban** | Full task lifecycle — auto-detected or manual. Agent plans, executes, and asks for review. Sub-agent orchestration for complex work. |
+| **Agent Kanban** | Full task lifecycle — auto-detected or manual. Attach links, PDFs, files, images, text blocks, and MCP data as rich context. Agent plans, executes, and asks for review. Sub-agent orchestration for complex work. |
 | **Multi-Layer Memory** | Org, team, and personal memory with pgvector semantic search. The AI remembers context across every conversation. |
 | **Skills Marketplace** | Install, share, and create reusable AI workflows. The agent proposes new skills from experience. |
 | **Collaborative Chat** | Real-time multiplayer sessions. Share with your team, invite collaborators, or publish a link. |
@@ -312,6 +312,7 @@ ChatGPT and Claude are great for one person, one conversation, one task. Hearth 
 - [x] Compliance packs — automatic PII/PCI/PHI/GDPR/FERPA/financial data scrubbing at the LLM provider boundary; regex + validation detectors; transparent scrub/descrub round-trip; per-pack admin controls; audit trail
 - [x] Digital co-worker — cognitive profiles extracted from chat conversations; `@mention` to query someone's thinking perspective; evidence-backed responses with cited patterns; org-level toggle (default off); individual opt-out; audit trail
 - [x] Context Graph — organizational decision intelligence with automated capture from chat and meeting transcripts, pattern extraction, principle distillation, graph explorer, and 5 agent tools for decision-aware conversations
+- [x] Rich Task Context — attach links (auto-fetched), PDFs (text-extracted), files, images (vision-analyzable), text blocks, and MCP integration data to any task card; async extraction pipeline with embedding generation; token-budgeted context serialization into agent prompts; `get_task_context` drill-down tool
 - [ ] Tool invocation in chat (sandbox, web search, file ops)
 - [ ] Public leaderboard for AI adoption metrics
 

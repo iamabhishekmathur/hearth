@@ -10,11 +10,10 @@ const LAYERS: { value: MemoryLayer | 'all'; label: string }[] = [
   { value: 'user', label: 'Personal' },
 ];
 
-const LAYER_COLORS: Record<MemoryLayer, string> = {
+const LAYER_COLORS: Record<string, string> = {
   org: 'bg-purple-100 text-purple-700',
   team: 'bg-blue-100 text-blue-700',
   user: 'bg-green-100 text-green-700',
-  session: 'bg-yellow-100 text-yellow-700',
 };
 
 export function MemoryPage() {

@@ -154,7 +154,8 @@ A wrapper event for all task-related updates.
 
 ```typescript
 {
-  type: "task:updated" | "task:comment" | "task:review" | "task:subtask";
+  type: "task:updated" | "task:comment" | "task:review" | "task:subtask"
+      | "task:context_item_added" | "task:context_item_updated" | "task:context_item_removed";
   data: Record<string, unknown>;
 }
 ```
@@ -165,6 +166,9 @@ A wrapper event for all task-related updates.
 | `task:comment` | `{ taskId, commentId, content, isAgent, createdAt }` | A new comment was added to the task. |
 | `task:review` | `{ taskId, reviewId, decision, feedback }` | A review decision was submitted. |
 | `task:subtask` | `{ taskId, subtaskId, title, status }` | A subtask was created or updated. |
+| `task:context_item_added` | `{ item: TaskContextItem }` | A new context item (link, file, note, etc.) was added. |
+| `task:context_item_updated` | `{ item: TaskContextItem }` | A context item was updated (extraction completed, label changed, etc.). |
+| `task:context_item_removed` | `{ itemId: string }` | A context item was deleted. |
 
 ---
 

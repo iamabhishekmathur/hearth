@@ -1,6 +1,6 @@
 # Memory
 
-Memory stores contextual knowledge that the AI agent uses to personalize responses and maintain continuity. Memories are organized into layers (org, team, user, session) and support hybrid search combining vector similarity and full-text search.
+Memory stores contextual knowledge that the AI agent uses to personalize responses and maintain continuity. Memories are organized into layers (org, team, user) and support hybrid search combining vector similarity and full-text search.
 
 ## Authentication
 
@@ -16,7 +16,7 @@ List memory entries with optional filtering.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `layer` | string | No | Filter by layer: `"org"`, `"team"`, `"user"`, or `"session"` |
+| `layer` | string | No | Filter by layer: `"org"`, `"team"`, or `"user"` |
 | `page` | number | No | Page number (default: `1`) |
 | `pageSize` | number | No | Items per page (default: `20`) |
 
@@ -81,7 +81,7 @@ Create a new memory entry.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `layer` | string | Yes | `"org"`, `"team"`, `"user"`, or `"session"` |
+| `layer` | string | Yes | `"org"`, `"team"`, or `"user"` |
 | `content` | string | Yes | Memory content text |
 | `source` | string | No | Origin of the memory (e.g., `"user"`, `"agent"`) |
 | `sourceRef` | string | No | Reference ID (e.g., session or task ID) |
@@ -210,16 +210,17 @@ Search memory using hybrid vector similarity and full-text search. Results are r
 | `org` | Organization-wide | Shared across all users and teams |
 | `team` | Team | Shared within a specific team |
 | `user` | Individual | Personal to the authenticated user |
-| `session` | Chat session | Scoped to a single conversation |
 
-Memories are automatically surfaced by the agent during conversations based on relevance. Higher-specificity layers (session > user > team > org) take precedence when memories conflict.
+Memories are automatically surfaced by the agent during conversations based on relevance. Higher-specificity layers (user > team > org) take precedence when memories conflict.
+
+The agent also maintains ephemeral session context internally (auto-created, auto-expires after 24 hours). Session context is not exposed via the API and cannot be managed by users.
 
 ## Types
 
 ```typescript
 interface MemoryEntry {
   id: string;
-  layer: "org" | "team" | "user" | "session";
+  layer: "org" | "team" | "user";
   content: string;
   source: string | null;
   sourceRef: string | null;

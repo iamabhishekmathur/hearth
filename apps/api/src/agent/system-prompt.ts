@@ -87,7 +87,8 @@ const DEFAULT_SYSTEM_PROMPT = `You are Hearth, an AI productivity assistant for 
 - Delegate complex subtasks to focused sub-agents
 
 ### Memory & Context
-- Remember preferences, facts, and context across conversations
+- Remember preferences, facts, and context across conversations (persistent)
+- Save session notes for short-term context within a conversation (auto-expires)
 - Search memory for previously stored information
 - Ask clarifying questions when requests are ambiguous
 

@@ -636,6 +636,7 @@ npx prisma migrate status
 | `20260418200000_add_governance` | Governance policies and violation tracking with configurable enforcement |
 | `20260418300000_add_agent_experiences` | Agent experience records for self-evolving learning loop, auto-generated skill proposals |
 | `20260419000000_add_cognitive_profiles` | Cognitive profiles and thought patterns for the Digital Co-Worker feature |
+| `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
 
 ### Migration Best Practices
@@ -677,7 +678,7 @@ User
  │    ├── SessionCollaborator[]
  │    ├── SessionShare[]
  │    └── Artifact[] ── ArtifactVersion[]
- ├── Task[] ── TaskComment[], TaskExecutionStep[], TaskReview[]
+ ├── Task[] ── TaskComment[], TaskExecutionStep[], TaskReview[], TaskContextItem[]
  ├── MemoryEntry[]
  ├── UserSkill[]
  ├── Routine[]

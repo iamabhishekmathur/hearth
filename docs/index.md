@@ -3,12 +3,12 @@ layout: home
 
 hero:
   name: Hearth
-  text: AI Productivity Platform for Teams
-  tagline: Open-source, self-hosted, multiplayer-first. The models are good enough — the harness isn't.
+  text: One AI Workspace for Your Entire Team
+  tagline: Multiplayer AI chat, a task board that executes, and automated routines — self-hosted on your infrastructure with your own LLM keys.
   actions:
     - theme: brand
-      text: Quickstart
-      link: /getting-started/quickstart
+      text: Get Started
+      link: /getting-started/
     - theme: brand
       text: User Guide
       link: /guide/
@@ -21,49 +21,68 @@ hero:
 
 features:
   - icon: "💬"
-    title: Chat & Artifacts
-    details: Multi-session AI conversations with streaming responses, file attachments, real-time collaboration, and AI-generated artifacts in a side panel.
+    title: Multiplayer AI Chat
+    details: The only AI chat with real-time multiplayer. Multiple people in one session. Shared artifacts everyone can see and edit. Web search, code execution, and memory recall built in.
     link: /guide/#chat
     linkText: Learn more
   - icon: "📋"
-    title: Workspace & Tasks
-    details: Kanban board with automatic task detection from email, Slack, and calendar. Full lifecycle tracking with AI execution, sub-tasks, and approval gates.
+    title: Task Board
+    details: Kanban board with tasks proactively generated from meetings, email, and Slack. Auto-decomposition into subtasks. The AI executes with approval gates — you review, approve, done.
     link: /guide/#workspace
     linkText: Learn more
-  - icon: "🧠"
-    title: Multi-Layer Memory
-    details: Organization, team, and personal memory layers with vector search. Automatic synthesis distills insights across conversations and integrations over time.
-    link: /guide/#memory
-    linkText: Learn more
   - icon: "🔄"
-    title: Routines & Automation
-    details: Scheduled AI workflows with cron scheduling, templates, routine chaining, and test runs. Automate standups, reports, inbox triage, and more.
+    title: Routines
+    details: Cron-scheduled and webhook-triggered AI workflows. Standup summaries, metric digests, alert triage, report generation. Set up once, runs forever. Delivers to Slack, email, Jira.
     link: /guide/#routines
     linkText: Learn more
   - icon: "🧩"
     title: Skills
-    details: Browse, install, create, and import composable AI workflows. A library of skills that teach the agent specialized capabilities.
+    details: Reusable AI workflows anyone can create and share. One person discovers a pattern, saves it as a skill, whole team benefits. The AI proposes new skills from experience.
     link: /guide/#skills
     linkText: Learn more
-  - icon: "🔒"
-    title: Governance & Compliance
-    details: Define policies that monitor every chat message. Keyword, regex, and AI-powered rules with monitor/warn/block enforcement. Violation dashboard, review workflow, trend charts, and compliance export.
-    link: /platform/governance
+  - icon: "🧠"
+    title: Memory
+    details: "Three layers — personal, team, org — with semantic search. Daily synthesis extracts insights from conversations and integrations. The AI gets smarter for your org over time."
+    link: /guide/#memory
     linkText: Learn more
-  - icon: "🛡️"
-    title: Self-Hosted & Secure
-    details: Deploy on your infrastructure with Docker Compose or Kubernetes. AES-256-GCM encryption, SSO, audit logs, compliance controls.
+  - icon: "🕸️"
+    title: Decisions & Context Graph
+    details: "Auto-captured from chat and meetings. Timeline view, graph view, pattern detection. The AI surfaces relevant past decisions when you're making new ones."
+    link: /guide/#decisions
+    linkText: Learn more
+  - icon: "🤝"
+    title: Cognitive Profiles
+    details: "The AI learns how each person thinks. @mention a teammate: \"How would Sarah approach this?\" Responses grounded in observed patterns with cited evidence."
+    link: /guide/#cognitive-profiles
+    linkText: Learn more
+  - icon: "📊"
+    title: Activity Feed
+    details: Real-time stream of what's happening across your org. React to decisions, discover workflows, and let the AI surface patterns and anomalies.
+    link: /guide/#activity-feed
+    linkText: Learn more
+  - icon: "🔌"
+    title: Integrations
+    details: "Slack, email, calendar, Jira, MCP connectors, and webhooks. Bi-directional: tasks from Slack, results to Slack, routines triggered by any event."
+    link: /guide/#integrations
+    linkText: Learn more
+  - icon: "🔑"
+    title: BYO LLM
+    details: Bring your own API keys. OpenAI, Anthropic, local models. Switch providers anytime. No vendor lock-in on the intelligence layer.
     link: /self-hosting/
     linkText: Self-Hosting Guide
+  - icon: "🏠"
+    title: Self-Hosted
+    details: Deploy in your cloud or on-prem. Your data never touches our servers. Docker Compose for dev, Kubernetes + Helm for production. MIT licensed.
+    link: /self-hosting/
+    linkText: Self-Hosting Guide
+  - icon: "🛡️"
+    title: Enterprise-Ready
+    details: "6 compliance packs, governance policies with monitor/warn/block, full audit trail, approval workflows, SSO + RBAC, and a violation dashboard."
+    link: /platform/
+    linkText: Learn more
 ---
 
-## Why Hearth?
-
-Every AI tool today is single-player. Hearth is multiplayer by design.
-
-Teams waste time rediscovering the same prompts, the same workflows, the same integration patterns. Hearth captures those discoveries as shared skills and memory, so the entire organization levels up together.
-
-### Under 5 Minutes to Value
+## Under 5 Minutes to Value
 
 ```bash
 git clone https://github.com/iamabhishekmathur/hearth.git
@@ -73,12 +92,3 @@ docker compose up
 ```
 
 Open `http://localhost:3000` and complete the setup wizard.
-
-### Key Capabilities
-
-- **Proactive Work Intake** — Monitors email, Slack, and calendar. Auto-detects tasks and prepares for upcoming meetings before you ask.
-- **Approval Gates** — Configurable human-in-the-loop approvals for high-stakes actions. Review before the agent acts.
-- **Sub-Agent Kanban** — All work flows through a kanban board with context control, threaded feedback, and sub-agent orchestration.
-- **Memory Synthesis** — Automated 24-hour synthesis pipeline distills insights from conversations, integrations, and activity.
-- **Governance Logging** — Admins define policies (keyword, regex, or AI-powered) that monitor every chat message. Three enforcement modes — monitor, warn, block — with a full violation review workflow and compliance export.
-- **Provider-Agnostic** — Works with Claude, GPT, local models via Ollama, or any OpenAI-compatible endpoint.

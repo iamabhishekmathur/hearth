@@ -240,7 +240,18 @@ Tasks flow through six columns:
 
 **Task details:** Click any card to open the detail panel showing title, description, source, status history, sub-tasks, and AI commentary.
 
-**Adding context:** In the detail panel, add notes that the AI can reference when working on this task. More context = better AI output.
+**Adding context:** In the detail panel, open the **Context** tab to attach rich context that the AI uses during planning and execution:
+
+- **Notes** — Short instructions or reminders for the agent
+- **Links** — Paste a URL; Hearth auto-fetches the page content
+- **Files** — Upload PDFs, text files, JSON, or CSVs; text is extracted automatically
+- **Images** — Upload screenshots or mockups; optionally trigger vision analysis for a description
+- **Text blocks** — Paste long specs, email threads, or any reference text
+- **MCP references** — Pull in Notion pages, Slack threads, or other connected integration data
+
+You can also **drag-and-drop** files onto the context panel, or **paste** — URLs are auto-detected as links, long text becomes a text block, and clipboard files are uploaded.
+
+Each context item shows its extraction status (Pending, Extracting, Ready, Failed). Failed extractions can be retried with the **Refresh** button. All extracted content is serialized into the agent's prompt with intelligent token budgeting — if context is too large, the agent can drill into truncated items on demand.
 
 **Deep linking:** Append `?taskId=<id>` to the Workspace URL to open a specific task directly.
 
@@ -258,9 +269,11 @@ Detected tasks appear in the **Auto-detected** column. Review them — move usef
 
 When a task moves to **Executing**, the AI:
 
-1. **Plans** — decomposes the task into sub-tasks if needed
-2. **Executes** — works through sub-tasks using tools (code execution, web search, integrations)
+1. **Plans** — decomposes the task into sub-tasks if needed, using all attached context items (links, files, text blocks, etc.) with token-budgeted serialization
+2. **Executes** — works through sub-tasks using tools (code execution, web search, integrations), with access to the full rich context
 3. **Reports** — logs every step in the execution log, visible in the task detail panel
+
+The agent receives a token-budgeted summary of all context items. If any item was truncated, the agent can use the `get_task_context` tool to retrieve the full content on demand.
 
 You can watch execution in real time. If the approach is wrong, click **Replan** with feedback and the AI adjusts.
 
@@ -280,16 +293,17 @@ Click **Memory** in the sidebar to open the knowledge base.
 
 ### Memory Layers
 
-Hearth stores knowledge in four layers:
+Hearth stores knowledge in three layers:
 
 | Layer | Color | Who reads | Who writes |
 |-------|-------|-----------|------------|
 | **Organization** | Purple | Everyone | Admins only |
 | **Team** | Blue | Team members | Admins and team leads |
 | **Personal** | Green | Only you | You |
-| **Session** | Yellow | Session participants | Created automatically by AI |
 
-Organization memory is for company-wide decisions and standards. Team memory holds project-specific context. Personal memory stores your notes and preferences. Session memory is ephemeral.
+Organization memory is for company-wide decisions and standards. Team memory holds project-specific context. Personal memory stores your notes and preferences.
+
+The AI also maintains short-term session context automatically during conversations — this is not visible in the Memory page and expires after 24 hours.
 
 ### Creating and Managing Entries
 
@@ -591,7 +605,7 @@ Each policy has three enforcement modes:
 
 > Start with **monitor** mode to understand what would be flagged, then graduate to **warn** or **block** once you've tuned your rules.
 
-See the full [Governance guide](/platform/governance) for API reference and advanced configuration.
+See the full [Governance guide](/platform/#governance) for API reference and advanced configuration.
 
 ### Compliance Packs
 
@@ -614,7 +628,7 @@ Go to **Settings > Compliance** to enable automatic scrubbing of sensitive data 
 
 **Per-detector overrides** let you disable specific detectors within an enabled pack (e.g., allow emails through while still scrubbing SSNs).
 
-See the full [Compliance guide](/platform/compliance) for pack details, architecture, and API reference.
+See the full [Compliance guide](/platform/#compliance) for pack details, architecture, and API reference.
 
 ### Digital Co-Worker (Cognitive Profiles)
 
@@ -639,7 +653,7 @@ Go to **Settings > Digital Co-Worker** to enable cognitive profiles for your org
 
 > The more conversations Hearth processes, the better the cognitive models become. Allow 1-2 weeks of normal usage before relying on `@mention` queries.
 
-See the full [Digital Co-Worker guide](/platform/cognitive-profiles) for API reference and configuration details.
+See the full [Digital Co-Worker guide](/platform/#digital-co-worker-cognitive-profiles) for API reference and configuration details.
 
 ### Audit Logs
 

@@ -13,8 +13,10 @@ Jobs and schedulers live in `apps/api/src/jobs/`.
 | auth-service | `auth-service.ts` | Authentication, session management, password hashing, and OAuth callback handling. |
 | chat-service | `chat-service.ts` | Chat session CRUD, message persistence, agent orchestration, and session access control (owner/collaborator/org-visible). |
 | task-service | `task-service.ts` | Task CRUD, status lifecycle management, and priority ordering. |
-| task-planner | `task-planner.ts` | AI-powered task decomposition -- breaks complex tasks into sub-tasks with execution plans. |
-| task-executor | `task-executor.ts` | Task execution engine that drives agent tool use through the planning and execution phases. |
+| task-context-service | `task-context-service.ts` | Rich task context CRUD, embedding generation, and token-budgeted context serialization (`serializeTaskContext`) for agent prompts. |
+| task-context-extractor | `task-context-extractor.ts` | Per-type content extraction: link fetching via `webFetch`, PDF text extraction via `pdf-parse`, text file reading, and MCP resource fetching. |
+| task-planner | `task-planner.ts` | AI-powered task decomposition -- breaks complex tasks into sub-tasks with execution plans. Consumes rich context via `serializeTaskContext`. |
+| task-executor | `task-executor.ts` | Task execution engine that drives agent tool use through the planning and execution phases. Consumes rich context via `serializeTaskContext`. |
 | task-detector | `task-detector.ts` | LLM-based task detection from integration events (emails, Slack messages, calendar items). |
 | memory-service | `memory-service.ts` | Memory CRUD with layer-based permissions, hybrid search (vector + full-text), and expiration management. |
 | embedding-service | `embedding-service.ts` | Vector embedding generation using configurable providers. Supports flexible embedding dimensions. |
@@ -112,3 +114,4 @@ Jobs run on a schedule using BullMQ with Redis as the backing store. Each job is
 | activity-digest-scheduler | `activity-digest-scheduler.ts` | Periodic activity summaries -- generates digest notifications for org activity at configurable intervals. |
 | skill-proposal-job | `skill-proposal-job.ts` | Post-task skill evaluation -- after tasks complete, evaluates whether the approach should be proposed as a reusable skill. |
 | cognitive-extraction-scheduler | `cognitive-extraction-scheduler.ts` | Post-session cognitive extraction -- extracts thought patterns from qualifying chat sessions asynchronously. Also runs daily profile rebuild at 3am UTC. |
+| task-context-extraction-job | `task-context-extraction-job.ts` | Async content extraction for task context items -- fetches link content, parses PDFs, reads files, and queries MCP resources. Generates embeddings post-extraction. Emits WebSocket events for real-time status updates. |

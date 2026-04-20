@@ -12,46 +12,19 @@ export default defineConfig({
     nav: [
       { text: 'Getting Started', link: '/getting-started/' },
       { text: 'User Guide', link: '/guide/' },
-      { text: 'Platform', link: '/platform/' },
+      { text: 'Admin Guide', link: '/platform/' },
       { text: 'Developers', link: '/developers/' },
       { text: 'Self-Hosting', link: '/self-hosting/' },
     ],
 
     sidebar: {
-      '/getting-started/': [
-        {
-          text: 'Getting Started',
-          items: [
-            { text: 'Overview', link: '/getting-started/' },
-            { text: 'Quickstart', link: '/getting-started/quickstart' },
-            { text: 'First Run', link: '/getting-started/first-run' },
-            { text: 'Configuration', link: '/getting-started/configuration' },
-          ],
-        },
-      ],
-
+      // Single-page guides — no sidebar, use on-page TOC
+      '/getting-started/': [],
       '/guide/': [],
+      '/platform/': [],
+      '/self-hosting/': [],
 
-      '/platform/': [
-        {
-          text: 'Platform',
-          link: '/platform/',
-          items: [
-            { text: 'Users & Teams', link: '/platform/users-and-teams' },
-            { text: 'Integrations', link: '/platform/integrations' },
-            { text: 'LLM Configuration', link: '/platform/llm-config' },
-            { text: 'Soul & Identity', link: '/platform/soul-and-identity' },
-            { text: 'Governance', link: '/platform/governance' },
-            { text: 'Compliance', link: '/platform/compliance' },
-            { text: 'Analytics', link: '/platform/analytics' },
-            { text: 'Audit Logs', link: '/platform/audit-logs' },
-            { text: 'Digital Co-Worker', link: '/platform/cognitive-profiles' },
-            { text: 'Decision Graph', link: '/platform/decision-graph' },
-            { text: 'SSO', link: '/platform/sso' },
-          ],
-        },
-      ],
-
+      // Multi-page developer reference — sidebar navigation
       '/developers/': [
         {
           text: 'Developers',
@@ -104,20 +77,6 @@ export default defineConfig({
                 { text: 'Development Setup', link: '/developers/contributing/development' },
               ],
             },
-          ],
-        },
-      ],
-
-      '/self-hosting/': [
-        {
-          text: 'Self-Hosting',
-          link: '/self-hosting/',
-          items: [
-            { text: 'Docker Compose', link: '/self-hosting/docker' },
-            { text: 'Kubernetes & Helm', link: '/self-hosting/kubernetes' },
-            { text: 'Production Checklist', link: '/self-hosting/production' },
-            { text: 'Monitoring & Health', link: '/self-hosting/monitoring' },
-            { text: 'Troubleshooting', link: '/self-hosting/troubleshooting' },
           ],
         },
       ],

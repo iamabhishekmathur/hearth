@@ -42,6 +42,7 @@ CLAUDE.md
 SPEC.md
 TESTING.md
 TODO-phase5.md
+.planning/
 
 # GitHub workflows from upstream
 .github/workflows/test-plugin-install.yml

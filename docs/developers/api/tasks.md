@@ -585,4 +585,30 @@ interface TaskReview {
   userId: string;
   createdAt: string;
 }
+
+type TaskContextItemType = "note" | "link" | "file" | "image" | "text_block" | "mcp_reference";
+type ExtractionStatus = "pending" | "processing" | "completed" | "failed" | "skipped";
+
+interface TaskContextItem {
+  id: string;
+  taskId: string;
+  type: TaskContextItemType;
+  label: string | null;
+  rawValue: string;               // URL for links, filename for files, text for notes
+  mimeType: string | null;
+  sizeBytes: number | null;
+  storagePath: string | null;     // for file/image uploads
+  extractedText: string | null;   // populated by async extraction pipeline
+  extractedTitle: string | null;
+  extractionStatus: ExtractionStatus;
+  extractionError: string | null;
+  mcpIntegrationId: string | null;
+  mcpResourceType: string | null; // "notion_page", "slack_thread"
+  mcpResourceId: string | null;
+  visionAnalysis: string | null;  // opt-in image description
+  sortOrder: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
 ```

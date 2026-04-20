@@ -74,7 +74,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const validLayers: MemoryLayer[] = ['org', 'team', 'user', 'session'];
+    const validLayers: MemoryLayer[] = ['org', 'team', 'user'];
     if (!validLayers.includes(layer)) {
       res.status(400).json({ error: 'Invalid layer' });
       return;
@@ -207,7 +207,7 @@ router.post('/search', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const validLayers: MemoryLayer[] = ['org', 'team', 'user', 'session'];
+    const validLayers: MemoryLayer[] = ['org', 'team', 'user'];
     if (layer && !validLayers.includes(layer)) {
       res.status(400).json({ error: 'Invalid layer' });
       return;

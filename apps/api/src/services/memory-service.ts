@@ -48,7 +48,8 @@ function accessWhere(scope: MemoryScope, layer?: MemoryLayer): Prisma.MemoryEntr
  * Checks if the user has permission to write to the given layer.
  * - org: admin only
  * - team: admin or team_lead
- * - user/session: self-service (any role)
+ * - user: self-service (any role)
+ * - session: internal only (agent auto-creates, not user-managed)
  */
 function canWrite(scope: MemoryScope, layer: MemoryLayer): boolean {
   switch (layer) {

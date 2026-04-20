@@ -129,6 +129,7 @@ The tool router (`createToolRouter` in `tool-router.ts`) assembles the full set 
 | `create_task` | Create a task on the user's Kanban board with title, description, status, and priority. |
 | `update_task` | Update a task's status, title, description, or priority. Verifies ownership. |
 | `list_tasks` | List the user's tasks, optionally filtered by status. |
+| `get_task_context` | Retrieve the full extracted content of a task context item when the summary was truncated in the prompt. Accepts `item_id` and optional `max_length`. |
 | `create_routine` | Create a scheduled routine with a cron expression and delivery config. |
 | `update_routine` | Update a routine's schedule, prompt, name, or enabled state. |
 | `list_routines` | List the user's routines with status and last run info. |
