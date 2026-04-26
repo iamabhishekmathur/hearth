@@ -21,7 +21,7 @@ interface ProactiveSignalCardProps {
 
 export function ProactiveSignalCard({ signal, onDismiss }: ProactiveSignalCardProps) {
   const icon = SIGNAL_ICONS[signal.type] ?? '\u{1F514}';
-  const colorClass = SIGNAL_COLORS[signal.type] ?? 'border-gray-200 bg-gray-50';
+  const colorClass = SIGNAL_COLORS[signal.type] ?? 'border-hearth-border bg-hearth-bg';
 
   return (
     <div className={`flex items-center gap-3 rounded-lg border p-3 ${colorClass}`}>
@@ -29,19 +29,19 @@ export function ProactiveSignalCard({ signal, onDismiss }: ProactiveSignalCardPr
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-gray-900">{signal.title}</p>
-        <p className="text-xs text-gray-600">{signal.description}</p>
+        <p className="text-sm font-medium text-hearth-text">{signal.title}</p>
+        <p className="text-xs text-hearth-text-muted">{signal.description}</p>
       </div>
       <a
         href={signal.actionUrl}
-        className="shrink-0 rounded-md bg-white px-2.5 py-1 text-xs font-medium text-hearth-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+        className="shrink-0 rounded-md bg-hearth-card px-2.5 py-1 text-xs font-medium text-hearth-700 shadow-hearth-1 ring-1 ring-inset ring-gray-300 hover:bg-hearth-bg"
       >
         {signal.actionLabel}
       </a>
       <button
         type="button"
         onClick={onDismiss}
-        className="shrink-0 text-gray-400 hover:text-gray-600"
+        className="shrink-0 text-hearth-text-faint hover:text-hearth-text-muted"
         aria-label="Dismiss"
       >
         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

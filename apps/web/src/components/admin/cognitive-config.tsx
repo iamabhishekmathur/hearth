@@ -30,24 +30,24 @@ export function CognitiveConfig() {
     }
   };
 
-  if (loading) return <p className="text-sm text-gray-400">Loading...</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading...</p>;
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-1 text-base font-semibold text-gray-900">Digital Co-Worker</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="mb-1 text-base font-semibold text-hearth-text">Digital Co-Worker</h3>
+        <p className="text-sm text-hearth-text-muted">
           Build cognitive models from chat conversations so team members can ask
           "How would X think about this?" and get evidence-backed responses.
         </p>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between rounded-lg border border-hearth-border bg-hearth-card p-4">
         <div>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-hearth-text">
             Enable cognitive profiles for this organization
           </p>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mt-0.5 text-xs text-hearth-text-muted">
             When enabled, Hearth builds cognitive models from chat conversations. Individual
             users can opt out from their settings. Default: off.
           </p>
@@ -59,11 +59,11 @@ export function CognitiveConfig() {
           disabled={saving}
           onClick={() => handleToggle(!settings.enabled)}
           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
-            settings.enabled ? 'bg-hearth-600' : 'bg-gray-200'
+            settings.enabled ? 'bg-hearth-600' : 'bg-hearth-chip'
           }`}
         >
           <span
-            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-hearth-card shadow transition ${
               settings.enabled ? 'translate-x-5' : 'translate-x-0'
             }`}
           />

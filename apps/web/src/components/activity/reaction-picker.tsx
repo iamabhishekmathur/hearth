@@ -41,7 +41,7 @@ export function ReactionPicker({ reactions, currentUserId, onAdd, onRemove }: Re
             className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-xs transition-colors ${
               isMine
                 ? 'border-hearth-300 bg-hearth-50 text-hearth-700'
-                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                : 'border-hearth-border bg-hearth-card text-hearth-text-muted hover:bg-hearth-bg'
             }`}
           >
             <span>{EMOJI_MAP[r.emoji] ?? r.emoji}</span>
@@ -54,20 +54,20 @@ export function ReactionPicker({ reactions, currentUserId, onAdd, onRemove }: Re
         <button
           type="button"
           onClick={() => setShowPicker(!showPicker)}
-          className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-hearth-border bg-hearth-card text-xs text-hearth-text-faint hover:bg-hearth-bg hover:text-hearth-text-muted"
           aria-label="Add reaction"
         >
           +
         </button>
 
         {showPicker && (
-          <div className="absolute bottom-full left-0 z-10 mb-1 flex gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-lg">
+          <div className="absolute bottom-full left-0 z-10 mb-1 flex gap-1 rounded-lg border border-hearth-border bg-hearth-card p-1.5 shadow-hearth-3">
             {Object.entries(EMOJI_MAP).map(([key, display]) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => handleToggle(key)}
-                className="flex h-7 w-7 items-center justify-center rounded hover:bg-gray-100"
+                className="flex h-7 w-7 items-center justify-center rounded hover:bg-hearth-chip"
                 title={key}
               >
                 {display}

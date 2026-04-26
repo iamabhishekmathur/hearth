@@ -29,13 +29,13 @@ export function SkillRecommendations({ onInstall }: SkillRecommendationsProps) {
 
   return (
     <div className="mb-6">
-      <h2 className="mb-3 text-sm font-semibold text-gray-700">Recommended for you</h2>
+      <h2 className="mb-3 text-sm font-semibold text-hearth-text">Recommended for you</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {recommendations.slice(0, 6).map((rec) => (
           <div key={rec.skillId} className="rounded-lg border border-hearth-200 bg-hearth-50 p-3">
-            <h3 className="text-sm font-medium text-gray-900">{rec.name}</h3>
+            <h3 className="text-sm font-medium text-hearth-text">{rec.name}</h3>
             {rec.description && (
-              <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{rec.description}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs text-hearth-text-muted">{rec.description}</p>
             )}
             <div className="mt-1 flex flex-wrap gap-1">
               {rec.reasons.slice(0, 2).map((reason) => (

@@ -56,12 +56,12 @@ export function ImportSkillPanel({ onClose, onImported }: ImportSkillPanelProps)
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <h2 className="text-base font-semibold text-gray-900">Import from GitHub</h2>
+      <div className="flex items-center justify-between border-b border-hearth-border px-5 py-4">
+        <h2 className="text-base font-semibold text-hearth-text">Import from GitHub</h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -72,7 +72,7 @@ export function ImportSkillPanel({ onClose, onImported }: ImportSkillPanelProps)
       {/* Content */}
       <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-xs font-medium text-hearth-text">
             URL to a SKILL.md file
           </label>
           <input
@@ -83,9 +83,9 @@ export function ImportSkillPanel({ onClose, onImported }: ImportSkillPanelProps)
               setPreview(null);
             }}
             placeholder="https://github.com/user/repo/blob/main/skills/my-skill/SKILL.md"
-            className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           />
-          <p className="mt-0.5 text-[11px] text-gray-400">
+          <p className="mt-0.5 text-[11px] text-hearth-text-faint">
             Public SKILL.md with YAML frontmatter (name + description)
           </p>
         </div>
@@ -94,7 +94,7 @@ export function ImportSkillPanel({ onClose, onImported }: ImportSkillPanelProps)
           type="button"
           onClick={handleFetch}
           disabled={loading || !url.trim()}
-          className="w-full rounded-lg border border-gray-300 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="w-full rounded-lg border border-hearth-border-strong py-1.5 text-sm text-hearth-text hover:bg-hearth-bg disabled:opacity-50"
         >
           {loading && !preview ? 'Fetching...' : 'Preview'}
         </button>
@@ -102,13 +102,13 @@ export function ImportSkillPanel({ onClose, onImported }: ImportSkillPanelProps)
         {/* Preview */}
         {preview && (
           <div className="space-y-2">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <p className="text-sm font-medium text-gray-900">{preview.name}</p>
-              <p className="mt-0.5 text-xs text-gray-600">{preview.description}</p>
+            <div className="rounded-lg border border-hearth-border bg-hearth-bg p-3">
+              <p className="text-sm font-medium text-hearth-text">{preview.name}</p>
+              <p className="mt-0.5 text-xs text-hearth-text-muted">{preview.description}</p>
             </div>
 
-            <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white p-3">
-              <pre className="whitespace-pre-wrap text-[11px] text-gray-500">
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-hearth-border bg-hearth-card p-3">
+              <pre className="whitespace-pre-wrap text-[11px] text-hearth-text-muted">
                 {preview.content.slice(0, 800)}
                 {preview.content.length > 800 && '\n...'}
               </pre>
@@ -127,11 +127,11 @@ export function ImportSkillPanel({ onClose, onImported }: ImportSkillPanelProps)
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 border-t border-gray-100 px-5 py-3">
+      <div className="flex items-center gap-2 border-t border-hearth-border px-5 py-3">
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-lg border border-gray-300 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          className="flex-1 rounded-lg border border-hearth-border-strong py-2 text-sm text-hearth-text hover:bg-hearth-bg"
         >
           Cancel
         </button>

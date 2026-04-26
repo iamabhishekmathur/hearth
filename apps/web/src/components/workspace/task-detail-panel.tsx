@@ -14,7 +14,7 @@ type Tab = (typeof TABS)[number];
 const EDITABLE_STATUSES = new Set<TaskStatus>(['auto_detected', 'backlog']);
 
 const PRIORITY_LABELS: Record<number, { label: string; color: string }> = {
-  0: { label: 'None', color: 'text-gray-400' },
+  0: { label: 'None', color: 'text-hearth-text-faint' },
   1: { label: 'Low', color: 'text-blue-600' },
   2: { label: 'Medium', color: 'text-amber-600' },
   3: { label: 'High', color: 'text-red-600' },
@@ -44,9 +44,9 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
 
   if (loading || !task) {
     return (
-      <div className="fixed inset-y-0 right-0 z-50 w-[460px] max-w-[90vw] border-l border-gray-200 bg-white shadow-xl">
+      <div className="fixed inset-y-0 right-0 z-50 w-[460px] max-w-[90vw] border-l border-hearth-border bg-hearth-card shadow-hearth-4">
         <div className="flex items-center justify-center h-full">
-          <p className="text-sm text-gray-400">Loading...</p>
+          <p className="text-sm text-hearth-text-faint">Loading...</p>
         </div>
       </div>
     );
@@ -55,23 +55,23 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
   const editable = EDITABLE_STATUSES.has(task.status as TaskStatus);
 
   return (
-    <div role="dialog" aria-label={`Task detail: ${task.title}`} className="fixed inset-y-0 right-0 z-50 flex w-[460px] max-w-[90vw] flex-col border-l border-gray-200 bg-white shadow-xl">
+    <div role="dialog" aria-label={`Task detail: ${task.title}`} className="fixed inset-y-0 right-0 z-50 flex w-[460px] max-w-[90vw] flex-col border-l border-hearth-border bg-hearth-card shadow-hearth-4">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-hearth-border px-4 py-3">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold text-gray-900">{task.title}</h2>
+          <h2 className="truncate text-base font-semibold text-hearth-text">{task.title}</h2>
           <div className="mt-0.5 flex items-center gap-2">
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
+            <span className="rounded bg-hearth-chip px-1.5 py-0.5 text-xs font-medium text-hearth-text-muted">
               {task.status.replace('_', ' ')}
             </span>
-            <span className="text-xs text-gray-400">{task.source}</span>
+            <span className="text-xs text-hearth-text-faint">{task.source}</span>
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close task detail"
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
         >
           <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -83,7 +83,7 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
       <div
         role="tablist"
         aria-label="Task detail tabs"
-        className="flex overflow-x-auto border-b border-gray-200"
+        className="flex overflow-x-auto border-b border-hearth-border"
       >
         {TABS.map((tab) => (
           <button
@@ -96,7 +96,7 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
             className={`shrink-0 whitespace-nowrap px-3 py-2 text-xs font-medium transition-colors ${
               activeTab === tab
                 ? 'border-b-2 border-hearth-600 text-hearth-600'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-hearth-text-muted hover:text-hearth-text'
             }`}
           >
             {tab}
@@ -208,7 +208,7 @@ function OverviewTab({
     <div className="space-y-4">
       {/* Title */}
       <div>
-        <h4 className="mb-1 text-xs font-medium text-gray-500">Title</h4>
+        <h4 className="mb-1 text-xs font-medium text-hearth-text-muted">Title</h4>
         {editingField === 'title' ? (
           <input
             ref={titleRef}
@@ -220,11 +220,11 @@ function OverviewTab({
               if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
               if (e.key === 'Escape') { setTitle(task.title); setEditingField(null); }
             }}
-            className="w-full rounded border border-hearth-400 bg-white px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded border border-hearth-400 bg-hearth-card px-2 py-1.5 text-sm text-hearth-text focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           />
         ) : (
           <p
-            className={`text-sm text-gray-900 ${editable ? 'cursor-text rounded px-2 py-1.5 -mx-2 hover:bg-gray-50' : ''}`}
+            className={`text-sm text-hearth-text ${editable ? 'cursor-text rounded px-2 py-1.5 -mx-2 hover:bg-hearth-bg' : ''}`}
             onClick={() => { if (editable) setEditingField('title'); }}
           >
             {task.title}
@@ -234,7 +234,7 @@ function OverviewTab({
 
       {/* Description */}
       <div>
-        <h4 className="mb-1 text-xs font-medium text-gray-500">Description</h4>
+        <h4 className="mb-1 text-xs font-medium text-hearth-text-muted">Description</h4>
         {editingField === 'description' ? (
           <textarea
             ref={descRef}
@@ -247,11 +247,11 @@ function OverviewTab({
             }}
             rows={4}
             placeholder="Add a description..."
-            className="w-full rounded border border-hearth-400 bg-white px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded border border-hearth-400 bg-hearth-card px-2 py-1.5 text-sm text-hearth-text focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           />
         ) : task.description ? (
           <p
-            className={`whitespace-pre-wrap text-sm text-gray-900 ${editable ? 'cursor-text rounded px-2 py-1.5 -mx-2 hover:bg-gray-50' : ''}`}
+            className={`whitespace-pre-wrap text-sm text-hearth-text ${editable ? 'cursor-text rounded px-2 py-1.5 -mx-2 hover:bg-hearth-bg' : ''}`}
             onClick={() => { if (editable) setEditingField('description'); }}
           >
             {task.description}
@@ -260,18 +260,18 @@ function OverviewTab({
           <button
             type="button"
             onClick={() => setEditingField('description')}
-            className="text-sm italic text-gray-400 hover:text-gray-600"
+            className="text-sm italic text-hearth-text-faint hover:text-hearth-text-muted"
           >
             + Add description
           </button>
         ) : (
-          <p className="text-sm text-gray-400 italic">No description</p>
+          <p className="text-sm text-hearth-text-faint italic">No description</p>
         )}
       </div>
 
       {/* Priority */}
       <div>
-        <h4 className="mb-1 text-xs font-medium text-gray-500">Priority</h4>
+        <h4 className="mb-1 text-xs font-medium text-hearth-text-muted">Priority</h4>
         {editable ? (
           <div className="flex gap-1.5">
             {[0, 1, 2, 3].map((p) => {
@@ -285,7 +285,7 @@ function OverviewTab({
                   className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                     isActive
                       ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      : 'bg-hearth-chip text-hearth-text-muted hover:bg-hearth-chip'
                   }`}
                 >
                   {p === 0 ? 'None' : `P${p}`}
@@ -301,24 +301,24 @@ function OverviewTab({
       </div>
 
       {/* Read-only metadata */}
-      <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
+      <div className="grid grid-cols-2 gap-3 border-t border-hearth-border pt-4">
         <div>
-          <h4 className="text-xs font-medium text-gray-500">Created</h4>
-          <p className="text-sm text-gray-900">
+          <h4 className="text-xs font-medium text-hearth-text-muted">Created</h4>
+          <p className="text-sm text-hearth-text">
             {new Date(task.createdAt).toLocaleDateString()}
           </p>
         </div>
         <div>
-          <h4 className="text-xs font-medium text-gray-500">Source</h4>
-          <p className="text-sm text-gray-900">{task.source.replace('_', ' ')}</p>
+          <h4 className="text-xs font-medium text-hearth-text-muted">Source</h4>
+          <p className="text-sm text-hearth-text">{task.source.replace('_', ' ')}</p>
         </div>
         <div>
-          <h4 className="text-xs font-medium text-gray-500">Subtasks</h4>
-          <p className="text-sm text-gray-900">{task.subTasks?.length ?? 0}</p>
+          <h4 className="text-xs font-medium text-hearth-text-muted">Subtasks</h4>
+          <p className="text-sm text-hearth-text">{task.subTasks?.length ?? 0}</p>
         </div>
         <div>
-          <h4 className="text-xs font-medium text-gray-500">Comments</h4>
-          <p className="text-sm text-gray-900">{task.comments?.length ?? 0}</p>
+          <h4 className="text-xs font-medium text-hearth-text-muted">Comments</h4>
+          <p className="text-sm text-hearth-text">{task.comments?.length ?? 0}</p>
         </div>
       </div>
     </div>

@@ -75,7 +75,7 @@ export function SkillProposalBanner({ taskId }: SkillProposalBannerProps) {
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded border border-hearth-border-strong px-2.5 py-1 text-xs font-medium text-hearth-text-muted hover:bg-hearth-bg"
               >
                 Dismiss
               </button>

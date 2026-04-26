@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useDecisions, useDecision, usePatterns, usePrinciples, usePendingReview } from '@/hooks/use-decisions';
 import { DecisionDetailPanel } from '@/components/decisions/decision-detail-panel';
 import { DecisionCaptureForm } from '@/components/decisions/decision-capture-form';
+import { HButton, HEyebrow, HCard } from '@/components/ui/primitives';
 
 type Tab = 'timeline' | 'graph' | 'patterns' | 'principles';
 
@@ -33,7 +34,7 @@ function DomainBadge({ domain }: { domain: string | null }) {
     strategy: 'bg-indigo-100 text-indigo-700',
   };
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colors[domain] ?? 'bg-gray-100 text-gray-700'}`}>
+    <span className={`inline-flex rounded-pill px-2 py-0.5 text-xs font-medium ${colors[domain] ?? 'bg-hearth-chip text-hearth-text-muted'}`}>
       {domain}
     </span>
   );
@@ -41,11 +42,11 @@ function DomainBadge({ domain }: { domain: string | null }) {
 
 function ConfidenceBadge({ confidence }: { confidence: string }) {
   const colors: Record<string, string> = {
-    high: 'text-green-600',
-    medium: 'text-yellow-600',
-    low: 'text-red-600',
+    high: 'text-hearth-ok',
+    medium: 'text-hearth-warn',
+    low: 'text-hearth-err',
   };
-  return <span className={`text-xs font-medium ${colors[confidence] ?? 'text-gray-500'}`}>{confidence}</span>;
+  return <span className={`text-xs font-medium ${colors[confidence] ?? 'text-hearth-text-muted'}`}>{confidence}</span>;
 }
 
 function TimelineView({ decisions, onSelect }: { decisions: any[]; onSelect: (id: string) => void }) {
@@ -60,26 +61,26 @@ function TimelineView({ decisions, onSelect }: { decisions: any[]; onSelect: (id
     <div className="space-y-6">
       {Array.from(grouped.entries()).map(([bucket, items]) => (
         <div key={bucket}>
-          <h3 className="mb-3 text-sm font-semibold text-gray-500">{bucket}</h3>
+          <h3 className="hearth-eyebrow mb-3">{bucket}</h3>
           <div className="space-y-2">
             {items.map((d: any) => (
               <button
                 key={d.id}
                 type="button"
                 onClick={() => onSelect(d.id)}
-                className="w-full rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-hearth-300 hover:bg-hearth-50"
+                className="w-full rounded-lg border border-hearth-border bg-hearth-card p-4 text-left transition-all duration-fast ease-hearth hover:border-hearth-accent hover:shadow-hearth-1"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-medium text-gray-900">{d.title}</h4>
-                    <p className="mt-1 line-clamp-2 text-xs text-gray-500">{d.reasoning}</p>
+                    <h4 className="truncate text-sm font-medium text-hearth-text">{d.title}</h4>
+                    <p className="mt-1 line-clamp-2 text-xs text-hearth-text-muted">{d.reasoning}</p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <DomainBadge domain={d.domain} />
                     <ConfidenceBadge confidence={d.confidence} />
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+                <div className="mt-2 flex items-center gap-3 text-xs text-hearth-text-faint">
                   <span>{d.createdByName ?? 'System'}</span>
                   {d.outcomeCount > 0 && <span>{d.outcomeCount} outcome{d.outcomeCount > 1 ? 's' : ''}</span>}
                   {d.linkCount > 0 && <span>{d.linkCount} link{d.linkCount > 1 ? 's' : ''}</span>}
@@ -95,25 +96,25 @@ function TimelineView({ decisions, onSelect }: { decisions: any[]; onSelect: (id
 
 function PatternsView({ domain }: { domain?: string }) {
   const { patterns, loading } = usePatterns(domain);
-  if (loading) return <p className="text-sm text-gray-400">Loading patterns...</p>;
-  if (patterns.length === 0) return <p className="text-sm text-gray-400">No patterns found yet. Patterns emerge after 3+ decisions in a domain.</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading patterns...</p>;
+  if (patterns.length === 0) return <p className="text-sm text-hearth-text-faint">No patterns found yet. Patterns emerge after 3+ decisions in a domain.</p>;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {patterns.map(p => (
-        <div key={p.id} className="rounded-lg border border-gray-200 bg-white p-4">
+        <HCard key={p.id}>
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-gray-900">{p.name}</h4>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            <h4 className="text-sm font-medium text-hearth-text">{p.name}</h4>
+            <span className={`rounded-pill px-2 py-0.5 text-xs font-medium ${
               p.status === 'established' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
             }`}>{p.status}</span>
           </div>
-          <p className="mt-1 text-xs text-gray-500">{p.description}</p>
-          <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-hearth-text-muted">{p.description}</p>
+          <div className="mt-2 flex items-center gap-2 text-xs text-hearth-text-faint">
             <DomainBadge domain={p.domain} />
             <span>{p.decisionCount} decisions</span>
           </div>
-        </div>
+        </HCard>
       ))}
     </div>
   );
@@ -121,20 +122,20 @@ function PatternsView({ domain }: { domain?: string }) {
 
 function PrinciplesView({ domain }: { domain?: string }) {
   const { principles, loading } = usePrinciples(domain);
-  if (loading) return <p className="text-sm text-gray-400">Loading principles...</p>;
-  if (principles.length === 0) return <p className="text-sm text-gray-400">No principles distilled yet. Principles emerge from established patterns.</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading principles...</p>;
+  if (principles.length === 0) return <p className="text-sm text-hearth-text-faint">No principles distilled yet. Principles emerge from established patterns.</p>;
 
   return (
     <div className="space-y-4">
       {principles.map(p => (
-        <div key={p.id} className="rounded-lg border border-gray-200 bg-white p-5">
+        <HCard key={p.id} padding="p-5">
           <div className="flex items-center justify-between">
-            <h4 className="text-base font-semibold text-gray-900">{p.title}</h4>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            <h4 className="text-base font-semibold text-hearth-text">{p.title}</h4>
+            <span className={`rounded-pill px-2 py-0.5 text-xs font-medium ${
               p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
             }`}>{p.status}</span>
           </div>
-          <p className="mt-2 text-sm text-gray-600">{p.description}</p>
+          <p className="mt-2 text-sm text-hearth-text-muted">{p.description}</p>
           <div className="mt-3 rounded-lg bg-green-50 p-3">
             <p className="text-xs font-medium text-green-800">Guideline</p>
             <p className="text-sm text-green-700">{p.guideline}</p>
@@ -145,12 +146,12 @@ function PrinciplesView({ domain }: { domain?: string }) {
               <p className="text-sm text-red-700">{p.antiPattern}</p>
             </div>
           )}
-          <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+          <div className="mt-2 flex items-center gap-2 text-xs text-hearth-text-faint">
             <DomainBadge domain={p.domain} />
             <span>v{p.version}</span>
             {p.lastSyncedToSoul && <span>Synced to SOUL.md</span>}
           </div>
-        </div>
+        </HCard>
       ))}
     </div>
   );
@@ -175,19 +176,21 @@ export function DecisionsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-hearth-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Decision Graph</h1>
-            <p className="mt-0.5 text-sm text-gray-500">Organizational decision history and patterns</p>
+            <HEyebrow>Intelligence</HEyebrow>
+            <h1 className="mt-1 font-display text-[22px] font-medium" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+              Decision Graph<span style={{ color: 'var(--hearth-accent)' }}>.</span>
+            </h1>
+            <p className="mt-0.5 text-sm text-hearth-text-muted">Organizational decision history and patterns</p>
           </div>
-          <button
-            type="button"
+          <HButton
+            variant="accent"
             onClick={() => setShowCaptureForm(true)}
-            className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white hover:bg-hearth-700"
           >
             Capture Decision
-          </button>
+          </HButton>
         </div>
 
         {/* Review banner */}
@@ -199,8 +202,8 @@ export function DecisionsPage() {
                 {pendingDecisions.slice(0, 2).map(d => (
                   <div key={d.id} className="flex items-center gap-1">
                     <span className="max-w-[200px] truncate text-xs text-yellow-700">{d.title}</span>
-                    <button type="button" onClick={() => confirm(d.id)} className="rounded px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-100">Approve</button>
-                    <button type="button" onClick={() => dismiss(d.id)} className="rounded px-1.5 py-0.5 text-xs font-medium text-red-700 hover:bg-red-100">Dismiss</button>
+                    <button type="button" onClick={() => confirm(d.id)} className="rounded-md px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-100">Approve</button>
+                    <button type="button" onClick={() => dismiss(d.id)} className="rounded-md px-1.5 py-0.5 text-xs font-medium text-red-700 hover:bg-red-100">Dismiss</button>
                   </div>
                 ))}
               </div>
@@ -210,17 +213,17 @@ export function DecisionsPage() {
       </div>
 
       {/* Tabs + Filters */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6">
+      <div className="flex items-center justify-between border-b border-hearth-border px-6">
         <div className="flex">
           {tabs.map(tab => (
             <button
               key={tab.value}
               type="button"
               onClick={() => setActiveTab(tab.value)}
-              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-all duration-fast ease-hearth ${
                 activeTab === tab.value
-                  ? 'border-hearth-600 text-hearth-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-hearth-accent text-hearth-accent'
+                  : 'border-transparent text-hearth-text-muted hover:border-hearth-border-strong hover:text-hearth-text'
               }`}
             >
               {tab.label}
@@ -231,7 +234,7 @@ export function DecisionsPage() {
           <select
             value={domainFilter}
             onChange={e => setDomainFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs focus:border-hearth-500 focus:outline-none"
+            className="rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-1.5 text-xs text-hearth-text focus:border-hearth-accent focus:outline-none focus:shadow-hearth-focus"
           >
             <option value="">All Domains</option>
             {DOMAIN_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
@@ -243,24 +246,27 @@ export function DecisionsPage() {
       <div className="flex flex-1 overflow-hidden">
         <div className={`flex-1 overflow-y-auto p-6 ${selectedId ? 'w-3/5' : ''}`}>
           {loading && decisions.length === 0 ? (
-            <p className="text-center text-sm text-gray-400">Loading decisions...</p>
+            <p className="text-center text-sm text-hearth-text-faint">Loading decisions...</p>
           ) : (
             <>
               {activeTab === 'timeline' && (
                 <>
                   <TimelineView decisions={decisions} onSelect={setSelectedId} />
                   {hasMore && (
-                    <button type="button" onClick={loadMore} className="mt-4 w-full rounded-lg border border-gray-200 py-2 text-sm text-gray-500 hover:bg-gray-50">
+                    <HButton
+                      className="mt-4 w-full"
+                      onClick={loadMore}
+                    >
                       Load more
-                    </button>
+                    </HButton>
                   )}
                 </>
               )}
               {activeTab === 'graph' && (
-                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-hearth-border-strong bg-hearth-card-alt">
                   <div className="text-center">
-                    <p className="text-sm font-medium text-gray-500">Graph View</p>
-                    <p className="mt-1 text-xs text-gray-400">Select a decision from the timeline to explore its graph</p>
+                    <p className="text-sm font-medium text-hearth-text-muted">Graph View</p>
+                    <p className="mt-1 text-xs text-hearth-text-faint">Select a decision from the timeline to explore its graph</p>
                   </div>
                 </div>
               )}

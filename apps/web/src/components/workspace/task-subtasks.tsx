@@ -3,7 +3,7 @@ import type { Task, TaskStatus, TaskExecutionStep } from '@hearth/shared';
 
 const STATUS_COLORS: Record<string, string> = {
   auto_detected: 'bg-amber-100 text-amber-700',
-  backlog: 'bg-gray-100 text-gray-700',
+  backlog: 'bg-hearth-chip text-hearth-text',
   planning: 'bg-blue-100 text-blue-700',
   executing: 'bg-purple-100 text-purple-700',
   review: 'bg-orange-100 text-orange-700',
@@ -12,7 +12,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STEP_ICONS: Record<string, { icon: string; color: string }> = {
-  pending: { icon: '\u25CB', color: 'text-gray-400' },
+  pending: { icon: '\u25CB', color: 'text-hearth-text-faint' },
   running: { icon: '\u25CF', color: 'text-blue-500' },
   completed: { icon: '\u2713', color: 'text-green-500' },
   failed: { icon: '\u2717', color: 'text-red-500' },
@@ -47,29 +47,29 @@ function StepRow({ step }: { step: TaskExecutionStep }) {
   const hasDetails = step.input != null || step.output != null;
 
   return (
-    <div className="border-l-2 border-gray-100 pl-3">
+    <div className="border-l-2 border-hearth-border pl-3">
       <button
         type="button"
         onClick={() => hasDetails && setExpanded((v) => !v)}
-        className={`flex w-full items-start gap-2 py-1 text-left ${hasDetails ? 'hover:bg-gray-50' : 'cursor-default'}`}
+        className={`flex w-full items-start gap-2 py-1 text-left ${hasDetails ? 'hover:bg-hearth-bg' : 'cursor-default'}`}
       >
         <span className={`mt-0.5 text-xs ${cfg.color} ${step.status === 'running' ? 'animate-pulse' : ''}`}>
           {cfg.icon}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-gray-700">{step.description}</p>
+          <p className="text-xs text-hearth-text">{step.description}</p>
           <div className="flex items-center gap-2">
             {step.toolUsed && (
-              <span className="text-[10px] text-gray-400">{step.toolUsed}</span>
+              <span className="text-[10px] text-hearth-text-faint">{step.toolUsed}</span>
             )}
             {step.durationMs != null && (
-              <span className="text-[10px] text-gray-400">{step.durationMs}ms</span>
+              <span className="text-[10px] text-hearth-text-faint">{step.durationMs}ms</span>
             )}
           </div>
         </div>
         {hasDetails && (
           <svg
-            className={`mt-0.5 h-3 w-3 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`}
+            className={`mt-0.5 h-3 w-3 shrink-0 text-hearth-text-faint transition-transform ${expanded ? 'rotate-90' : ''}`}
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -83,19 +83,19 @@ function StepRow({ step }: { step: TaskExecutionStep }) {
       </button>
 
       {expanded && hasDetails && (
-        <div className="mb-1 ml-4 space-y-1.5 rounded bg-gray-50 p-2">
+        <div className="mb-1 ml-4 space-y-1.5 rounded bg-hearth-bg p-2">
           {step.input != null && (
             <div>
-              <p className="text-[10px] font-medium text-gray-400">Input</p>
-              <pre className="max-h-28 overflow-auto text-[10px] text-gray-600">
+              <p className="text-[10px] font-medium text-hearth-text-faint">Input</p>
+              <pre className="max-h-28 overflow-auto text-[10px] text-hearth-text-muted">
                 {formatJson(step.input)}
               </pre>
             </div>
           )}
           {step.output != null && (
             <div>
-              <p className="text-[10px] font-medium text-gray-400">Output</p>
-              <pre className="max-h-40 overflow-auto text-[10px] text-gray-600">
+              <p className="text-[10px] font-medium text-hearth-text-faint">Output</p>
+              <pre className="max-h-40 overflow-auto text-[10px] text-hearth-text-muted">
                 {formatJson(step.output)}
               </pre>
             </div>
@@ -115,35 +115,35 @@ function SubtaskRow({ subtask, index }: { subtask: SubtaskWithSteps; index: numb
   const completedSteps = steps.filter((s) => s.status === 'completed').length;
 
   return (
-    <div className="rounded-lg border border-gray-100">
+    <div className="rounded-lg border border-hearth-border">
       <button
         type="button"
         onClick={() => hasContent && setExpanded((v) => !v)}
-        className={`flex w-full items-start gap-2 p-3 text-left ${hasContent ? 'hover:bg-gray-50' : 'cursor-default'}`}
+        className={`flex w-full items-start gap-2 p-3 text-left ${hasContent ? 'hover:bg-hearth-bg' : 'cursor-default'}`}
         aria-expanded={hasContent ? expanded : undefined}
       >
-        <span className="mt-0.5 text-xs font-medium text-gray-400">{index + 1}.</span>
+        <span className="mt-0.5 text-xs font-medium text-hearth-text-faint">{index + 1}.</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">{subtask.title}</span>
+            <span className="text-sm font-medium text-hearth-text">{subtask.title}</span>
             <span
-              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[subtask.status] ?? 'bg-gray-100 text-gray-600'}`}
+              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[subtask.status] ?? 'bg-hearth-chip text-hearth-text-muted'}`}
             >
               {subtask.status.replace('_', ' ')}
             </span>
           </div>
           {subtask.description && (
-            <p className="mt-0.5 text-xs text-gray-500">{subtask.description}</p>
+            <p className="mt-0.5 text-xs text-hearth-text-muted">{subtask.description}</p>
           )}
           {steps.length > 0 && !expanded && (
-            <p className="mt-0.5 text-[10px] text-gray-400">
+            <p className="mt-0.5 text-[10px] text-hearth-text-faint">
               {completedSteps}/{steps.length} steps
             </p>
           )}
         </div>
         {hasContent && (
           <svg
-            className={`mt-0.5 h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`}
+            className={`mt-0.5 h-4 w-4 shrink-0 text-hearth-text-faint transition-transform ${expanded ? 'rotate-90' : ''}`}
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -157,12 +157,12 @@ function SubtaskRow({ subtask, index }: { subtask: SubtaskWithSteps; index: numb
       </button>
 
       {expanded && hasContent && (
-        <div className="border-t border-gray-100 bg-gray-50/30 px-3 pb-3 pt-2">
+        <div className="border-t border-hearth-border bg-hearth-bg/30 px-3 pb-3 pt-2">
           {/* Agent output */}
           {subtask.agentOutput && (
             <div className="mb-2">
-              <p className="mb-1 text-[10px] font-medium text-gray-400">Output</p>
-              <div className="max-h-40 overflow-auto rounded border border-gray-200 bg-white p-2 text-xs text-gray-700 whitespace-pre-wrap">
+              <p className="mb-1 text-[10px] font-medium text-hearth-text-faint">Output</p>
+              <div className="max-h-40 overflow-auto rounded border border-hearth-border bg-hearth-card p-2 text-xs text-hearth-text whitespace-pre-wrap">
                 {typeof (subtask.agentOutput as { result?: string }).result === 'string'
                   ? (subtask.agentOutput as { result: string }).result
                   : formatJson(subtask.agentOutput)}
@@ -173,7 +173,7 @@ function SubtaskRow({ subtask, index }: { subtask: SubtaskWithSteps; index: numb
           {/* Execution steps */}
           {steps.length > 0 && (
             <div className="space-y-0.5">
-              <p className="mb-1 text-[10px] font-medium text-gray-400">
+              <p className="mb-1 text-[10px] font-medium text-hearth-text-faint">
                 Execution steps ({completedSteps}/{steps.length})
               </p>
               {steps.map((step) => (
@@ -228,7 +228,7 @@ export function TaskSubtasks({ subtasks, taskStatus, parentSteps, onReplan }: Ta
 
       {/* Subtask list with expandable execution */}
       {subtasks.length === 0 && !isPlanning && !hasRunningPlanning ? (
-        <p className="py-4 text-center text-xs text-gray-400">No subtasks</p>
+        <p className="py-4 text-center text-xs text-hearth-text-faint">No subtasks</p>
       ) : (
         <div className="space-y-2">
           {subtasks.map((sub, i) => (
@@ -242,7 +242,7 @@ export function TaskSubtasks({ subtasks, taskStatus, parentSteps, onReplan }: Ta
         <button
           type="button"
           onClick={() => setShowReplan(true)}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 py-2 text-xs text-gray-500 hover:border-hearth-400 hover:text-hearth-600"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-hearth-border-strong py-2 text-xs text-hearth-text-muted hover:border-hearth-400 hover:text-hearth-600"
         >
           <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
             <path
@@ -258,7 +258,7 @@ export function TaskSubtasks({ subtasks, taskStatus, parentSteps, onReplan }: Ta
       {/* Replan form */}
       {showReplan && (
         <div className="mt-3 space-y-2 rounded-lg border border-blue-100 bg-blue-50/30 p-3">
-          <label htmlFor="replan-feedback" className="block text-xs font-medium text-gray-700">
+          <label htmlFor="replan-feedback" className="block text-xs font-medium text-hearth-text">
             What should change?
           </label>
           <textarea
@@ -267,7 +267,7 @@ export function TaskSubtasks({ subtasks, taskStatus, parentSteps, onReplan }: Ta
             onChange={(e) => setFeedback(e.target.value)}
             rows={3}
             placeholder="e.g. break it into smaller steps, focus on the API first, skip the migration..."
-            className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded-md border border-hearth-border-strong bg-hearth-card px-2 py-1.5 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
             autoFocus
           />
           <div className="flex gap-2">
@@ -287,7 +287,7 @@ export function TaskSubtasks({ subtasks, taskStatus, parentSteps, onReplan }: Ta
                 setFeedback('');
                 setError(null);
               }}
-              className="rounded-md px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
+              className="rounded-md px-3 py-1.5 text-xs text-hearth-text-muted hover:bg-hearth-chip"
             >
               Cancel
             </button>

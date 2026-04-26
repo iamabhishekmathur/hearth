@@ -1,7 +1,33 @@
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+@layer base {
+  body {
+    background: var(--hearth-bg);
+    color: var(--hearth-text);
+    font-family: var(--hearth-font-sans);
+    font-size: var(--hearth-body-md);
+    line-height: var(--hearth-body-md-lh);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/* Utility: eyebrow label pattern */
+.hearth-eyebrow {
+  font-size: var(--hearth-caption-sm);
+  line-height: var(--hearth-caption-sm-lh);
+  color: var(--hearth-text-faint);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* Pulse animation for running tool status */
+@keyframes hpulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }

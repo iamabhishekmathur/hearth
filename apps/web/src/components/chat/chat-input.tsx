@@ -243,7 +243,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
   // Show access prompt instead of input for viewers
   if (accessPrompt) {
     return (
-      <div className="border-t border-gray-200 bg-white px-4 py-3">
+      <div className="border-t border-hearth-border bg-hearth-card px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-center">
           <button
             type="button"
@@ -258,7 +258,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
   }
 
   return (
-    <div className="border-t border-gray-200 bg-white px-4 py-3">
+    <div className="border-t border-hearth-border bg-hearth-card px-4 py-3">
       <div className="mx-auto max-w-3xl">
         {/* Attachment previews */}
         {attachments.length > 0 && (
@@ -266,7 +266,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
             {attachments.map((att, i) => (
               <div
                 key={i}
-                className="group relative flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5"
+                className="group relative flex items-center gap-2 rounded-lg border border-hearth-border bg-hearth-bg px-2 py-1.5"
               >
                 {att.preview ? (
                   <img
@@ -275,8 +275,8 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
                     className="h-10 w-10 rounded object-cover"
                   />
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-200">
-                    <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                  <div className="flex h-10 w-10 items-center justify-center rounded bg-hearth-chip">
+                    <svg className="h-5 w-5 text-hearth-text-muted" viewBox="0 0 20 20" fill="currentColor">
                       <path
                         fillRule="evenodd"
                         d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z"
@@ -286,10 +286,10 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
                   </div>
                 )}
                 <div className="max-w-[120px]">
-                  <p className="truncate text-xs font-medium text-gray-700">
+                  <p className="truncate text-xs font-medium text-hearth-text">
                     {att.file.name}
                   </p>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-[10px] text-hearth-text-faint">
                     {formatFileSize(att.file.size)}
                   </p>
                 </div>
@@ -312,8 +312,8 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
 
         {/* @mention autocomplete dropdown */}
         {mentionResults.length > 0 && mentionQuery !== null && (
-          <div className="mb-1 rounded-lg border border-gray-200 bg-white shadow-lg">
-            <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+          <div className="mb-1 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3">
+            <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-hearth-text-faint">
               Ask as someone's perspective
             </div>
             {mentionResults.map((user, i) => (
@@ -322,7 +322,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
                 type="button"
                 onClick={() => selectMention(user)}
                 className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
-                  i === mentionIndex ? 'bg-hearth-50 text-hearth-700' : 'text-gray-700 hover:bg-gray-50'
+                  i === mentionIndex ? 'bg-hearth-50 text-hearth-700' : 'text-hearth-text hover:bg-hearth-bg'
                 }`}
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-hearth-100 text-xs font-medium text-hearth-600">
@@ -330,7 +330,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
                 </span>
                 <div>
                   <p className="font-medium">{user.name}</p>
-                  <p className="text-xs text-gray-400">{user.email}</p>
+                  <p className="text-xs text-hearth-text-faint">{user.email}</p>
                 </div>
               </button>
             ))}
@@ -362,7 +362,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
             type="button"
             onClick={handleFileSelect}
             disabled={disabled}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted disabled:cursor-not-allowed disabled:opacity-40"
             title="Attach file"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -379,7 +379,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
             type="button"
             onClick={handleScreenshot}
             disabled={disabled}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted disabled:cursor-not-allowed disabled:opacity-40"
             title="Take screenshot"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -410,13 +410,13 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
             placeholder="Type a message..."
             disabled={disabled}
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none transition-colors focus:border-hearth-400 focus:bg-white focus:ring-2 focus:ring-hearth-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex-1 resize-none rounded-xl border border-hearth-border-strong bg-hearth-bg px-4 py-2.5 text-sm text-hearth-text placeholder-hearth-text-faint outline-none transition-colors focus:border-hearth-400 focus:bg-hearth-card focus:ring-2 focus:ring-hearth-100 disabled:cursor-not-allowed disabled:opacity-60"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={disabled || (!value.trim() && attachments.length === 0)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-sm transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-hearth-1 transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg
               className="h-4 w-4"

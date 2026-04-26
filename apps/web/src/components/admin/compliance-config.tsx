@@ -62,23 +62,23 @@ function PackCard({
   return (
     <div
       className={`rounded-lg border p-4 transition-colors ${
-        enabled ? 'border-hearth-200 bg-hearth-50/50' : 'border-gray-200 bg-white'
+        enabled ? 'border-hearth-200 bg-hearth-50/50' : 'border-hearth-border bg-hearth-card'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">{pack.name}</span>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CATEGORY_COLORS[pack.category] ?? 'bg-gray-100 text-gray-700'}`}>
+            <span className="text-sm font-medium text-hearth-text">{pack.name}</span>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CATEGORY_COLORS[pack.category] ?? 'bg-hearth-chip text-hearth-text'}`}>
               {pack.category}
             </span>
             {pack.extends && pack.extends.length > 0 && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-hearth-text-faint">
                 extends {pack.extends.join(', ')}
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs text-gray-500">{pack.description}</p>
+          <p className="mt-1 text-xs text-hearth-text-muted">{pack.description}</p>
         </div>
         <label className="relative inline-flex cursor-pointer items-center">
           <input
@@ -87,7 +87,7 @@ function PackCard({
             onChange={(e) => onToggle(pack.id, e.target.checked)}
             className="peer sr-only"
           />
-          <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-hearth-600 peer-checked:after:translate-x-full peer-checked:after:border-white" />
+          <div className="peer h-5 w-9 rounded-full bg-hearth-chip after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-hearth-border-strong after:bg-hearth-card after:transition-all after:content-[''] peer-checked:bg-hearth-600 peer-checked:after:translate-x-full peer-checked:after:border-white" />
         </label>
       </div>
 
@@ -102,15 +102,15 @@ function PackCard({
           </button>
 
           {expanded && (
-            <div className="mt-2 space-y-1.5 rounded-lg bg-white p-3">
+            <div className="mt-2 space-y-1.5 rounded-lg bg-hearth-card p-3">
               {pack.detectors.map((d) => {
                 const override = overrides[d.id];
                 const detectorEnabled = override?.enabled !== false;
                 return (
                   <div key={d.id} className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-medium text-gray-700">{d.name}</span>
-                      <span className="ml-2 text-xs text-gray-400">{d.entityType}</span>
+                      <span className="text-xs font-medium text-hearth-text">{d.name}</span>
+                      <span className="ml-2 text-xs text-hearth-text-faint">{d.entityType}</span>
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input
@@ -119,7 +119,7 @@ function PackCard({
                         onChange={(e) => onDetectorToggle(d.id, e.target.checked)}
                         className="peer sr-only"
                       />
-                      <div className="peer h-4 w-7 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-hearth-500 peer-checked:after:translate-x-full" />
+                      <div className="peer h-4 w-7 rounded-full bg-hearth-chip after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-hearth-card after:transition-all after:content-[''] peer-checked:bg-hearth-500 peer-checked:after:translate-x-full" />
                     </label>
                   </div>
                 );
@@ -157,13 +157,13 @@ function TestPanel({ enabledPacks }: { enabledPacks: string[] }) {
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">Test Text</label>
+        <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Test Text</label>
         <textarea
           value={text}
           onChange={(e) => { setText(e.target.value); setResult(null); }}
           placeholder="Enter text containing sensitive data to test detection..."
           rows={3}
-          className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+          className="w-full rounded-lg border border-hearth-border-strong p-3 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
         />
       </div>
 
@@ -177,26 +177,26 @@ function TestPanel({ enabledPacks }: { enabledPacks: string[] }) {
       </button>
 
       {result && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
-          <p className="font-medium text-gray-700">
+        <div className="rounded-lg border border-hearth-border bg-hearth-bg p-3 text-sm">
+          <p className="font-medium text-hearth-text">
             {result.entitiesFound} {result.entitiesFound === 1 ? 'entity' : 'entities'} detected
           </p>
           {result.entitiesFound > 0 && (
             <>
               <div className="mt-2">
-                <p className="text-xs font-medium text-gray-500">Scrubbed output:</p>
-                <p className="mt-1 whitespace-pre-wrap rounded bg-white p-2 font-mono text-xs text-gray-800">
+                <p className="text-xs font-medium text-hearth-text-muted">Scrubbed output:</p>
+                <p className="mt-1 whitespace-pre-wrap rounded bg-hearth-card p-2 font-mono text-xs text-hearth-text">
                   {result.scrubbedText}
                 </p>
               </div>
               <div className="mt-2">
-                <p className="text-xs font-medium text-gray-500">Entities:</p>
+                <p className="text-xs font-medium text-hearth-text-muted">Entities:</p>
                 <div className="mt-1 space-y-1">
                   {result.entities.map((e, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-700">{e.type}</span>
-                      <span className="text-gray-500">&quot;{e.original}&quot;</span>
-                      <span className="text-gray-400">&rarr;</span>
+                      <span className="text-hearth-text-muted">&quot;{e.original}&quot;</span>
+                      <span className="text-hearth-text-faint">&rarr;</span>
                       <span className="font-mono text-hearth-600">{e.placeholder}</span>
                     </div>
                   ))}
@@ -205,7 +205,7 @@ function TestPanel({ enabledPacks }: { enabledPacks: string[] }) {
             </>
           )}
           {result.entitiesFound === 0 && (
-            <p className="mt-1 text-xs text-gray-500">No sensitive data detected in the input.</p>
+            <p className="mt-1 text-xs text-hearth-text-muted">No sensitive data detected in the input.</p>
           )}
         </div>
       )}
@@ -216,7 +216,7 @@ function TestPanel({ enabledPacks }: { enabledPacks: string[] }) {
 function StatsPanel({ stats }: { stats: ComplianceStats | null }) {
   if (!stats || stats.totalScrubs === 0) {
     return (
-      <p className="text-xs text-gray-400">No scrubbing activity in the last 30 days.</p>
+      <p className="text-xs text-hearth-text-faint">No scrubbing activity in the last 30 days.</p>
     );
   }
 
@@ -241,12 +241,12 @@ function StatsPanel({ stats }: { stats: ComplianceStats | null }) {
 
       {topEntities.length > 0 && (
         <div>
-          <p className="mb-1.5 text-xs font-medium text-gray-500">Top entity types</p>
+          <p className="mb-1.5 text-xs font-medium text-hearth-text-muted">Top entity types</p>
           <div className="space-y-1">
             {topEntities.map(([type, count]) => (
               <div key={type} className="flex items-center justify-between text-xs">
-                <span className="font-medium text-gray-700">{type}</span>
-                <span className="text-gray-500">{count}</span>
+                <span className="font-medium text-hearth-text">{type}</span>
+                <span className="text-hearth-text-muted">{count}</span>
               </div>
             ))}
           </div>
@@ -255,14 +255,14 @@ function StatsPanel({ stats }: { stats: ComplianceStats | null }) {
 
       {Object.keys(stats.packUsage).length > 0 && (
         <div>
-          <p className="mb-1.5 text-xs font-medium text-gray-500">Pack usage</p>
+          <p className="mb-1.5 text-xs font-medium text-hearth-text-muted">Pack usage</p>
           <div className="space-y-1">
             {Object.entries(stats.packUsage)
               .sort(([, a], [, b]) => b - a)
               .map(([pack, count]) => (
                 <div key={pack} className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-700">{pack}</span>
-                  <span className="text-gray-500">{count} scrubs</span>
+                  <span className="font-medium text-hearth-text">{pack}</span>
+                  <span className="text-hearth-text-muted">{count} scrubs</span>
                 </div>
               ))}
           </div>
@@ -344,13 +344,13 @@ export function ComplianceConfig() {
     }
   };
 
-  if (loading) return <p className="text-sm text-gray-400">Loading compliance config...</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading compliance config...</p>;
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-1 text-base font-semibold text-gray-900">Compliance Packs</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="mb-1 text-base font-semibold text-hearth-text">Compliance Packs</h3>
+        <p className="text-sm text-hearth-text-muted">
           Enable compliance packs to automatically detect and scrub sensitive data before it reaches external LLM providers.
           Scrubbing happens transparently — users see original values in responses, but the LLM only sees placeholders.
         </p>
@@ -358,7 +358,7 @@ export function ComplianceConfig() {
 
       {/* Pack cards */}
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Available Packs</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Available Packs</p>
         <div className="space-y-2">
           {packs.map((pack) => (
             <PackCard
@@ -374,13 +374,13 @@ export function ComplianceConfig() {
       </div>
 
       {/* Settings */}
-      <div className="border-t border-gray-100 pt-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Settings</p>
+      <div className="border-t border-hearth-border pt-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Settings</p>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-sm font-medium text-gray-700">Audit Level</span>
-              <p className="text-xs text-gray-400">
+              <span className="text-sm font-medium text-hearth-text">Audit Level</span>
+              <p className="text-xs text-hearth-text-faint">
                 Summary logs entity counts; detailed logs entity types per request.
               </p>
             </div>
@@ -389,7 +389,7 @@ export function ComplianceConfig() {
               onChange={(e) =>
                 setConfig({ ...config, auditLevel: e.target.value as 'summary' | 'detailed' })
               }
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none"
+              className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none"
             >
               <option value="summary">Summary</option>
               <option value="detailed">Detailed</option>
@@ -398,8 +398,8 @@ export function ComplianceConfig() {
 
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-sm font-medium text-gray-700">Allow User Override</span>
-              <p className="text-xs text-gray-400">
+              <span className="text-sm font-medium text-hearth-text">Allow User Override</span>
+              <p className="text-xs text-hearth-text-faint">
                 {'Let users bypass scrubbing for specific content using <safe> tags.'}
               </p>
             </div>
@@ -412,7 +412,7 @@ export function ComplianceConfig() {
                 }
                 className="peer sr-only"
               />
-              <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-hearth-600 peer-checked:after:translate-x-full peer-checked:after:border-white" />
+              <div className="peer h-5 w-9 rounded-full bg-hearth-chip after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-hearth-border-strong after:bg-hearth-card after:transition-all after:content-[''] peer-checked:bg-hearth-600 peer-checked:after:translate-x-full peer-checked:after:border-white" />
             </label>
           </div>
         </div>
@@ -437,15 +437,15 @@ export function ComplianceConfig() {
 
       {/* Test panel */}
       {config.enabledPacks.length > 0 && (
-        <div className="border-t border-gray-100 pt-5">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Test Detection</p>
+        <div className="border-t border-hearth-border pt-5">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Test Detection</p>
           <TestPanel enabledPacks={config.enabledPacks} />
         </div>
       )}
 
       {/* Stats */}
-      <div className="border-t border-gray-100 pt-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+      <div className="border-t border-hearth-border pt-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
           Scrubbing Statistics (Last 30 Days)
         </p>
         <StatsPanel stats={stats} />

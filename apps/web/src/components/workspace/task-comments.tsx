@@ -26,15 +26,15 @@ export function TaskComments({ comments, onAddComment }: TaskCommentsProps) {
       {/* Comments list */}
       <div className="flex-1 space-y-3">
         {comments.length === 0 ? (
-          <p className="text-center text-xs text-gray-400 py-4">No comments yet</p>
+          <p className="text-center text-xs text-hearth-text-faint py-4">No comments yet</p>
         ) : (
           comments.map((comment) => (
-            <div key={comment.id} className="rounded-lg bg-gray-50 p-3">
+            <div key={comment.id} className="rounded-lg bg-hearth-bg p-3">
               <div className="mb-1 flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-700">
+                <span className="text-xs font-medium text-hearth-text">
                   {comment.isAgent ? 'Agent' : (comment as unknown as { user?: { name: string } }).user?.name ?? 'User'}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-hearth-text-faint">
                   {new Date(comment.createdAt).toLocaleString()}
                 </span>
                 {comment.isAgent && (
@@ -43,7 +43,7 @@ export function TaskComments({ comments, onAddComment }: TaskCommentsProps) {
                   </span>
                 )}
               </div>
-              <p className="whitespace-pre-wrap text-sm text-gray-900">{comment.content}</p>
+              <p className="whitespace-pre-wrap text-sm text-hearth-text">{comment.content}</p>
             </div>
           ))
         )}
@@ -57,7 +57,7 @@ export function TaskComments({ comments, onAddComment }: TaskCommentsProps) {
           onChange={(e) => setNewComment(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
           placeholder="Add a comment..."
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none"
+          className="flex-1 rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none"
         />
         <button
           type="button"

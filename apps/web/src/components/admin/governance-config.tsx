@@ -31,7 +31,7 @@ function StatusBadge({ status }: { status: GovernanceViolationStatus }) {
   const colors: Record<GovernanceViolationStatus, string> = {
     open: 'bg-blue-100 text-blue-700',
     acknowledged: 'bg-green-100 text-green-700',
-    dismissed: 'bg-gray-100 text-gray-600',
+    dismissed: 'bg-hearth-chip text-hearth-text-muted',
     escalated: 'bg-red-100 text-red-700',
   };
   return (
@@ -43,7 +43,7 @@ function StatusBadge({ status }: { status: GovernanceViolationStatus }) {
 
 function EnforcementBadge({ enforcement }: { enforcement: GovernanceEnforcement }) {
   const colors: Record<GovernanceEnforcement, string> = {
-    monitor: 'bg-gray-100 text-gray-600',
+    monitor: 'bg-hearth-chip text-hearth-text-muted',
     warn: 'bg-amber-100 text-amber-700',
     block: 'bg-red-100 text-red-700',
   };
@@ -88,10 +88,10 @@ function SettingsPanel({
     checked: boolean;
     onChange: (v: boolean) => void;
   }) => (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3">
+    <div className="flex items-center justify-between rounded-lg border border-hearth-border bg-hearth-card p-3">
       <div>
-        <p className="text-sm font-medium text-gray-900">{label}</p>
-        <p className="text-xs text-gray-500">{description}</p>
+        <p className="text-sm font-medium text-hearth-text">{label}</p>
+        <p className="text-xs text-hearth-text-muted">{description}</p>
       </div>
       <button
         type="button"
@@ -99,11 +99,11 @@ function SettingsPanel({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-          checked ? 'bg-hearth-600' : 'bg-gray-200'
+          checked ? 'bg-hearth-600' : 'bg-hearth-chip'
         }`}
       >
         <span
-          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-hearth-card shadow transition ${
             checked ? 'translate-x-5' : 'translate-x-0'
           }`}
         />
@@ -223,24 +223,24 @@ function PolicyForm({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <div className="space-y-3 rounded-lg border border-hearth-border bg-hearth-bg p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Name</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Name</label>
           <input
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Policy name"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Category</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Category</label>
           <select
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none"
           >
             <option value="data_privacy">Data Privacy</option>
             <option value="ip_protection">IP Protection</option>
@@ -251,23 +251,23 @@ function PolicyForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">Description (optional)</label>
+        <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Description (optional)</label>
         <textarea
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           placeholder="Describe what this policy protects against..."
           rows={2}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
+          className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none"
         />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Severity</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Severity</label>
           <select
             value={form.severity}
             onChange={(e) => setForm({ ...form, severity: e.target.value as GovernanceSeverity })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none"
           >
             <option value="info">Info</option>
             <option value="warning">Warning</option>
@@ -275,11 +275,11 @@ function PolicyForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Rule Type</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Rule Type</label>
           <select
             value={form.ruleType}
             onChange={(e) => handleRuleTypeChange(e.target.value as GovernanceRuleType)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none"
           >
             <option value="keyword">Keyword</option>
             <option value="regex">Regex</option>
@@ -287,11 +287,11 @@ function PolicyForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Enforcement</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Enforcement</label>
           <select
             value={form.enforcement}
             onChange={(e) => setForm({ ...form, enforcement: e.target.value as GovernanceEnforcement })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none"
           >
             <option value="monitor">Monitor</option>
             <option value="warn">Warn</option>
@@ -304,17 +304,17 @@ function PolicyForm({
       {form.ruleType === 'keyword' && (
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Keywords (comma-separated)</label>
+            <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Keywords (comma-separated)</label>
             <textarea
               value={keywordText}
               onChange={(e) => setKeywordText(e.target.value)}
               placeholder="password, SSN, credit card, social security..."
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-hearth-500 focus:outline-none"
+              className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 font-mono text-sm focus:border-hearth-accent focus:outline-none"
             />
           </div>
           <div className="flex gap-4">
-            <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            <label className="flex items-center gap-1.5 text-xs text-hearth-text-muted">
               <input
                 type="checkbox"
                 checked={(form.ruleConfig.caseSensitive as boolean) ?? false}
@@ -324,14 +324,14 @@ function PolicyForm({
               />
               Case sensitive
             </label>
-            <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            <label className="flex items-center gap-1.5 text-xs text-hearth-text-muted">
               Match mode:
               <select
                 value={(form.ruleConfig.matchMode as string) ?? 'any'}
                 onChange={(e) =>
                   setForm({ ...form, ruleConfig: { ...form.ruleConfig, matchMode: e.target.value } })
                 }
-                className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                className="rounded border border-hearth-border-strong px-1 py-0.5 text-xs"
               >
                 <option value="any">Any keyword</option>
                 <option value="all">All keywords</option>
@@ -344,23 +344,23 @@ function PolicyForm({
       {form.ruleType === 'regex' && (
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Pattern</label>
+            <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Pattern</label>
             <input
               type="text"
               value={(form.ruleConfig.pattern as string) ?? ''}
               onChange={(e) => setForm({ ...form, ruleConfig: { ...form.ruleConfig, pattern: e.target.value } })}
               placeholder="\b\d{3}-\d{2}-\d{4}\b"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-hearth-500 focus:outline-none"
+              className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 font-mono text-sm focus:border-hearth-accent focus:outline-none"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Flags</label>
+            <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Flags</label>
             <input
               type="text"
               value={(form.ruleConfig.flags as string) ?? 'i'}
               onChange={(e) => setForm({ ...form, ruleConfig: { ...form.ruleConfig, flags: e.target.value } })}
               placeholder="i"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-hearth-500 focus:outline-none"
+              className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 font-mono text-sm focus:border-hearth-accent focus:outline-none"
             />
           </div>
         </div>
@@ -368,15 +368,15 @@ function PolicyForm({
 
       {form.ruleType === 'llm_evaluation' && (
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Evaluation Prompt</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Evaluation Prompt</label>
           <textarea
             value={(form.ruleConfig.prompt as string) ?? ''}
             onChange={(e) => setForm({ ...form, ruleConfig: { ...form.ruleConfig, prompt: e.target.value } })}
             placeholder="Does this message attempt to share customer PII such as names, emails, phone numbers, or addresses?"
             rows={3}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none"
           />
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-hearth-text-faint">
             Describe what this policy should detect. The AI will evaluate each message against this description.
           </p>
         </div>
@@ -394,7 +394,7 @@ function PolicyForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-lg border border-hearth-border-strong px-4 py-2 text-sm font-medium text-hearth-text hover:bg-hearth-bg"
         >
           Cancel
         </button>
@@ -442,7 +442,7 @@ function PolicyManagement({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Policies</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Policies</p>
         <button
           type="button"
           onClick={() => { setShowForm(true); setEditingPolicy(null); }}
@@ -477,13 +477,13 @@ function PolicyManagement({
       )}
 
       {policies.length === 0 ? (
-        <p className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-500">
+        <p className="rounded-lg bg-hearth-bg px-4 py-3 text-sm text-hearth-text-muted">
           No policies configured. Create a policy to start monitoring.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="overflow-x-auto rounded-lg border border-hearth-border">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-500">
+            <thead className="border-b border-hearth-border bg-hearth-bg text-xs uppercase text-hearth-text-muted">
               <tr>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Category</th>
@@ -497,23 +497,23 @@ function PolicyManagement({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {policies.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 font-medium text-gray-900">{p.name}</td>
-                  <td className="px-3 py-2 text-gray-600">{p.category.replace('_', ' ')}</td>
+                <tr key={p.id} className="hover:bg-hearth-bg">
+                  <td className="px-3 py-2 font-medium text-hearth-text">{p.name}</td>
+                  <td className="px-3 py-2 text-hearth-text-muted">{p.category.replace('_', ' ')}</td>
                   <td className="px-3 py-2"><SeverityBadge severity={p.severity} /></td>
-                  <td className="px-3 py-2 text-gray-600">{p.ruleType.replace('_', ' ')}</td>
+                  <td className="px-3 py-2 text-hearth-text-muted">{p.ruleType.replace('_', ' ')}</td>
                   <td className="px-3 py-2"><EnforcementBadge enforcement={p.enforcement} /></td>
-                  <td className="px-3 py-2 text-right text-gray-600">{p.violationCount ?? 0}</td>
+                  <td className="px-3 py-2 text-right text-hearth-text-muted">{p.violationCount ?? 0}</td>
                   <td className="px-3 py-2">
                     <button
                       type="button"
                       onClick={() => handleToggle(p)}
                       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                        p.enabled ? 'bg-hearth-600' : 'bg-gray-200'
+                        p.enabled ? 'bg-hearth-600' : 'bg-hearth-chip'
                       }`}
                     >
                       <span
-                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-hearth-card shadow transition ${
                           p.enabled ? 'translate-x-4' : 'translate-x-0'
                         }`}
                       />
@@ -524,7 +524,7 @@ function PolicyManagement({
                       <button
                         type="button"
                         onClick={() => { setEditingPolicy(p); setShowForm(false); }}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
                         title="Edit"
                       >
                         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -534,7 +534,7 @@ function PolicyManagement({
                       <button
                         type="button"
                         onClick={() => handleDelete(p.id)}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        className="rounded p-1 text-hearth-text-faint hover:bg-red-50 hover:text-red-600"
                         title="Delete"
                       >
                         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -621,20 +621,20 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Total (30d)</p>
-            <p className="text-xl font-bold text-gray-900">{stats.totalViolations}</p>
+          <div className="rounded-lg border border-hearth-border bg-hearth-card p-3">
+            <p className="text-xs text-hearth-text-muted">Total (30d)</p>
+            <p className="text-xl font-bold text-hearth-text">{stats.totalViolations}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Open</p>
+          <div className="rounded-lg border border-hearth-border bg-hearth-card p-3">
+            <p className="text-xs text-hearth-text-muted">Open</p>
             <p className="text-xl font-bold text-blue-600">{stats.openViolations}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Critical</p>
+          <div className="rounded-lg border border-hearth-border bg-hearth-card p-3">
+            <p className="text-xs text-hearth-text-muted">Critical</p>
             <p className="text-xl font-bold text-red-600">{stats.bySeverity.critical}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Warning</p>
+          <div className="rounded-lg border border-hearth-border bg-hearth-card p-3">
+            <p className="text-xs text-hearth-text-muted">Warning</p>
             <p className="text-xl font-bold text-amber-600">{stats.bySeverity.warning}</p>
           </div>
         </div>
@@ -642,8 +642,8 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
 
       {/* Trend Chart */}
       {stats && stats.byDay.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Violations (30d)</p>
+        <div className="rounded-lg border border-hearth-border bg-hearth-card p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Violations (30d)</p>
           <div className="flex items-end gap-1" style={{ height: 80 }}>
             {stats.byDay.map((day) => (
               <div key={day.date} className="flex-1">
@@ -663,7 +663,7 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
         <select
           value={severityFilter}
           onChange={(e) => { setSeverityFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-hearth-500 focus:outline-none"
+          className="rounded-lg border border-hearth-border-strong px-2 py-1.5 text-xs focus:border-hearth-accent focus:outline-none"
         >
           <option value="">All severities</option>
           <option value="info">Info</option>
@@ -673,7 +673,7 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs focus:border-hearth-500 focus:outline-none"
+          className="rounded-lg border border-hearth-border-strong px-2 py-1.5 text-xs focus:border-hearth-accent focus:outline-none"
         >
           <option value="">All statuses</option>
           <option value="open">Open</option>
@@ -685,14 +685,14 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
           <button
             type="button"
             onClick={() => handleExport('csv')}
-            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            className="rounded border border-hearth-border-strong px-2 py-1 text-xs text-hearth-text-muted hover:bg-hearth-bg"
           >
             Export CSV
           </button>
           <button
             type="button"
             onClick={() => handleExport('json')}
-            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            className="rounded border border-hearth-border-strong px-2 py-1 text-xs text-hearth-text-muted hover:bg-hearth-bg"
           >
             Export JSON
           </button>
@@ -701,13 +701,13 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
 
       {/* Violations Table */}
       {violations.length === 0 ? (
-        <p className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-500">
+        <p className="rounded-lg bg-hearth-bg px-4 py-3 text-sm text-hearth-text-muted">
           No violations found.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="overflow-x-auto rounded-lg border border-hearth-border">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase text-gray-500">
+            <thead className="border-b border-hearth-border bg-hearth-bg text-xs uppercase text-hearth-text-muted">
               <tr>
                 <th className="px-3 py-2">Time</th>
                 <th className="px-3 py-2">User</th>
@@ -724,28 +724,28 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
                     <button
                       type="button"
                       onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
-                      className={`flex w-full text-left hover:bg-gray-50 ${v.severity === 'critical' ? 'border-l-2 border-red-400' : ''}`}
+                      className={`flex w-full text-left hover:bg-hearth-bg ${v.severity === 'critical' ? 'border-l-2 border-red-400' : ''}`}
                     >
-                      <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
+                      <td className="px-3 py-2 text-xs text-hearth-text-muted whitespace-nowrap">
                         {new Date(v.createdAt).toLocaleString()}
                       </td>
-                      <td className="px-3 py-2 text-gray-700">{v.userName ?? v.userId.slice(0, 8)}</td>
-                      <td className="px-3 py-2 text-gray-700">{v.policyName ?? 'Unknown'}</td>
+                      <td className="px-3 py-2 text-hearth-text">{v.userName ?? v.userId.slice(0, 8)}</td>
+                      <td className="px-3 py-2 text-hearth-text">{v.policyName ?? 'Unknown'}</td>
                       <td className="px-3 py-2"><SeverityBadge severity={v.severity} /></td>
-                      <td className="px-3 py-2 max-w-xs truncate text-gray-600">{v.contentSnippet.slice(0, 80)}</td>
+                      <td className="px-3 py-2 max-w-xs truncate text-hearth-text-muted">{v.contentSnippet.slice(0, 80)}</td>
                       <td className="px-3 py-2"><StatusBadge status={v.status} /></td>
                     </button>
 
                     {/* Expanded details */}
                     {expandedId === v.id && (
-                      <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
+                      <div className="border-t border-hearth-border bg-hearth-bg px-4 py-3 space-y-3">
                         <div>
-                          <p className="text-xs font-medium text-gray-500">Full Snippet</p>
-                          <p className="mt-1 rounded bg-white p-2 text-xs text-gray-700 whitespace-pre-wrap border border-gray-200">
+                          <p className="text-xs font-medium text-hearth-text-muted">Full Snippet</p>
+                          <p className="mt-1 rounded bg-hearth-card p-2 text-xs text-hearth-text whitespace-pre-wrap border border-hearth-border">
                             {v.contentSnippet}
                           </p>
                         </div>
-                        <div className="flex gap-4 text-xs text-gray-500">
+                        <div className="flex gap-4 text-xs text-hearth-text-muted">
                           <span>Role: {v.messageRole}</span>
                           <span>Enforcement: <EnforcementBadge enforcement={v.enforcement} /></span>
                           {v.sessionId && v.sessionId !== 'test' && (
@@ -756,8 +756,8 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
                         </div>
                         {v.matchDetails && Object.keys(v.matchDetails).length > 0 && (
                           <div>
-                            <p className="text-xs font-medium text-gray-500">Match Details</p>
-                            <pre className="mt-1 rounded bg-white p-2 text-xs text-gray-600 border border-gray-200 overflow-auto">
+                            <p className="text-xs font-medium text-hearth-text-muted">Match Details</p>
+                            <pre className="mt-1 rounded bg-hearth-card p-2 text-xs text-hearth-text-muted border border-hearth-border overflow-auto">
                               {JSON.stringify(v.matchDetails, null, 2)}
                             </pre>
                           </div>
@@ -776,7 +776,7 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
                             <button
                               type="button"
                               onClick={() => handleReview(v.id, 'dismissed')}
-                              className="rounded bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+                              className="rounded bg-hearth-chip px-3 py-1 text-xs font-medium text-hearth-text-muted hover:bg-hearth-chip"
                             >
                               Dismiss
                             </button>
@@ -786,7 +786,7 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
                                 value={reviewNote}
                                 onChange={(e) => setReviewNote(e.target.value)}
                                 placeholder="Escalation note (required)"
-                                className="rounded border border-gray-300 px-2 py-1 text-xs focus:border-red-400 focus:outline-none"
+                                className="rounded border border-hearth-border-strong px-2 py-1 text-xs focus:border-red-400 focus:outline-none"
                               />
                               <button
                                 type="button"
@@ -802,8 +802,8 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
 
                         {v.status !== 'open' && v.reviewNote && (
                           <div>
-                            <p className="text-xs font-medium text-gray-500">Review Note</p>
-                            <p className="mt-1 text-xs text-gray-600">{v.reviewNote}</p>
+                            <p className="text-xs font-medium text-hearth-text-muted">Review Note</p>
+                            <p className="mt-1 text-xs text-hearth-text-muted">{v.reviewNote}</p>
                           </div>
                         )}
                       </div>
@@ -819,7 +819,7 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-hearth-text-muted">
             Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
           </p>
           <div className="flex gap-1">
@@ -827,7 +827,7 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
               type="button"
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-50"
+              className="rounded border border-hearth-border-strong px-2 py-1 text-xs disabled:opacity-50"
             >
               Prev
             </button>
@@ -835,7 +835,7 @@ function ViolationsDashboard({ stats }: { stats: GovernanceStats | null }) {
               type="button"
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-50"
+              className="rounded border border-hearth-border-strong px-2 py-1 text-xs disabled:opacity-50"
             >
               Next
             </button>
@@ -886,31 +886,31 @@ export function GovernanceConfig() {
     setSettings(newSettings);
   };
 
-  if (loading) return <p className="text-sm text-gray-400">Loading governance config...</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading governance config...</p>;
 
   return (
     <div className="space-y-8">
       <div>
-        <h3 className="mb-1 text-base font-semibold text-gray-900">Governance Monitoring</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="mb-1 text-base font-semibold text-hearth-text">Governance Monitoring</h3>
+        <p className="text-sm text-hearth-text-muted">
           Define policies to monitor chat messages for compliance violations. Violations are logged and can be reviewed by admins.
         </p>
       </div>
 
       {/* Settings */}
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Settings</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Settings</p>
         <SettingsPanel settings={settings} onSave={handleSaveSettings} />
       </div>
 
       {/* Policies */}
-      <div className="border-t border-gray-100 pt-5">
+      <div className="border-t border-hearth-border pt-5">
         <PolicyManagement policies={policies} onRefresh={fetchAll} />
       </div>
 
       {/* Violations */}
-      <div className="border-t border-gray-100 pt-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Violations</p>
+      <div className="border-t border-hearth-border pt-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Violations</p>
         <ViolationsDashboard stats={stats} />
       </div>
     </div>

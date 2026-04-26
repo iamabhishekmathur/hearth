@@ -49,7 +49,7 @@ const EMBEDDING_PROVIDER_LABELS: Record<string, string> = {
 
 function StatusDot({ active }: { active: boolean }) {
   return (
-    <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${active ? 'bg-green-500' : 'bg-gray-300'}`} />
+    <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${active ? 'bg-green-500' : 'bg-hearth-border-strong'}`} />
   );
 }
 
@@ -58,7 +58,7 @@ function Badge({ children, variant }: { children: React.ReactNode; variant: 'gre
     green: 'bg-green-50 text-green-700 ring-green-600/20',
     amber: 'bg-amber-50 text-amber-700 ring-amber-600/20',
     violet: 'bg-violet-50 text-violet-700 ring-violet-600/20',
-    gray: 'bg-gray-50 text-gray-600 ring-gray-500/20',
+    gray: 'bg-hearth-bg text-hearth-text-muted ring-gray-500/20',
   };
   return (
     <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${styles[variant]}`}>
@@ -69,7 +69,7 @@ function Badge({ children, variant }: { children: React.ReactNode; variant: 'gre
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className="rounded-lg border border-hearth-border bg-hearth-card">
       {children}
     </div>
   );
@@ -77,9 +77,9 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 
 function SectionHeader({ title, description }: { title: string; description?: string }) {
   return (
-    <div className="border-b border-gray-100 px-4 py-3">
-      <p className="text-sm font-semibold text-gray-900">{title}</p>
-      {description && <p className="mt-0.5 text-xs text-gray-500">{description}</p>}
+    <div className="border-b border-hearth-border px-4 py-3">
+      <p className="text-sm font-semibold text-hearth-text">{title}</p>
+      {description && <p className="mt-0.5 text-xs text-hearth-text-muted">{description}</p>}
     </div>
   );
 }
@@ -92,12 +92,12 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
       aria-checked={checked}
       onClick={onChange}
       disabled={disabled}
-      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-hearth-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-        checked ? 'bg-hearth-600' : 'bg-gray-200'
+      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-hearth-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+        checked ? 'bg-hearth-600' : 'bg-hearth-chip'
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-hearth-card shadow ring-0 transition duration-200 ease-in-out ${
           checked ? 'translate-x-4' : 'translate-x-0'
         }`}
       />
@@ -166,11 +166,11 @@ function ProviderRow({
       : 'sk-...';
 
   return (
-    <div className={!isLast ? 'border-b border-gray-100' : ''}>
+    <div className={!isLast ? 'border-b border-hearth-border' : ''}>
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2.5">
           <StatusDot active={provider.configured} />
-          <span className="text-sm font-medium text-gray-900">{provider.name}</span>
+          <span className="text-sm font-medium text-hearth-text">{provider.name}</span>
           {provider.configured && (
             <Badge variant="green">
               {provider.keySource === 'env' ? 'env var' : 'configured'}
@@ -189,20 +189,20 @@ function ProviderRow({
             {provider.configured ? 'Update key' : 'Configure'}
           </button>
         ) : (
-          <span className="text-xs text-gray-400">Set via environment variable</span>
+          <span className="text-xs text-hearth-text-faint">Set via environment variable</span>
         )}
       </div>
 
       {expanded && (
-        <div className="space-y-3 border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+        <div className="space-y-3 border-t border-hearth-border bg-hearth-bg/50 px-4 py-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">{label}</label>
+            <label className="mb-1 block text-xs font-medium text-hearth-text-muted">{label}</label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setTestResult(null); }}
               placeholder={placeholder}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 font-mono text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="w-full rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-1.5 font-mono text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
               autoComplete="off"
             />
           </div>
@@ -218,7 +218,7 @@ function ProviderRow({
               type="button"
               onClick={handleTest}
               disabled={!apiKey.trim() || testing}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-1.5 text-xs font-medium text-hearth-text hover:bg-hearth-bg disabled:opacity-50"
             >
               {testing ? 'Testing...' : 'Test Connection'}
             </button>
@@ -233,7 +233,7 @@ function ProviderRow({
             <button
               type="button"
               onClick={() => { setExpanded(false); setApiKey(''); setTestResult(null); }}
-              className="ml-auto text-xs text-gray-400 hover:text-gray-600"
+              className="ml-auto text-xs text-hearth-text-faint hover:text-hearth-text-muted"
             >
               Cancel
             </button>
@@ -301,14 +301,14 @@ export function LlmConfig() {
 
   const selectedModelSupportsVision = settings.defaultModel ? VISION_MODELS.has(settings.defaultModel) : false;
 
-  if (loading) return <p className="text-sm text-gray-400">Loading LLM config...</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading LLM config...</p>;
 
   return (
     <div className="space-y-5">
       {/* Page header */}
       <div>
-        <h3 className="text-base font-semibold text-gray-900">LLM Configuration</h3>
-        <p className="mt-0.5 text-sm text-gray-500">
+        <h3 className="text-base font-semibold text-hearth-text">LLM Configuration</h3>
+        <p className="mt-0.5 text-sm text-hearth-text-muted">
           Connect AI providers and configure model defaults for your organization.
         </p>
       </div>
@@ -344,12 +344,12 @@ export function LlmConfig() {
         />
 
         {/* Embedding row */}
-        <div className="flex items-start justify-between border-b border-gray-100 px-4 py-3">
+        <div className="flex items-start justify-between border-b border-hearth-border px-4 py-3">
           <div className="flex items-start gap-2.5">
             <StatusDot active={embedding.available} />
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">Semantic Memory</span>
+                <span className="text-sm font-medium text-hearth-text">Semantic Memory</span>
                 {embedding.available && embedding.providerId && (
                   <Badge variant="green">
                     {EMBEDDING_PROVIDER_LABELS[embedding.providerId] ?? embedding.providerId}
@@ -359,7 +359,7 @@ export function LlmConfig() {
                   <Badge variant="amber">keyword-only</Badge>
                 )}
               </div>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-hearth-text-muted">
                 {embedding.available
                   ? 'Vector embeddings enabled — memories are searchable by meaning.'
                   : hasEmbeddingCapableProvider
@@ -376,7 +376,7 @@ export function LlmConfig() {
             <StatusDot active={settings.visionEnabled && selectedModelSupportsVision} />
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900">Image & Vision</span>
+                <span className="text-sm font-medium text-hearth-text">Image & Vision</span>
                 {settings.visionEnabled && selectedModelSupportsVision && (
                   <Badge variant="green">active</Badge>
                 )}
@@ -387,7 +387,7 @@ export function LlmConfig() {
                   <Badge variant="gray">disabled</Badge>
                 )}
               </div>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-hearth-text-muted">
                 Analyze images, screenshots, and attachments shared in chat.
               </p>
             </div>
@@ -409,11 +409,11 @@ export function LlmConfig() {
           <div className="space-y-4 px-4 py-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-700">Chat Provider</label>
+                <label className="mb-1.5 block text-xs font-medium text-hearth-text">Chat Provider</label>
                 <select
                   value={settings.defaultProvider ?? ''}
                   onChange={(e) => setSettings({ ...settings, defaultProvider: e.target.value, defaultModel: '' })}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="w-full rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                 >
                   <option value="">Select provider...</option>
                   {configuredProviders.map((p) => (
@@ -423,12 +423,12 @@ export function LlmConfig() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-700">Chat Model</label>
+                <label className="mb-1.5 block text-xs font-medium text-hearth-text">Chat Model</label>
                 <select
                   value={settings.defaultModel ?? ''}
                   onChange={(e) => setSettings({ ...settings, defaultModel: e.target.value })}
                   disabled={!settings.defaultProvider}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  className="w-full rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-2 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent disabled:bg-hearth-bg disabled:text-hearth-text-faint"
                 >
                   <option value="">Select model...</option>
                   {defaultProviderModels().map((m) => (
@@ -440,12 +440,12 @@ export function LlmConfig() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 border-t border-gray-100 pt-4">
+            <div className="flex items-center gap-3 border-t border-hearth-border pt-4">
               <button
                 type="button"
                 onClick={handleSaveDefaults}
                 disabled={saving || !settings.defaultProvider || !settings.defaultModel}
-                className="rounded-md bg-hearth-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hearth-700 disabled:opacity-50"
+                className="rounded-md bg-hearth-600 px-4 py-2 text-sm font-medium text-white shadow-hearth-1 hover:bg-hearth-700 disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Defaults'}
               </button>

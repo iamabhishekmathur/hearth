@@ -295,27 +295,27 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
       {/* Name + Description */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="routine-name" className="block text-sm font-medium text-gray-700">Name</label>
+          <label htmlFor="routine-name" className="block text-sm font-medium text-hearth-text">Name</label>
           <input
             id="routine-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
             placeholder="Weekly team summary"
             required
           />
         </div>
         <div>
-          <label htmlFor="routine-desc" className="block text-sm font-medium text-gray-700">
-            Description <span className="text-gray-400">(optional)</span>
+          <label htmlFor="routine-desc" className="block text-sm font-medium text-hearth-text">
+            Description <span className="text-hearth-text-faint">(optional)</span>
           </label>
           <input
             id="routine-desc"
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
             placeholder="Summarize completed work each Friday"
           />
         </div>
@@ -323,7 +323,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
 
       {/* Prompt */}
       <div>
-        <label htmlFor="routine-prompt" className="block text-sm font-medium text-gray-700">Prompt</label>
+        <label htmlFor="routine-prompt" className="block text-sm font-medium text-hearth-text">Prompt</label>
         <div className="mt-1">
           <MentionTextarea
             value={prompt}
@@ -347,21 +347,21 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
 
       {/* ── Feature 2: Trigger Type ──────────────────────────────────────── */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Trigger Type</label>
+        <label className="block text-sm font-medium text-hearth-text">Trigger Type</label>
         <div className="mt-1.5 flex items-center gap-4">
           {([
             { value: 'schedule', label: 'Schedule' },
             { value: 'event_only', label: 'Event-Only' },
             { value: 'both', label: 'Both' },
           ] as const).map((opt) => (
-            <label key={opt.value} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+            <label key={opt.value} className="flex items-center gap-1.5 text-sm text-hearth-text cursor-pointer">
               <input
                 type="radio"
                 name="trigger-type"
                 value={opt.value}
                 checked={triggerType === opt.value}
                 onChange={() => setTriggerType(opt.value)}
-                className="h-4 w-4 border-gray-300 text-hearth-600 focus:ring-hearth-500"
+                className="h-4 w-4 border-hearth-border-strong text-hearth-600 focus:ring-hearth-accent"
               />
               {opt.label}
             </label>
@@ -372,7 +372,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
       {/* Schedule — hidden when trigger is event-only */}
       {needsSchedule && (
         <div>
-          <label className="block text-sm font-medium text-gray-700">Schedule</label>
+          <label className="block text-sm font-medium text-hearth-text">Schedule</label>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {/* Frequency */}
@@ -381,7 +381,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
               onChange={(e) =>
                 updateSchedule((p) => ({ ...p, frequency: e.target.value as Frequency }))
               }
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
             >
               {FREQUENCIES.map((f) => (
                 <option key={f.value} value={f.value}>{f.label}</option>
@@ -391,13 +391,13 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
             {/* Day (weekly only) */}
             {scheduleParts.frequency === 'weekly' && (
               <>
-                <span className="text-sm text-gray-500">on</span>
+                <span className="text-sm text-hearth-text-muted">on</span>
                 <select
                   value={scheduleParts.day}
                   onChange={(e) =>
                     updateSchedule((p) => ({ ...p, day: parseInt(e.target.value, 10) }))
                   }
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                 >
                   {DAYS.map((d, i) => (
                     <option key={i} value={i}>{d}</option>
@@ -409,13 +409,13 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
             {/* Time (not for hourly) */}
             {scheduleParts.frequency !== 'hourly' && (
               <>
-                <span className="text-sm text-gray-500">at</span>
+                <span className="text-sm text-hearth-text-muted">at</span>
                 <select
                   value={scheduleParts.hour}
                   onChange={(e) =>
                     updateSchedule((p) => ({ ...p, hour: parseInt(e.target.value, 10) }))
                   }
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                 >
                   {HOURS.map((h) => (
                     <option key={h} value={h}>{formatHour(h)}</option>
@@ -426,7 +426,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
           </div>
 
           {/* Human-readable summary */}
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-hearth-text-muted">
             {describeSchedule(scheduleParts)}
           </p>
         </div>
@@ -437,27 +437,27 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
         <button
           type="button"
           onClick={() => setShowState(!showState)}
-          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-hearth-text-muted hover:text-hearth-text"
         >
           <ChevronIcon open={showState} />
           State &amp; Continuity
         </button>
         {showState && (
-          <div className="ml-5 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="ml-5 space-y-3 rounded-lg border border-hearth-border bg-hearth-bg p-4">
             {/* Track deltas toggle */}
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-hearth-text cursor-pointer">
               <input
                 type="checkbox"
                 checked={trackDeltas}
                 onChange={(e) => setTrackDeltas(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-hearth-600 focus:ring-hearth-500"
+                className="h-4 w-4 rounded border-hearth-border-strong text-hearth-600 focus:ring-hearth-accent"
               />
               Track deltas between runs
             </label>
 
             {/* Previous run count */}
             <div className="flex items-center gap-3">
-              <label htmlFor="prev-run-count" className="text-sm text-gray-700">
+              <label htmlFor="prev-run-count" className="text-sm text-hearth-text">
                 Previous runs to include
               </label>
               <input
@@ -470,10 +470,10 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                   const v = parseInt(e.target.value, 10);
                   if (v >= 1 && v <= 10) setPreviousRunCount(v);
                 }}
-                className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                className="w-20 rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
               />
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-hearth-text-muted">
               Context from past runs is injected so the routine can detect changes over time.
             </p>
           </div>
@@ -485,21 +485,21 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
         <button
           type="button"
           onClick={() => setShowParams(!showParams)}
-          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-hearth-text-muted hover:text-hearth-text"
         >
           <ChevronIcon open={showParams} />
           Parameters
         </button>
         {showParams && (
-          <div className="ml-5 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="ml-5 space-y-3 rounded-lg border border-hearth-border bg-hearth-bg p-4">
             {parameters.length === 0 && (
-              <p className="text-xs text-gray-500">No parameters defined yet. Add one to let callers pass runtime values.</p>
+              <p className="text-xs text-hearth-text-muted">No parameters defined yet. Add one to let callers pass runtime values.</p>
             )}
 
             {parameters.map((param, idx) => (
-              <div key={idx} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+              <div key={idx} className="space-y-2 rounded-lg border border-hearth-border bg-hearth-card p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-500">Parameter {idx + 1}</span>
+                  <span className="text-xs font-medium text-hearth-text-muted">Parameter {idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeParameter(idx)}
@@ -516,7 +516,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                     value={param.name}
                     onChange={(e) => updateParameter(idx, 'name', e.target.value)}
                     placeholder="name (e.g. repo_url)"
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   />
                   {/* Label */}
                   <input
@@ -524,7 +524,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                     value={param.label}
                     onChange={(e) => updateParameter(idx, 'label', e.target.value)}
                     placeholder="Label (e.g. Repository URL)"
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   />
                 </div>
 
@@ -533,7 +533,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                   <select
                     value={param.type}
                     onChange={(e) => updateParameter(idx, 'type', e.target.value)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   >
                     {PARAM_TYPES.map((pt) => (
                       <option key={pt.value} value={pt.value}>{pt.label}</option>
@@ -545,15 +545,15 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                     value={param.default}
                     onChange={(e) => updateParameter(idx, 'default', e.target.value)}
                     placeholder="Default value"
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   />
                   {/* Required */}
-                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <label className="flex items-center gap-2 text-sm text-hearth-text cursor-pointer">
                     <input
                       type="checkbox"
                       checked={param.required}
                       onChange={(e) => updateParameter(idx, 'required', e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-hearth-600 focus:ring-hearth-500"
+                      className="h-4 w-4 rounded border-hearth-border-strong text-hearth-600 focus:ring-hearth-accent"
                     />
                     Required
                   </label>
@@ -566,7 +566,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                     value={param.options}
                     onChange={(e) => updateParameter(idx, 'options', e.target.value)}
                     placeholder="Options (comma-separated, e.g. low, medium, high)"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   />
                 )}
               </div>
@@ -575,7 +575,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
             <button
               type="button"
               onClick={addParameter}
-              className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 hover:text-gray-800"
+              className="rounded-lg border border-dashed border-hearth-border-strong px-3 py-1.5 text-sm text-hearth-text-muted hover:border-gray-400 hover:text-hearth-text"
             >
               + Add parameter
             </button>
@@ -588,21 +588,21 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
         <button
           type="button"
           onClick={() => setShowCheckpoints(!showCheckpoints)}
-          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-hearth-text-muted hover:text-hearth-text"
         >
           <ChevronIcon open={showCheckpoints} />
           Approval Gates
         </button>
         {showCheckpoints && (
-          <div className="ml-5 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="ml-5 space-y-3 rounded-lg border border-hearth-border bg-hearth-bg p-4">
             {checkpoints.length === 0 && (
-              <p className="text-xs text-gray-500">No approval gates defined. Add one to pause execution and require human approval.</p>
+              <p className="text-xs text-hearth-text-muted">No approval gates defined. Add one to pause execution and require human approval.</p>
             )}
 
             {checkpoints.map((cp, idx) => (
-              <div key={idx} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+              <div key={idx} className="space-y-2 rounded-lg border border-hearth-border bg-hearth-card p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-500">Gate {idx + 1}</span>
+                  <span className="text-xs font-medium text-hearth-text-muted">Gate {idx + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeCheckpoint(idx)}
@@ -619,7 +619,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                     value={cp.name}
                     onChange={(e) => updateCheckpoint(idx, 'name', e.target.value)}
                     placeholder="Gate name"
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   />
                   {/* Timeout */}
                   <div className="flex items-center gap-2">
@@ -628,9 +628,9 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                       min={1}
                       value={cp.timeoutMinutes}
                       onChange={(e) => updateCheckpoint(idx, 'timeoutMinutes', parseInt(e.target.value, 10) || 30)}
-                      className="w-24 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                      className="w-24 rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                     />
-                    <span className="text-xs text-gray-500">min timeout</span>
+                    <span className="text-xs text-hearth-text-muted">min timeout</span>
                   </div>
                 </div>
 
@@ -640,7 +640,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
                   value={cp.description}
                   onChange={(e) => updateCheckpoint(idx, 'description', e.target.value)}
                   placeholder="Description (what needs approval)"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                 />
               </div>
             ))}
@@ -648,7 +648,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
             <button
               type="button"
               onClick={addCheckpoint}
-              className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 hover:text-gray-800"
+              className="rounded-lg border border-dashed border-hearth-border-strong px-3 py-1.5 text-sm text-hearth-text-muted hover:border-gray-400 hover:text-hearth-text"
             >
               + Add approval gate
             </button>
@@ -661,7 +661,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
         <button
           type="button"
           onClick={() => setShowTest(!showTest)}
-          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+          className="mb-2 flex items-center gap-1.5 text-sm font-medium text-hearth-text-muted hover:text-hearth-text"
         >
           <ChevronIcon open={showTest} />
           Test before saving
@@ -671,27 +671,27 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
 
       {/* ── Feature 3: Scope ─────────────────────────────────────────────── */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Scope</label>
+        <label className="block text-sm font-medium text-hearth-text">Scope</label>
         <div className="mt-1.5 flex items-center gap-4">
           {([
             { value: 'personal', label: 'Personal' },
             { value: 'team', label: 'Team' },
             { value: 'org', label: 'Organization' },
           ] as const).map((opt) => (
-            <label key={opt.value} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+            <label key={opt.value} className="flex items-center gap-1.5 text-sm text-hearth-text cursor-pointer">
               <input
                 type="radio"
                 name="scope"
                 value={opt.value}
                 checked={scope === opt.value}
                 onChange={() => setScope(opt.value)}
-                className="h-4 w-4 border-gray-300 text-hearth-600 focus:ring-hearth-500"
+                className="h-4 w-4 border-hearth-border-strong text-hearth-600 focus:ring-hearth-accent"
               />
               {opt.label}
             </label>
           ))}
         </div>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-hearth-text-muted">
           {scope === 'personal' && 'Only you can see and trigger this routine.'}
           {scope === 'team' && 'All members of the selected team can see and trigger this routine.'}
           {scope === 'org' && 'Everyone in the organization can see and trigger this routine.'}
@@ -703,7 +703,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          className="rounded-lg px-4 py-2 text-sm font-medium text-hearth-text hover:bg-hearth-chip"
         >
           Cancel
         </button>

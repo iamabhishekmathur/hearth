@@ -14,8 +14,8 @@ export interface IntegrationInfo {
 // Known provider metadata — icons and colors
 const PROVIDER_META: Record<string, { icon: string; color: string; bg: string }> = {
   slack: { icon: '#', color: 'text-purple-700', bg: 'bg-purple-100' },
-  github: { icon: 'GH', color: 'text-gray-700', bg: 'bg-gray-200' },
-  notion: { icon: 'N', color: 'text-gray-900', bg: 'bg-gray-100' },
+  github: { icon: 'GH', color: 'text-hearth-text', bg: 'bg-hearth-chip' },
+  notion: { icon: 'N', color: 'text-hearth-text', bg: 'bg-hearth-chip' },
   jira: { icon: 'J', color: 'text-blue-700', bg: 'bg-blue-100' },
   gmail: { icon: 'M', color: 'text-red-700', bg: 'bg-red-100' },
   gdrive: { icon: 'D', color: 'text-green-700', bg: 'bg-green-100' },
@@ -23,7 +23,7 @@ const PROVIDER_META: Record<string, { icon: string; color: string; bg: string }>
 };
 
 export function getProviderMeta(provider: string) {
-  return PROVIDER_META[provider] ?? { icon: provider.charAt(0).toUpperCase(), color: 'text-gray-700', bg: 'bg-gray-100' };
+  return PROVIDER_META[provider] ?? { icon: provider.charAt(0).toUpperCase(), color: 'text-hearth-text', bg: 'bg-hearth-chip' };
 }
 
 // Map mention labels (lowercase) → provider keys for pill rendering
@@ -40,15 +40,15 @@ const MENTION_PROVIDERS: Record<string, string> = {
 // Pill styles per provider — ring-inset uses box-shadow so no layout impact
 const PILL_CLASSES: Record<string, string> = {
   slack: 'bg-purple-100 text-purple-800 ring-1 ring-inset ring-purple-300/60',
-  github: 'bg-gray-200 text-gray-800 ring-1 ring-inset ring-gray-300/60',
-  notion: 'bg-gray-100 text-gray-900 ring-1 ring-inset ring-gray-300/60',
+  github: 'bg-hearth-chip text-hearth-text ring-1 ring-inset ring-gray-300/60',
+  notion: 'bg-hearth-chip text-hearth-text ring-1 ring-inset ring-gray-300/60',
   jira: 'bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-300/60',
   gmail: 'bg-red-100 text-red-800 ring-1 ring-inset ring-red-300/60',
   gdrive: 'bg-green-100 text-green-800 ring-1 ring-inset ring-green-300/60',
   gcalendar: 'bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-300/60',
 };
 
-const DEFAULT_PILL_CLASS = 'bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-300/60';
+const DEFAULT_PILL_CLASS = 'bg-hearth-chip text-hearth-text ring-1 ring-inset ring-gray-300/60';
 
 interface Segment {
   type: 'text' | 'mention';
@@ -225,7 +225,7 @@ export function MentionTextarea({
         {/* Backdrop: formatted text with mention pills (rendered first → below textarea) */}
         <div
           ref={backdropRef}
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg border border-transparent bg-white px-3 py-2 text-sm leading-5"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg border border-transparent bg-hearth-card px-3 py-2 text-sm leading-5"
           style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word', overflowWrap: 'break-word' }}
           aria-hidden="true"
         >
@@ -238,7 +238,7 @@ export function MentionTextarea({
                 </span>
               );
             }
-            return <span key={i} className="text-gray-900">{seg.value}</span>;
+            return <span key={i} className="text-hearth-text">{seg.value}</span>;
           })}
           {/* Match textarea trailing-newline behavior */}
           {value.endsWith('\n') && '\n'}
@@ -253,7 +253,7 @@ export function MentionTextarea({
           onScroll={handleScroll}
           placeholder={placeholder}
           rows={rows}
-          className="relative block w-full resize-none rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm leading-5 text-transparent shadow-sm placeholder:text-gray-400 focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+          className="relative block w-full resize-none rounded-lg border border-hearth-border-strong bg-transparent px-3 py-2 text-sm leading-5 text-transparent shadow-hearth-1 placeholder:text-hearth-text-faint focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           style={{ caretColor: '#111827' }}
         />
       </div>
@@ -262,11 +262,11 @@ export function MentionTextarea({
       {showPopover && filteredIntegrations.length > 0 && (
         <div
           ref={popoverRef}
-          className="absolute z-10 w-72 rounded-lg border border-gray-200 bg-white shadow-lg"
+          className="absolute z-10 w-72 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3"
           style={{ top: popoverPos.top, left: popoverPos.left }}
         >
-          <div className="border-b border-gray-100 px-3 py-2">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+          <div className="border-b border-hearth-border px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-hearth-text-faint">
               Select an integration
             </p>
           </div>
@@ -282,15 +282,15 @@ export function MentionTextarea({
                     insertMention(integ);
                   }}
                   className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                    idx === selectedIndex ? 'bg-hearth-50' : 'hover:bg-gray-50'
+                    idx === selectedIndex ? 'bg-hearth-50' : 'hover:bg-hearth-bg'
                   }`}
                 >
                   <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold ${meta.bg} ${meta.color}`}>
                     {meta.icon}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">{integ.label}</p>
-                    <p className="truncate text-[11px] text-gray-400">
+                    <p className="text-sm font-medium text-hearth-text">{integ.label}</p>
+                    <p className="truncate text-[11px] text-hearth-text-faint">
                       {integ.tools.map((t) => humanToolName(t.name)).join(', ')}
                     </p>
                   </div>
@@ -299,15 +299,15 @@ export function MentionTextarea({
             })}
           </div>
           {filteredIntegrations.length === 0 && (
-            <p className="px-3 py-3 text-xs text-gray-400">No matching integrations</p>
+            <p className="px-3 py-3 text-xs text-hearth-text-faint">No matching integrations</p>
           )}
         </div>
       )}
 
       {/* Inline hint below textarea */}
       {integrations.length > 0 && (
-        <p className="mt-1 text-[11px] text-gray-400">
-          Type <kbd className="rounded border border-gray-200 bg-gray-50 px-1 font-mono text-[10px]">@</kbd> to add integrations
+        <p className="mt-1 text-[11px] text-hearth-text-faint">
+          Type <kbd className="rounded border border-hearth-border bg-hearth-bg px-1 font-mono text-[10px]">@</kbd> to add integrations
         </p>
       )}
     </div>

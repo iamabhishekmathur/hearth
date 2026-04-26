@@ -98,9 +98,9 @@ export function IntegrationActions({ prompt, connectedIntegrations }: Integratio
   if (integrations.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
-      <div className="border-b border-gray-100 px-4 py-2.5">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+    <div className="rounded-lg border border-hearth-border bg-hearth-card">
+      <div className="border-b border-hearth-border px-4 py-2.5">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-hearth-text-muted">
           Integrations & Tool Calls
         </h4>
       </div>
@@ -116,7 +116,7 @@ export function IntegrationActions({ prompt, connectedIntegrations }: Integratio
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{integ.label}</span>
+                    <span className="text-sm font-medium text-hearth-text">{integ.label}</span>
                     {integ.connected ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
                         <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
@@ -135,20 +135,20 @@ export function IntegrationActions({ prompt, connectedIntegrations }: Integratio
               {/* Tool calls */}
               {integ.connected && integ.tools.length > 0 && (
                 <div className="ml-9 mt-2.5 space-y-2">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-hearth-text-faint">
                     Tool calls
                   </p>
                   {integ.tools.map((tool) => (
                     <div
                       key={tool.name}
-                      className="rounded-md border border-gray-150 bg-gray-50 px-3 py-2"
+                      className="rounded-md border border-gray-150 bg-hearth-bg px-3 py-2"
                     >
                       <div className="flex items-center gap-2">
-                        <code className="text-[11px] font-semibold text-gray-800">
+                        <code className="text-[11px] font-semibold text-hearth-text">
                           {tool.name}
                         </code>
                       </div>
-                      <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-hearth-text-muted">
                         {tool.description}
                       </p>
                       {tool.resourceParams.length > 0 && (

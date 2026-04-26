@@ -43,8 +43,8 @@ const PROVIDER_CATALOG: ProviderInfo[] = [
     label: 'GitHub',
     description: 'List repos, pull requests, issues, and create comments.',
     icon: 'GH',
-    iconBg: 'bg-gray-200',
-    iconColor: 'text-gray-800',
+    iconBg: 'bg-hearth-chip',
+    iconColor: 'text-hearth-text',
     credentials: [
       { key: 'access_token', label: 'Personal Access Token', placeholder: 'ghp_...', secret: true },
     ],
@@ -54,8 +54,8 @@ const PROVIDER_CATALOG: ProviderInfo[] = [
     label: 'Notion',
     description: 'Search pages, query databases, and create content.',
     icon: 'N',
-    iconBg: 'bg-gray-100',
-    iconColor: 'text-gray-900',
+    iconBg: 'bg-hearth-chip',
+    iconColor: 'text-hearth-text',
     credentials: [
       { key: 'api_key', label: 'Integration Token', placeholder: 'ntn_...', secret: true },
     ],
@@ -117,14 +117,14 @@ function getProviderDisplay(provider: string) {
   return {
     label: provider === 'custom' ? 'Custom MCP Server' : provider,
     icon: provider === 'custom' ? '{}' : provider.charAt(0).toUpperCase(),
-    iconBg: 'bg-gray-100',
-    iconColor: 'text-gray-700',
+    iconBg: 'bg-hearth-chip',
+    iconColor: 'text-hearth-text',
   };
 }
 
 const STATUS_BADGE: Record<string, { bg: string; dot: string; text: string; label: string }> = {
   active: { bg: 'bg-green-50', dot: 'bg-green-500', text: 'text-green-700', label: 'Active' },
-  inactive: { bg: 'bg-gray-50', dot: 'bg-gray-400', text: 'text-gray-600', label: 'Disabled' },
+  inactive: { bg: 'bg-hearth-bg', dot: 'bg-gray-400', text: 'text-hearth-text-muted', label: 'Disabled' },
   error: { bg: 'bg-red-50', dot: 'bg-red-500', text: 'text-red-700', label: 'Error' },
 };
 
@@ -164,22 +164,22 @@ export function IntegrationHealth() {
     }
   };
 
-  if (loading) return <p className="text-sm text-gray-400">Loading integrations...</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading integrations...</p>;
 
   return (
     <div>
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Integrations</h3>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <h3 className="text-base font-semibold text-hearth-text">Integrations</h3>
+          <p className="mt-0.5 text-sm text-hearth-text-muted">
             Connect external services so routines and the AI agent can read and write to them.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setShowDirectory(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-hearth-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-hearth-700"
+          className="flex items-center gap-1.5 rounded-lg bg-hearth-600 px-3.5 py-2 text-sm font-medium text-white shadow-hearth-1 hover:bg-hearth-700"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -190,12 +190,12 @@ export function IntegrationHealth() {
 
       {/* Connected integrations */}
       {integrations.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 py-12 text-center">
-          <svg className="mx-auto h-10 w-10 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <div className="rounded-lg border-2 border-dashed border-hearth-border py-12 text-center">
+          <svg className="mx-auto h-10 w-10 text-hearth-text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.914-3.814a4.5 4.5 0 0 0-1.242-7.244l4.5-4.5a4.5 4.5 0 0 0 6.364 6.364l-1.757 1.757" />
           </svg>
-          <p className="mt-3 text-sm font-medium text-gray-600">No integrations connected</p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-3 text-sm font-medium text-hearth-text-muted">No integrations connected</p>
+          <p className="mt-1 text-xs text-hearth-text-faint">
             Add an integration to enable your AI agent to work with external tools.
           </p>
           <button
@@ -214,21 +214,21 @@ export function IntegrationHealth() {
             return (
               <div
                 key={integ.id}
-                className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3"
+                className="flex items-center gap-3 rounded-lg border border-hearth-border px-4 py-3"
               >
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${display.iconBg} ${display.iconColor}`}>
                   {display.icon}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{display.label}</span>
+                    <span className="text-sm font-medium text-hearth-text">{display.label}</span>
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset ${badge.bg} ${badge.text} ring-current/20`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
                       {badge.label}
                     </span>
                   </div>
                   {integ.healthCheckedAt && (
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-hearth-text-faint">
                       Last checked {new Date(integ.healthCheckedAt).toLocaleString()}
                     </p>
                   )}
@@ -237,10 +237,10 @@ export function IntegrationHealth() {
                   <button
                     type="button"
                     onClick={() => handleToggle(integ)}
-                    className={`relative h-5 w-9 rounded-full transition-colors ${integ.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                    className={`relative h-5 w-9 rounded-full transition-colors ${integ.enabled ? 'bg-green-500' : 'bg-hearth-border-strong'}`}
                     aria-label={integ.enabled ? 'Disable' : 'Enable'}
                   >
-                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${integ.enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-hearth-card shadow transition-transform ${integ.enabled ? 'left-[18px]' : 'left-0.5'}`} />
                   </button>
                   <button
                     type="button"
@@ -361,19 +361,19 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh]">
-      <div className="relative flex max-h-[75vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[75vh] w-full max-w-2xl flex-col rounded-xl bg-hearth-card shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Add Integration</h2>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <h2 className="text-base font-semibold text-hearth-text">Add Integration</h2>
+            <p className="mt-0.5 text-xs text-hearth-text-muted">
               Connect a service or add a custom MCP server
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -382,9 +382,9 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
         </div>
 
         {/* Search */}
-        <div className="border-b border-gray-200 px-6 py-3">
+        <div className="border-b border-hearth-border px-6 py-3">
           <div className="relative">
-            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-hearth-text-faint" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
             </svg>
             <input
@@ -392,7 +392,7 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search integrations..."
-              className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="w-full rounded-lg border border-hearth-border-strong py-2 pl-9 pr-3 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
             />
           </div>
         </div>
@@ -409,7 +409,7 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                   setCredentialValues({});
                   setError(null);
                 }}
-                className="mb-4 flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+                className="mb-4 flex items-center gap-1 text-xs font-medium text-hearth-text-muted hover:text-hearth-text"
               >
                 <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
@@ -422,15 +422,15 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                   {selectedCatalog.icon}
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Connect {selectedCatalog.label}</h3>
-                  <p className="text-xs text-gray-500">{selectedCatalog.description}</p>
+                  <h3 className="text-sm font-semibold text-hearth-text">Connect {selectedCatalog.label}</h3>
+                  <p className="text-xs text-hearth-text-muted">{selectedCatalog.description}</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 {selectedCatalog.credentials.map((cred) => (
                   <div key={cred.key}>
-                    <label className="block text-xs font-medium text-gray-700">{cred.label}</label>
+                    <label className="block text-xs font-medium text-hearth-text">{cred.label}</label>
                     <input
                       type={cred.secret ? 'password' : 'text'}
                       value={credentialValues[cred.key] ?? ''}
@@ -438,7 +438,7 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                         setCredentialValues((prev) => ({ ...prev, [cred.key]: e.target.value }))
                       }
                       placeholder={cred.placeholder}
-                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                      className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 font-mono text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                     />
                   </div>
                 ))}
@@ -461,7 +461,7 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                     setSelectedProvider(null);
                     setError(null);
                   }}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-hearth-text-muted hover:bg-hearth-chip"
                 >
                   Cancel
                 </button>
@@ -476,7 +476,7 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                   setShowCustom(false);
                   setError(null);
                 }}
-                className="mb-4 flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+                className="mb-4 flex items-center gap-1 text-xs font-medium text-hearth-text-muted hover:text-hearth-text"
               >
                 <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
@@ -485,39 +485,39 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
               </button>
 
               <div className="flex items-center gap-3 mb-5">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 font-mono text-xs font-bold text-gray-700">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-hearth-chip font-mono text-xs font-bold text-hearth-text">
                   {'{}'}
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Custom MCP Server</h3>
-                  <p className="text-xs text-gray-500">Connect any MCP-compatible server by URL</p>
+                  <h3 className="text-sm font-semibold text-hearth-text">Custom MCP Server</h3>
+                  <p className="text-xs text-hearth-text-muted">Connect any MCP-compatible server by URL</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700">Server URL</label>
+                  <label className="block text-xs font-medium text-hearth-text">Server URL</label>
                   <input
                     type="url"
                     value={customUrl}
                     onChange={(e) => setCustomUrl(e.target.value)}
                     placeholder="https://mcp.example.com/sse"
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 font-mono text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   />
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <p className="mt-1 text-[11px] text-hearth-text-faint">
                     The HTTP endpoint of the MCP server (supports JSON-RPC over HTTP)
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700">
-                    Display Name <span className="text-gray-400">(optional)</span>
+                  <label className="block text-xs font-medium text-hearth-text">
+                    Display Name <span className="text-hearth-text-faint">(optional)</span>
                   </label>
                   <input
                     type="text"
                     value={customName}
                     onChange={(e) => setCustomName(e.target.value)}
                     placeholder="My Custom Server"
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                   />
                 </div>
               </div>
@@ -539,7 +539,7 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                     setShowCustom(false);
                     setError(null);
                   }}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-hearth-text-muted hover:bg-hearth-chip"
                 >
                   Cancel
                 </button>
@@ -549,13 +549,13 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
             /* ── Directory grid ── */
             <div className="p-6">
               {/* Popular / built-in connectors */}
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-hearth-text-faint">
                 Popular
               </h4>
               {available.length === 0 && !search ? (
-                <p className="text-xs text-gray-400">All built-in integrations are already connected.</p>
+                <p className="text-xs text-hearth-text-faint">All built-in integrations are already connected.</p>
               ) : available.length === 0 ? (
-                <p className="text-xs text-gray-400">No integrations match &quot;{search}&quot;</p>
+                <p className="text-xs text-hearth-text-faint">No integrations match &quot;{search}&quot;</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {available.map((catalog) => {
@@ -570,24 +570,24 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                           setCredentialValues({});
                           setError(null);
                         }}
-                        className="group flex items-start gap-3 rounded-lg border border-gray-200 p-3 text-left transition-all hover:border-hearth-300 hover:shadow-sm disabled:opacity-50"
+                        className="group flex items-start gap-3 rounded-lg border border-hearth-border p-3 text-left transition-all hover:border-hearth-300 hover:shadow-hearth-1 disabled:opacity-50"
                       >
                         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${catalog.iconBg} ${catalog.iconColor}`}>
                           {catalog.icon}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">{catalog.label}</span>
+                            <span className="text-sm font-medium text-hearth-text">{catalog.label}</span>
                             {alreadyConnected && (
                               <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
                                 Connected
                               </span>
                             )}
                           </div>
-                          <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{catalog.description}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-hearth-text-muted">{catalog.description}</p>
                         </div>
                         {!alreadyConnected && (
-                          <svg className="h-5 w-5 shrink-0 text-gray-300 group-hover:text-hearth-500" viewBox="0 0 20 20" fill="currentColor">
+                          <svg className="h-5 w-5 shrink-0 text-hearth-text-faint group-hover:text-hearth-500" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
                           </svg>
                         )}
@@ -598,8 +598,8 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
               )}
 
               {/* Custom MCP Server */}
-              <div className="mt-6 border-t border-gray-100 pt-5">
-                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <div className="mt-6 border-t border-hearth-border pt-5">
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-hearth-text-faint">
                   Custom
                 </h4>
                 <button
@@ -610,18 +610,18 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
                     setCustomName('');
                     setError(null);
                   }}
-                  className="group flex w-full items-center gap-3 rounded-lg border border-dashed border-gray-300 p-3 text-left transition-all hover:border-hearth-300 hover:bg-hearth-50/30"
+                  className="group flex w-full items-center gap-3 rounded-lg border border-dashed border-hearth-border-strong p-3 text-left transition-all hover:border-hearth-300 hover:bg-hearth-50/30"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 font-mono text-xs font-bold text-gray-500 group-hover:bg-hearth-100 group-hover:text-hearth-600">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-hearth-chip font-mono text-xs font-bold text-hearth-text-muted group-hover:bg-hearth-100 group-hover:text-hearth-600">
                     {'{}'}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm font-medium text-gray-900">Add Custom MCP Server</span>
-                    <p className="mt-0.5 text-xs text-gray-500">
+                    <span className="text-sm font-medium text-hearth-text">Add Custom MCP Server</span>
+                    <p className="mt-0.5 text-xs text-hearth-text-muted">
                       Connect any MCP-compatible server by entering its URL
                     </p>
                   </div>
-                  <svg className="h-5 w-5 shrink-0 text-gray-300 group-hover:text-hearth-500" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-5 w-5 shrink-0 text-hearth-text-faint group-hover:text-hearth-500" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638l-3.96-4.158a.75.75 0 1 1 1.08-1.04l5.25 5.5a.75.75 0 0 1 0 1.08l-5.25 5.5a.75.75 0 1 1-1.08-1.04l3.96-4.158H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
                   </svg>
                 </button>

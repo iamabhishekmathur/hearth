@@ -3,7 +3,7 @@ import { TaskCard } from './task-card';
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
   auto_detected: { label: 'Auto Detected', color: 'bg-amber-500' },
-  backlog: { label: 'Backlog', color: 'bg-gray-500' },
+  backlog: { label: 'Backlog', color: 'bg-hearth-bg0' },
   planning: { label: 'Planning', color: 'bg-blue-500' },
   executing: { label: 'Executing', color: 'bg-purple-500' },
   review: { label: 'Review', color: 'bg-orange-500' },
@@ -36,16 +36,16 @@ export function KanbanColumn({
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.add('bg-gray-100');
+    e.currentTarget.classList.add('bg-hearth-chip');
   }
 
   function handleDragLeave(e: React.DragEvent) {
-    e.currentTarget.classList.remove('bg-gray-100');
+    e.currentTarget.classList.remove('bg-hearth-chip');
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
-    e.currentTarget.classList.remove('bg-gray-100');
+    e.currentTarget.classList.remove('bg-hearth-chip');
     const taskId = e.dataTransfer.getData('text/plain');
     if (taskId) onDrop(taskId, status);
   }
@@ -54,7 +54,7 @@ export function KanbanColumn({
     <div
       role="list"
       aria-label={`${config.label} column, ${tasks.length} tasks`}
-      className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-gray-50"
+      className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-hearth-bg"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -62,15 +62,15 @@ export function KanbanColumn({
       {/* Column header */}
       <div className="flex items-center gap-2 px-3 py-3">
         <div className={`h-2 w-2 rounded-full ${config.color}`} aria-hidden="true" />
-        <h3 className="text-sm font-semibold text-gray-700">{config.label}</h3>
-        <span className="ml-auto text-xs text-gray-400" aria-label={`${tasks.length} tasks`}>{tasks.length}</span>
+        <h3 className="text-sm font-semibold text-hearth-text">{config.label}</h3>
+        <span className="ml-auto text-xs text-hearth-text-faint" aria-label={`${tasks.length} tasks`}>{tasks.length}</span>
       </div>
 
       {/* Cards */}
       <div className="flex-1 space-y-2 overflow-y-auto px-2 pb-2">
         {tasks.length === 0 ? (
-          <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-8">
-            <p className="text-xs text-gray-400">Drop tasks here</p>
+          <div className="flex items-center justify-center rounded-lg border border-dashed border-hearth-border py-8">
+            <p className="text-xs text-hearth-text-faint">Drop tasks here</p>
           </div>
         ) : (
           tasks.map((task) => (

@@ -39,14 +39,14 @@ export function TestRunPanel({ prompt }: TestRunPanelProps) {
   }, [prompt]);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50">
+    <div className="rounded-lg border border-hearth-border bg-hearth-bg">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-hearth-border px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <svg className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+          <svg className="h-4 w-4 text-hearth-text-muted" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M6.3 2.841A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.269l9.344-5.89a1.5 1.5 0 0 0 0-2.538L6.3 2.84Z" clipRule="evenodd" />
           </svg>
-          <span className="text-sm font-medium text-gray-700">Test Run</span>
+          <span className="text-sm font-medium text-hearth-text">Test Run</span>
         </div>
         <button
           type="button"
@@ -82,7 +82,7 @@ export function TestRunPanel({ prompt }: TestRunPanelProps) {
               {result.status}
             </span>
             {result.durationMs != null && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-hearth-text-faint">
                 {result.durationMs < 1000
                   ? `${result.durationMs}ms`
                   : `${(result.durationMs / 1000).toFixed(1)}s`}
@@ -92,8 +92,8 @@ export function TestRunPanel({ prompt }: TestRunPanelProps) {
 
           {/* Output */}
           {result.output && (
-            <div className="max-h-60 overflow-y-auto rounded-md border border-gray-200 bg-white p-3">
-              <pre className="whitespace-pre-wrap text-xs leading-relaxed text-gray-700">
+            <div className="max-h-60 overflow-y-auto rounded-md border border-hearth-border bg-hearth-card p-3">
+              <pre className="whitespace-pre-wrap text-xs leading-relaxed text-hearth-text">
                 {result.output}
               </pre>
             </div>
@@ -108,7 +108,7 @@ export function TestRunPanel({ prompt }: TestRunPanelProps) {
 
           {/* No output */}
           {!result.output && !result.error && result.status === 'success' && (
-            <p className="text-xs text-gray-400">Routine completed with no output.</p>
+            <p className="text-xs text-hearth-text-faint">Routine completed with no output.</p>
           )}
         </div>
       )}
@@ -116,7 +116,7 @@ export function TestRunPanel({ prompt }: TestRunPanelProps) {
       {/* Empty state */}
       {!result && !running && (
         <div className="px-4 py-3">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-hearth-text-faint">
             Run a test to verify your prompt works as expected. This executes the prompt once without scheduling it.
           </p>
         </div>

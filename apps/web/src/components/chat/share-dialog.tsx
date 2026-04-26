@@ -173,16 +173,16 @@ export function ShareDialog({
       aria-modal="true"
       aria-labelledby="share-dialog-title"
     >
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-xl bg-hearth-card shadow-hearth-4">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 id="share-dialog-title" className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
+          <h2 id="share-dialog-title" className="text-lg font-semibold text-hearth-text">
             Share
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -195,8 +195,8 @@ export function ShareDialog({
           <div>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-900">Visible to your team</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-hearth-text">Visible to your team</p>
+                <p className="text-xs text-hearth-text-muted">
                   Anyone in your organization can find this in Shared Chats
                 </p>
               </div>
@@ -205,11 +205,11 @@ export function ShareDialog({
                 onClick={handleToggleVisibility}
                 disabled={visToggling}
                 className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                  isOrgVisible ? 'bg-hearth-500' : 'bg-gray-200'
+                  isOrgVisible ? 'bg-hearth-500' : 'bg-hearth-chip'
                 } ${visToggling ? 'opacity-50' : ''}`}
               >
                 <span
-                  className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-hearth-card shadow transition-transform ${
                     isOrgVisible ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
@@ -219,7 +219,7 @@ export function ShareDialog({
 
           {/* Section 2: Add People */}
           <div>
-            <p className="mb-2 text-sm font-medium text-gray-900">Add people</p>
+            <p className="mb-2 text-sm font-medium text-hearth-text">Add people</p>
             <div className="relative">
               <div className="flex gap-2">
                 <input
@@ -227,12 +227,12 @@ export function ShareDialog({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by name or email..."
-                  className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 placeholder-gray-400 focus:border-hearth-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-hearth-100"
+                  className="flex-1 rounded-lg border border-hearth-border-strong bg-hearth-bg px-3 py-1.5 text-sm text-hearth-text placeholder-hearth-text-faint focus:border-hearth-400 focus:bg-hearth-card focus:outline-none focus:ring-2 focus:ring-hearth-100"
                 />
                 <select
                   value={addingRole}
                   onChange={(e) => setAddingRole(e.target.value as CollaboratorRole)}
-                  className="rounded-lg border border-gray-300 bg-gray-50 px-2 py-1.5 text-xs text-gray-600"
+                  className="rounded-lg border border-hearth-border-strong bg-hearth-bg px-2 py-1.5 text-xs text-hearth-text-muted"
                 >
                   <option value="viewer">Viewer</option>
                   <option value="contributor">Contributor</option>
@@ -241,20 +241,20 @@ export function ShareDialog({
 
               {/* Search results dropdown */}
               {searchResults.length > 0 && (
-                <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3">
                   {searchResults.map((user) => (
                     <button
                       key={user.id}
                       type="button"
                       onClick={() => handleAddCollaborator(user)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-hearth-bg"
                     >
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-hearth-100 text-xs font-medium text-hearth-700">
                         {user.name.charAt(0).toUpperCase()}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-gray-900">{user.name}</p>
-                        <p className="truncate text-xs text-gray-500">{user.email}</p>
+                        <p className="truncate text-sm text-hearth-text">{user.name}</p>
+                        <p className="truncate text-xs text-hearth-text-muted">{user.email}</p>
                       </div>
                     </button>
                   ))}
@@ -268,21 +268,21 @@ export function ShareDialog({
                 {collaborators.map((collab) => (
                   <div
                     key={collab.userId}
-                    className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5"
+                    className="flex items-center gap-2 rounded-lg bg-hearth-bg px-3 py-1.5"
                   >
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-hearth-100 text-xs font-medium text-hearth-700">
                       {collab.user.name.charAt(0).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-gray-700">{collab.user.name}</p>
+                      <p className="truncate text-sm text-hearth-text">{collab.user.name}</p>
                     </div>
-                    <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600">
+                    <span className="rounded bg-hearth-chip px-1.5 py-0.5 text-[10px] text-hearth-text-muted">
                       {collab.role}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleRemoveCollaborator(collab.userId)}
-                      className="rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                      className="rounded p-0.5 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
                     >
                       <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -296,13 +296,13 @@ export function ShareDialog({
 
           {/* Section 3: Link Sharing */}
           <div>
-            <p className="mb-2 text-sm font-medium text-gray-900">Link sharing</p>
+            <p className="mb-2 text-sm font-medium text-hearth-text">Link sharing</p>
             {!shareLink ? (
               <div className="flex items-center gap-2">
                 <select
                   value={contentFilter}
                   onChange={(e) => setContentFilter(e.target.value as ContentFilter)}
-                  className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+                  className="rounded-lg border border-hearth-border-strong bg-hearth-bg px-3 py-2 text-sm text-hearth-text-muted"
                 >
                   <option value="all">Everything</option>
                   <option value="responses">AI responses only</option>
@@ -312,7 +312,7 @@ export function ShareDialog({
                   type="button"
                   onClick={handleCreateLink}
                   disabled={linkLoading}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg border border-hearth-border-strong px-3 py-2 text-sm text-hearth-text hover:bg-hearth-bg disabled:opacity-50"
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
@@ -327,12 +327,12 @@ export function ShareDialog({
                   type="text"
                   readOnly
                   value={shareLink}
-                  className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                  className="flex-1 rounded-lg border border-hearth-border-strong bg-hearth-bg px-3 py-2 text-sm text-hearth-text"
                 />
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="rounded-lg border border-hearth-border-strong px-3 py-2 text-sm text-hearth-text hover:bg-hearth-bg"
                 >
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
@@ -341,11 +341,11 @@ export function ShareDialog({
           </div>
 
           {/* Section 4: Duplicate */}
-          <div className="border-t border-gray-100 pt-4">
+          <div className="border-t border-hearth-border pt-4">
             <button
               type="button"
               onClick={handleDuplicate}
-              className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+              className="flex items-center gap-1.5 text-sm text-hearth-text-muted hover:text-hearth-text"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />

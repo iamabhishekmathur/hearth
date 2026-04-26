@@ -33,7 +33,7 @@ export function LoginForm({ onSubmit, onSwitchToRegister }: LoginFormProps) {
       )}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-medium text-hearth-text">
           Email
         </label>
         <input
@@ -42,13 +42,13 @@ export function LoginForm({ onSubmit, onSwitchToRegister }: LoginFormProps) {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none transition-colors focus:border-hearth-400 focus:ring-2 focus:ring-hearth-100"
+          className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 outline-none transition-colors focus:border-hearth-400 focus:ring-2 focus:ring-hearth-100"
           placeholder="you@example.com"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-medium text-hearth-text">
           Password
         </label>
         <input
@@ -57,7 +57,7 @@ export function LoginForm({ onSubmit, onSwitchToRegister }: LoginFormProps) {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none transition-colors focus:border-hearth-400 focus:ring-2 focus:ring-hearth-100"
+          className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 outline-none transition-colors focus:border-hearth-400 focus:ring-2 focus:ring-hearth-100"
           placeholder="Enter your password"
         />
       </div>
@@ -65,12 +65,12 @@ export function LoginForm({ onSubmit, onSwitchToRegister }: LoginFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-hearth-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-lg bg-hearth-500 px-4 py-2.5 text-sm font-medium text-white shadow-hearth-1 transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? 'Signing in...' : 'Sign in'}
       </button>
 
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm text-hearth-text-muted">
         Don't have an account?{' '}
         <button
           type="button"

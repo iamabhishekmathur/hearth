@@ -5,6 +5,8 @@ import { RoutineList } from '@/components/routines/routine-list';
 import { RoutineForm } from '@/components/routines/routine-form';
 import { RoutineDetail } from '@/components/routines/routine-detail';
 import { RoutineTemplateBrowser } from '@/components/routines/routine-templates';
+import { HButton, HEyebrow } from '@/components/ui/primitives';
+import { HIcon } from '@/components/ui/icon';
 import type { RoutineTemplate } from '@/components/routines/routine-templates';
 
 type View = 'list' | 'templates';
@@ -93,32 +95,34 @@ export function RoutinesPage() {
     return (
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Routines</h1>
-            <p className="mt-0.5 text-sm text-gray-500">Scheduled agent automations</p>
+            <HEyebrow>Automation</HEyebrow>
+            <h1 className="mt-1 font-display text-[22px] font-medium" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+              Routines<span style={{ color: 'var(--hearth-accent)' }}>.</span>
+            </h1>
+            <p className="mt-0.5 text-sm text-hearth-text-muted">Scheduled agent automations</p>
           </div>
-          <button
-            type="button"
+          <HButton
+            variant="accent"
             onClick={() => setShowCreate(true)}
-            className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white hover:bg-hearth-700"
           >
             New Routine
-          </button>
+          </HButton>
         </div>
 
         {/* Scope tabs */}
-        <div className="border-b border-gray-200 px-6">
+        <div className="border-b border-hearth-border px-6">
           <nav className="-mb-px flex gap-4" aria-label="Routine scope">
             {scopeTabs.map((tab) => (
               <button
                 key={tab.label}
                 type="button"
                 onClick={() => handleScopeChange(tab.value)}
-                className={`whitespace-nowrap border-b-2 px-1 py-2.5 text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap border-b-2 px-1 py-2.5 text-sm font-medium transition-all duration-fast ease-hearth ${
                   activeScope === tab.value
-                    ? 'border-hearth-600 text-hearth-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'border-hearth-accent text-hearth-accent'
+                    : 'border-transparent text-hearth-text-muted hover:border-hearth-border-strong hover:text-hearth-text'
                 }`}
               >
                 {tab.label}
@@ -129,13 +133,11 @@ export function RoutinesPage() {
 
         {/* Empty state with inline template browser */}
         <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-8">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-hearth-50">
-            <svg className="h-7 w-7 text-hearth-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clipRule="evenodd" />
-            </svg>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'var(--hearth-accent-soft)' }}>
+            <HIcon name="clock" size={28} color="var(--hearth-accent)" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">Get started with a template</h2>
-          <p className="mt-1 max-w-md text-center text-sm text-gray-500">
+          <h2 className="font-display text-lg font-medium text-hearth-text" style={{ letterSpacing: '-0.3px' }}>Get started with a template</h2>
+          <p className="mt-1 max-w-md text-center text-sm text-hearth-text-muted">
             Pick a template below to quick-start a routine, or create one from scratch.
           </p>
 
@@ -150,41 +152,41 @@ export function RoutinesPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Routines</h1>
-          <p className="mt-0.5 text-sm text-gray-500">Scheduled agent automations</p>
+          <HEyebrow>Automation</HEyebrow>
+          <h1 className="mt-1 font-display text-[22px] font-medium" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+            Routines<span style={{ color: 'var(--hearth-accent)' }}>.</span>
+          </h1>
+          <p className="mt-0.5 text-sm text-hearth-text-muted">Scheduled agent automations</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <HButton
             onClick={() => { setView('templates'); setSelected(null); }}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
           >
             Browse Templates
-          </button>
-          <button
-            type="button"
+          </HButton>
+          <HButton
+            variant="accent"
             onClick={() => { setShowCreate(true); setSelected(null); setPrefill(null); }}
-            className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white hover:bg-hearth-700"
           >
             New Routine
-          </button>
+          </HButton>
         </div>
       </div>
 
       {/* Scope tabs */}
-      <div className="border-b border-gray-200 px-6">
+      <div className="border-b border-hearth-border px-6">
         <nav className="-mb-px flex gap-4" aria-label="Routine scope">
           {scopeTabs.map((tab) => (
             <button
               key={tab.label}
               type="button"
               onClick={() => handleScopeChange(tab.value)}
-              className={`whitespace-nowrap border-b-2 px-1 py-2.5 text-sm font-medium transition-colors ${
+              className={`whitespace-nowrap border-b-2 px-1 py-2.5 text-sm font-medium transition-all duration-fast ease-hearth ${
                 activeScope === tab.value
-                  ? 'border-hearth-600 text-hearth-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-hearth-accent text-hearth-accent'
+                  : 'border-transparent text-hearth-text-muted hover:border-hearth-border-strong hover:text-hearth-text'
               }`}
             >
               {tab.label}
@@ -197,16 +199,16 @@ export function RoutinesPage() {
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* Create form (inline bar) */}
         {showCreate && (
-          <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+          <div className="border-b border-hearth-border bg-hearth-card-alt px-6 py-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">
+              <h2 className="text-sm font-semibold text-hearth-text">
                 {prefill ? `Create from template: ${prefill.name}` : 'Create Routine'}
               </h2>
               {prefill && (
                 <button
                   type="button"
                   onClick={() => setPrefill(null)}
-                  className="text-xs text-gray-500 hover:text-gray-700"
+                  className="text-xs text-hearth-text-muted hover:text-hearth-text"
                 >
                   Clear template
                 </button>
@@ -224,8 +226,8 @@ export function RoutinesPage() {
         {loading ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
-              <p className="mt-3 text-sm text-gray-400">Loading routines...</p>
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-hearth-border border-t-hearth-accent" />
+              <p className="mt-3 text-sm text-hearth-text-faint">Loading routines...</p>
             </div>
           </div>
         ) : (
@@ -248,7 +250,7 @@ export function RoutinesPage() {
 
             {/* Detail panel (slide-over) */}
             {selected && (
-              <div className="w-full border-l border-gray-200 bg-white md:w-[420px] md:min-w-[420px]">
+              <div className="w-full border-l border-hearth-border bg-hearth-card md:w-[420px] md:min-w-[420px]">
                 <div className="h-full overflow-y-auto">
                   <RoutineDetail
                     routine={selected}

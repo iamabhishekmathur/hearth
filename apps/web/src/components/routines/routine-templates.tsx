@@ -151,8 +151,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const INTEGRATION_BADGES: Record<string, { label: string; color: string; bg: string }> = {
   Slack: { label: 'Slack', color: 'text-purple-700', bg: 'bg-purple-50 ring-purple-200' },
-  GitHub: { label: 'GitHub', color: 'text-gray-700', bg: 'bg-gray-50 ring-gray-200' },
-  Notion: { label: 'Notion', color: 'text-gray-900', bg: 'bg-gray-50 ring-gray-200' },
+  GitHub: { label: 'GitHub', color: 'text-hearth-text', bg: 'bg-hearth-bg ring-hearth-border' },
+  Notion: { label: 'Notion', color: 'text-hearth-text', bg: 'bg-hearth-bg ring-hearth-border' },
   'Google Calendar': { label: 'Calendar', color: 'text-blue-700', bg: 'bg-blue-50 ring-blue-200' },
   Jira: { label: 'Jira', color: 'text-blue-700', bg: 'bg-blue-50 ring-blue-200' },
   Gmail: { label: 'Gmail', color: 'text-red-700', bg: 'bg-red-50 ring-red-200' },
@@ -198,10 +198,10 @@ export function RoutineTemplateBrowser({ onSelect, onClose }: RoutineTemplateBro
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Browse Templates</h2>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <h2 className="text-base font-semibold text-hearth-text">Browse Templates</h2>
+          <p className="mt-0.5 text-xs text-hearth-text-muted">
             Start with a template and customize it to your needs
           </p>
         </div>
@@ -209,7 +209,7 @@ export function RoutineTemplateBrowser({ onSelect, onClose }: RoutineTemplateBro
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -219,13 +219,13 @@ export function RoutineTemplateBrowser({ onSelect, onClose }: RoutineTemplateBro
       </div>
 
       {/* Search + category filter */}
-      <div className="border-b border-gray-200 px-6 py-3">
+      <div className="border-b border-hearth-border px-6 py-3">
         <input
           type="text"
           placeholder="Search templates..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+          className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
         />
         <div className="mt-2 flex flex-wrap gap-1.5">
           {CATEGORIES.map((cat) => (
@@ -236,7 +236,7 @@ export function RoutineTemplateBrowser({ onSelect, onClose }: RoutineTemplateBro
               className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                 category === cat
                   ? 'bg-hearth-100 text-hearth-700 ring-1 ring-hearth-300'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-hearth-chip text-hearth-text-muted hover:bg-hearth-chip'
               }`}
             >
               {cat}
@@ -248,7 +248,7 @@ export function RoutineTemplateBrowser({ onSelect, onClose }: RoutineTemplateBro
       {/* Template grid */}
       <div className="flex-1 overflow-y-auto p-6">
         {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm text-gray-400">No templates match your search</p>
+          <p className="py-8 text-center text-sm text-hearth-text-faint">No templates match your search</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {filtered.map((template) => {
@@ -258,29 +258,29 @@ export function RoutineTemplateBrowser({ onSelect, onClose }: RoutineTemplateBro
                   key={template.id}
                   type="button"
                   onClick={() => onSelect(template)}
-                  className="group rounded-lg border border-gray-200 p-4 text-left transition-all hover:border-hearth-300 hover:shadow-sm"
+                  className="group rounded-lg border border-hearth-border p-4 text-left transition-all hover:border-hearth-300 hover:shadow-hearth-1"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-sm font-bold text-gray-500 group-hover:bg-hearth-100 group-hover:text-hearth-600">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-hearth-chip text-sm font-bold text-hearth-text-muted group-hover:bg-hearth-100 group-hover:text-hearth-600">
                       {template.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-medium text-gray-900">{template.name}</h3>
-                      <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
+                      <h3 className="text-sm font-medium text-hearth-text">{template.name}</h3>
+                      <p className="mt-0.5 text-xs leading-relaxed text-hearth-text-muted">
                         {template.description}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${CATEGORY_COLORS[template.category] ?? 'bg-gray-100 text-gray-600'}`}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${CATEGORY_COLORS[template.category] ?? 'bg-hearth-chip text-hearth-text-muted'}`}
                         >
                           {template.category}
                         </span>
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[10px] text-hearth-text-faint">
                           {formatScheduleLabel(template.schedule)}
                         </span>
                         {mentions.length > 0 && (
                           <>
-                            <span className="text-gray-300">&middot;</span>
+                            <span className="text-hearth-text-faint">&middot;</span>
                             {mentions.map((m) => {
                               const badge = INTEGRATION_BADGES[m];
                               return badge ? (

@@ -87,8 +87,8 @@ export function KanbanBoard() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">Workspace</h1>
+      <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
+        <h1 className="text-xl font-bold text-hearth-text">Workspace</h1>
         <button
           type="button"
           onClick={() => setShowCreateForm(!showCreateForm)}
@@ -100,14 +100,14 @@ export function KanbanBoard() {
 
       {/* Create form */}
       {showCreateForm && (
-        <div className="flex gap-2 border-b border-gray-200 bg-gray-50 px-6 py-3">
+        <div className="flex gap-2 border-b border-hearth-border bg-hearth-bg px-6 py-3">
           <input
             type="text"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             placeholder="Task title..."
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none"
             autoFocus
           />
           <button
@@ -120,7 +120,7 @@ export function KanbanBoard() {
           <button
             type="button"
             onClick={() => setShowCreateForm(false)}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm text-hearth-text-muted hover:bg-hearth-bg"
           >
             Cancel
           </button>
@@ -131,8 +131,8 @@ export function KanbanBoard() {
       {loading ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
-            <p className="mt-3 text-sm text-gray-400">Loading tasks...</p>
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-hearth-border border-t-hearth-600" />
+            <p className="mt-3 text-sm text-hearth-text-faint">Loading tasks...</p>
           </div>
         </div>
       ) : tasks.length === 0 ? (
@@ -143,8 +143,8 @@ export function KanbanBoard() {
                 <path fillRule="evenodd" d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v11.75A2.75 2.75 0 0 0 16.75 18h-12A2.75 2.75 0 0 1 2 15.25V3.5Zm3.75 7a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Zm0 3a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5ZM5 5.75A.75.75 0 0 1 5.75 5h4.5a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-.75.75h-4.5A.75.75 0 0 1 5 8.25v-2.5Z" clipRule="evenodd" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">No tasks yet</h2>
-            <p className="mt-1 max-w-sm text-sm text-gray-500">
+            <h2 className="text-lg font-semibold text-hearth-text">No tasks yet</h2>
+            <p className="mt-1 max-w-sm text-sm text-hearth-text-muted">
               Create your first task to get started. Tasks can be created manually or detected automatically from your integrations.
             </p>
             <button

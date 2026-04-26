@@ -11,6 +11,7 @@ import { ComplianceConfig } from '@/components/admin/compliance-config';
 import { GovernanceConfig } from '@/components/admin/governance-config';
 import { CognitiveConfig } from '@/components/admin/cognitive-config';
 import { api } from '@/lib/api-client';
+import { HButton, HCard, HEyebrow } from '@/components/ui/primitives';
 
 type Tab = 'profile' | 'identity' | 'users' | 'teams' | 'integrations' | 'llm' | 'compliance' | 'analytics' | 'skills' | 'governance' | 'cognitive' | 'decisions';
 
@@ -66,9 +67,10 @@ function IdentityEditor() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-        <h2 className="mb-1 text-base font-semibold text-gray-900">Soul &amp; Identity</h2>
-        <p className="mb-4 text-sm text-gray-500">
+      <HCard padding="p-6">
+        <HEyebrow>Identity</HEyebrow>
+        <h2 className="mt-1 text-base font-semibold text-hearth-text">Soul &amp; Identity</h2>
+        <p className="mb-4 text-sm text-hearth-text-muted">
           Define your AI assistant's personality, values, and working style.
         </p>
 
@@ -81,10 +83,10 @@ function IdentityEditor() {
                 key={key}
                 type="button"
                 onClick={() => setActiveDoc(key as typeof activeDoc)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-fast ease-hearth ${
                   activeDoc === key
-                    ? 'bg-hearth-100 text-hearth-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-hearth-chip text-hearth-text'
+                    : 'text-hearth-text-muted hover:bg-hearth-chip'
                 }`}
               >
                 {cfg.label}
@@ -99,21 +101,29 @@ function IdentityEditor() {
           onChange={(e) => setContent(e.target.value)}
           placeholder={`Write your ${docConfig[activeDoc].label} content here...`}
           rows={16}
-          className="w-full rounded-lg border border-gray-300 p-3 font-mono text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+          className="w-full rounded-lg border border-hearth-border-strong bg-hearth-card p-3 font-mono text-sm text-hearth-text placeholder:text-hearth-text-faint focus:outline-none"
+          style={{ boxShadow: 'none' }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'var(--hearth-accent)';
+            e.currentTarget.style.boxShadow = 'var(--hearth-shadow-focus, 0 0 0 2px color-mix(in srgb, var(--hearth-accent) 25%, transparent))';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
         />
 
         <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
+          <HButton
+            variant="primary"
             onClick={handleSave}
             disabled={loading}
-            className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
           >
             {loading ? 'Saving...' : 'Save'}
-          </button>
-          {saved && <span className="text-xs text-green-600">Saved!</span>}
+          </HButton>
+          {saved && <span className="text-xs" style={{ color: 'var(--hearth-ok)' }}>Saved!</span>}
         </div>
-      </div>
+      </HCard>
     </div>
   );
 }
@@ -144,18 +154,19 @@ function CognitiveOptOut() {
   };
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-      <h2 className="text-base font-semibold text-gray-900">Digital Co-Worker</h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <HCard padding="p-6">
+      <HEyebrow>Privacy</HEyebrow>
+      <h2 className="mt-1 text-base font-semibold text-hearth-text">Digital Co-Worker</h2>
+      <p className="mt-1 text-sm text-hearth-text-muted">
         Your organization has cognitive profiles enabled. Hearth learns how you think from
         your conversations so coworkers can ask "How would you approach X?"
       </p>
-      <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <div className="mt-4 flex items-center justify-between rounded-lg border border-hearth-border bg-hearth-card-alt p-3">
         <div>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-hearth-text">
             Allow cognitive profile for my account
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-hearth-text-muted">
             When disabled, no new patterns are extracted and your profile is hidden from queries.
           </p>
         </div>
@@ -165,9 +176,10 @@ function CognitiveOptOut() {
           aria-checked={status.userEnabled}
           disabled={saving}
           onClick={handleToggle}
-          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
-            status.userEnabled ? 'bg-hearth-600' : 'bg-gray-200'
-          }`}
+          className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50"
+          style={{
+            background: status.userEnabled ? 'var(--hearth-accent)' : 'var(--hearth-border-strong)',
+          }}
         >
           <span
             className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
@@ -176,7 +188,7 @@ function CognitiveOptOut() {
           />
         </button>
       </div>
-    </div>
+    </HCard>
   );
 }
 
@@ -201,27 +213,28 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">
-          {isAdmin ? 'Admin Dashboard' : 'Settings'}
+      <div className="border-b border-hearth-border px-6 py-4">
+        <h1 className="font-display text-2xl font-medium text-hearth-text" style={{ letterSpacing: '-0.5px' }}>
+          {isAdmin ? 'Admin Dashboard' : 'Settings'}<span style={{ color: 'var(--hearth-accent)' }}>.</span>
         </h1>
-        <p className="mt-0.5 text-sm text-gray-500">
+        <p className="mt-0.5 text-sm text-hearth-text-muted">
           {isAdmin ? 'Manage your organization, users, and integrations.' : 'Manage your account and preferences.'}
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 px-6">
+      <div className="flex border-b border-hearth-border px-6">
         {tabs.map((tab) => (
           <button
             key={tab.value}
             type="button"
             onClick={() => handleTabChange(tab.value)}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-all duration-fast ease-hearth ${
               activeTab === tab.value
-                ? 'border-hearth-600 text-hearth-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                ? 'text-hearth-text'
+                : 'border-transparent text-hearth-text-faint hover:text-hearth-text-muted'
             }`}
+            style={activeTab === tab.value ? { borderBottomColor: 'var(--hearth-accent)' } : undefined}
           >
             {tab.label}
           </button>
@@ -232,23 +245,24 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'profile' && (
           <div className="mx-auto max-w-2xl space-y-4">
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-              <h2 className="text-base font-semibold text-gray-900">Profile</h2>
+            <HCard padding="p-6">
+              <HEyebrow>Account</HEyebrow>
+              <h2 className="mt-1 text-base font-semibold text-hearth-text">Profile</h2>
               <div className="mt-4 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500">Name</label>
-                  <p className="mt-1 text-sm text-gray-900">{user?.name}</p>
+                  <label className="block text-sm font-medium text-hearth-text-muted">Name</label>
+                  <p className="mt-1 text-sm text-hearth-text">{user?.name}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500">Email</label>
-                  <p className="mt-1 text-sm text-gray-900">{user?.email}</p>
+                  <label className="block text-sm font-medium text-hearth-text-muted">Email</label>
+                  <p className="mt-1 text-sm text-hearth-text">{user?.email}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500">Role</label>
-                  <p className="mt-1 text-sm capitalize text-gray-900">{user?.role}</p>
+                  <label className="block text-sm font-medium text-hearth-text-muted">Role</label>
+                  <p className="mt-1 text-sm capitalize text-hearth-text">{user?.role}</p>
                 </div>
               </div>
-            </div>
+            </HCard>
             <CognitiveOptOut />
           </div>
         )}
@@ -256,90 +270,106 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
         {activeTab === 'identity' && <IdentityEditor />}
 
         {activeTab === 'users' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <UserManagement />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'teams' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <TeamManagement />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'integrations' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <IntegrationHealth />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'llm' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <LlmConfig />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'compliance' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <ComplianceConfig />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'analytics' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <UsageAnalytics />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'skills' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <SkillGovernance />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'governance' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <GovernanceConfig />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'cognitive' && isAdmin && (
-          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
+          <HCard padding="p-6">
             <CognitiveConfig />
-          </div>
+          </HCard>
         )}
 
         {activeTab === 'decisions' && isAdmin && (
           <div className="mx-auto max-w-2xl">
-            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-100">
-              <h2 className="text-base font-semibold text-gray-900">Decision Graph Settings</h2>
-              <p className="mt-1 text-sm text-gray-500">
+            <HCard padding="p-6">
+              <HEyebrow>Intelligence</HEyebrow>
+              <h2 className="mt-1 text-base font-semibold text-hearth-text">Decision Graph Settings</h2>
+              <p className="mt-1 text-sm text-hearth-text-muted">
                 Configure how decisions are automatically captured and processed.
               </p>
               <div className="mt-4 space-y-4">
-                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="flex items-center justify-between rounded-lg border border-hearth-border bg-hearth-card-alt p-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Auto-extract from chat</p>
-                    <p className="text-xs text-gray-500">Automatically detect and capture decisions from conversations</p>
+                    <p className="text-sm font-medium text-hearth-text">Auto-extract from chat</p>
+                    <p className="text-xs text-hearth-text-muted">Automatically detect and capture decisions from conversations</p>
                   </div>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Enabled</span>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{ background: 'color-mix(in srgb, var(--hearth-ok) 14%, transparent)', color: 'var(--hearth-ok)' }}
+                  >
+                    Enabled
+                  </span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="flex items-center justify-between rounded-lg border border-hearth-border bg-hearth-card-alt p-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Pattern synthesis</p>
-                    <p className="text-xs text-gray-500">Nightly extraction of decision patterns and principles</p>
+                    <p className="text-sm font-medium text-hearth-text">Pattern synthesis</p>
+                    <p className="text-xs text-hearth-text-muted">Nightly extraction of decision patterns and principles</p>
                   </div>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Enabled</span>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{ background: 'color-mix(in srgb, var(--hearth-ok) 14%, transparent)', color: 'var(--hearth-ok)' }}
+                  >
+                    Enabled
+                  </span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="flex items-center justify-between rounded-lg border border-hearth-border bg-hearth-card-alt p-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Meeting ingestion</p>
-                    <p className="text-xs text-gray-500">Process meeting transcripts for decision extraction</p>
+                    <p className="text-sm font-medium text-hearth-text">Meeting ingestion</p>
+                    <p className="text-xs text-hearth-text-muted">Process meeting transcripts for decision extraction</p>
                   </div>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Enabled</span>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{ background: 'color-mix(in srgb, var(--hearth-ok) 14%, transparent)', color: 'var(--hearth-ok)' }}
+                  >
+                    Enabled
+                  </span>
                 </div>
               </div>
-            </div>
+            </HCard>
           </div>
         )}
       </div>

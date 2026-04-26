@@ -42,16 +42,16 @@ export function ChainEditor({ routineId, chainsFrom, chainsTo, availableRoutines
       {/* Existing chains FROM this routine */}
       {chainsFrom.length > 0 && (
         <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Triggers</p>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Triggers</p>
           <div className="space-y-1.5">
             {chainsFrom.map((chain) => (
-              <div key={chain.id} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
+              <div key={chain.id} className="flex items-center justify-between rounded-md bg-hearth-bg px-3 py-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-400">→</span>
-                  <span className="font-medium text-gray-700">
+                  <span className="text-hearth-text-faint">→</span>
+                  <span className="font-medium text-hearth-text">
                     {(chain as { targetRoutine?: { name: string } }).targetRoutine?.name ?? chain.targetRoutineId.slice(0, 8)}
                   </span>
-                  <span className="rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600">
+                  <span className="rounded bg-hearth-chip px-1.5 py-0.5 text-xs text-hearth-text-muted">
                     {chain.condition.replace('_', ' ')}
                   </span>
                 </div>
@@ -71,7 +71,7 @@ export function ChainEditor({ routineId, chainsFrom, chainsTo, availableRoutines
       {/* Chains TO this routine */}
       {chainsTo.length > 0 && (
         <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Triggered by</p>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">Triggered by</p>
           <div className="space-y-1.5">
             {chainsTo.map((chain) => (
               <div key={chain.id} className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm">
@@ -92,11 +92,11 @@ export function ChainEditor({ routineId, chainsFrom, chainsTo, availableRoutines
       {eligible.length > 0 && (
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-600">Then trigger</label>
+            <label className="block text-xs font-medium text-hearth-text-muted">Then trigger</label>
             <select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
             >
               <option value="">Select routine...</option>
               {eligible.map((r) => (
@@ -108,7 +108,7 @@ export function ChainEditor({ routineId, chainsFrom, chainsTo, availableRoutines
             <select
               value={condition}
               onChange={(e) => setCondition(e.target.value)}
-              className="rounded-lg border border-gray-300 px-2 py-2 text-sm"
+              className="rounded-lg border border-hearth-border-strong px-2 py-2 text-sm"
             >
               {CONDITIONS.map((c) => (
                 <option key={c.value} value={c.value}>{c.label}</option>
@@ -127,7 +127,7 @@ export function ChainEditor({ routineId, chainsFrom, chainsTo, availableRoutines
       )}
 
       {chainsFrom.length === 0 && chainsTo.length === 0 && eligible.length === 0 && (
-        <p className="text-xs text-gray-400">No other routines available to chain with.</p>
+        <p className="text-xs text-hearth-text-faint">No other routines available to chain with.</p>
       )}
     </div>
   );

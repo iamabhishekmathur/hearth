@@ -153,10 +153,10 @@ export function TaskContextPanel({ taskId, context, editable, onAddContext: _onA
           className={`rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
             dragOver
               ? 'border-hearth-400 bg-hearth-50'
-              : 'border-gray-200 bg-gray-50'
+              : 'border-hearth-border bg-hearth-bg'
           }`}
         >
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-hearth-text-faint">
             {dragOver ? 'Drop files here' : 'Drag files here, paste URLs or text'}
           </p>
         </div>
@@ -177,11 +177,11 @@ export function TaskContextPanel({ taskId, context, editable, onAddContext: _onA
 
       {/* Legacy context entries */}
       {legacyEntries.map(([key, value]) => (
-        <div key={key} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-          <h4 className="mb-1 text-xs font-medium text-gray-400">
+        <div key={key} className="rounded-lg border border-hearth-border bg-hearth-bg p-3">
+          <h4 className="mb-1 text-xs font-medium text-hearth-text-faint">
             {key.startsWith('note_') ? formatNoteKey(key) : key}
           </h4>
-          <pre className="whitespace-pre-wrap text-xs text-gray-700">
+          <pre className="whitespace-pre-wrap text-xs text-hearth-text">
             {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
           </pre>
         </div>
@@ -189,22 +189,22 @@ export function TaskContextPanel({ taskId, context, editable, onAddContext: _onA
 
       {/* Empty state */}
       {!hasContent && !editable && !loading && (
-        <p className="text-center text-xs text-gray-400 py-4">No context attached</p>
+        <p className="text-center text-xs text-hearth-text-faint py-4">No context attached</p>
       )}
 
       {/* Add menu / input forms */}
       {editable && addMode === null && (
-        <div className="relative border-t border-gray-100 pt-3">
+        <div className="relative border-t border-hearth-border pt-3">
           <button
             type="button"
             onClick={() => setShowAddMenu(!showAddMenu)}
-            className="text-xs text-gray-500 hover:text-hearth-600"
+            className="text-xs text-hearth-text-muted hover:text-hearth-600"
           >
             + Add context
           </button>
 
           {showAddMenu && (
-            <div className="absolute left-0 top-full mt-1 z-10 rounded-lg border border-gray-200 bg-white shadow-lg py-1 min-w-[180px]">
+            <div className="absolute left-0 top-full mt-1 z-10 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3 py-1 min-w-[180px]">
               <MenuButton
                 label="Add note"
                 onClick={() => { setAddMode('note'); setShowAddMenu(false); }}
@@ -236,14 +236,14 @@ export function TaskContextPanel({ taskId, context, editable, onAddContext: _onA
 
       {/* Inline input forms */}
       {editable && addMode !== null && (
-        <form onSubmit={handleSubmit} className="border-t border-gray-100 pt-3 space-y-2">
+        <form onSubmit={handleSubmit} className="border-t border-hearth-border pt-3 space-y-2">
           {addMode === 'link' ? (
             <input
               type="url"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="https://..."
-              className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-700 focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="w-full rounded border border-hearth-border-strong px-2 py-1.5 text-sm text-hearth-text focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
               autoFocus
             />
           ) : (
@@ -256,7 +256,7 @@ export function TaskContextPanel({ taskId, context, editable, onAddContext: _onA
                   ? 'What should the agent know before planning this task?'
                   : 'Paste a spec, email thread, or any text...'
               }
-              className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm text-gray-700 focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="w-full rounded border border-hearth-border-strong px-2 py-1.5 text-sm text-hearth-text focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
               autoFocus
             />
           )}
@@ -271,7 +271,7 @@ export function TaskContextPanel({ taskId, context, editable, onAddContext: _onA
             <button
               type="button"
               onClick={() => { setAddMode(null); setInputValue(''); }}
-              className="rounded px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
+              className="rounded px-3 py-1.5 text-xs text-hearth-text-muted hover:bg-hearth-chip"
             >
               Cancel
             </button>
@@ -280,7 +280,7 @@ export function TaskContextPanel({ taskId, context, editable, onAddContext: _onA
       )}
 
       {!hasContent && editable && addMode === null && (
-        <p className="text-center text-xs text-gray-400 py-2">
+        <p className="text-center text-xs text-hearth-text-faint py-2">
           No context yet — add notes, links, or files to guide the agent during planning.
         </p>
       )}
@@ -293,7 +293,7 @@ function MenuButton({ label, onClick }: { label: string; onClick: () => void }) 
     <button
       type="button"
       onClick={onClick}
-      className="block w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+      className="block w-full px-3 py-1.5 text-left text-xs text-hearth-text hover:bg-hearth-bg"
     >
       {label}
     </button>

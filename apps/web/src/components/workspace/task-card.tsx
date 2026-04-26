@@ -103,7 +103,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
           onClick();
         }
       }}
-      className="cursor-pointer rounded-lg bg-white p-3 shadow-sm ring-1 ring-gray-200 transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-hearth-500"
+      className="cursor-pointer rounded-lg bg-hearth-card p-3 shadow-hearth-1 ring-1 ring-hearth-border transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-hearth-accent"
     >
       {/* Title — editable in auto_detected/backlog, read-only otherwise */}
       {editing === 'title' ? (
@@ -117,12 +117,12 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
             if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
             if (e.key === 'Escape') { setTitle(task.title); setEditing(null); }
           }}
-          className="w-full rounded border border-hearth-400 bg-white px-1 py-0.5 text-sm font-medium text-gray-900 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+          className="w-full rounded border border-hearth-400 bg-hearth-card px-1 py-0.5 text-sm font-medium text-hearth-text focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           aria-label="Edit task title"
         />
       ) : (
         <p
-          className={`text-sm font-medium text-gray-900 ${editable ? 'cursor-text hover:bg-gray-50 rounded px-1 -mx-1' : ''}`}
+          className={`text-sm font-medium text-hearth-text ${editable ? 'cursor-text hover:bg-hearth-bg rounded px-1 -mx-1' : ''}`}
           onClick={(e) => { if (editable) { e.stopPropagation(); setEditing('title'); } }}
         >
           {task.title}
@@ -141,13 +141,13 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
             if (e.key === 'Escape') { setDescription(task.description ?? ''); setEditing(null); }
           }}
           rows={3}
-          className="mt-1 w-full rounded border border-hearth-400 bg-white px-1 py-0.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+          className="mt-1 w-full rounded border border-hearth-400 bg-hearth-card px-1 py-0.5 text-xs text-hearth-text focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           aria-label="Edit task description"
           placeholder="Add a description…"
         />
       ) : task.description ? (
         <p
-          className={`mt-1 line-clamp-2 text-xs text-gray-500 ${editable ? 'cursor-text hover:bg-gray-50 rounded px-1 -mx-1' : ''}`}
+          className={`mt-1 line-clamp-2 text-xs text-hearth-text-muted ${editable ? 'cursor-text hover:bg-hearth-bg rounded px-1 -mx-1' : ''}`}
           onClick={(e) => { if (editable) { e.stopPropagation(); setEditing('description'); } }}
         >
           {task.description}
@@ -156,7 +156,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setEditing('description'); }}
-          className="mt-1 text-xs italic text-gray-400 hover:text-gray-600"
+          className="mt-1 text-xs italic text-hearth-text-faint hover:text-hearth-text-muted"
         >
           + Add description
         </button>
@@ -164,7 +164,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
 
       {/* Footer */}
       <div className="mt-2 flex items-center gap-2">
-        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+        <span className="rounded bg-hearth-chip px-1.5 py-0.5 text-xs text-hearth-text-muted">
           {SOURCE_LABELS[task.source] ?? task.source}
         </span>
         {editable ? (
@@ -180,7 +180,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
           task.priority > 0 && <span className="text-xs text-amber-600">P{task.priority}</span>
         )}
         {subtaskCount > 0 && (
-          <span className="ml-auto text-xs text-gray-400">
+          <span className="ml-auto text-xs text-hearth-text-faint">
             {subtaskCount} subtask{subtaskCount > 1 ? 's' : ''}
           </span>
         )}
@@ -188,7 +188,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
 
       {/* Add-context affordance (auto_detected/backlog only) */}
       {editable && onAddContext && (
-        <div className="mt-2 border-t border-gray-100 pt-2">
+        <div className="mt-2 border-t border-hearth-border pt-2">
           {contextOpen ? (
             <form onSubmit={submitContext} className="flex flex-col gap-1.5">
               <textarea
@@ -196,7 +196,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
                 onChange={(e) => setContextNote(e.target.value)}
                 rows={2}
                 placeholder="What should the agent know before planning?"
-                className="w-full rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                className="w-full rounded border border-hearth-border-strong px-2 py-1 text-xs text-hearth-text focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -210,7 +210,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setContextOpen(false); setContextNote(''); }}
-                  className="rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-100"
+                  className="rounded px-2 py-0.5 text-xs text-hearth-text-muted hover:bg-hearth-chip"
                 >
                   Cancel
                 </button>
@@ -220,7 +220,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setContextOpen(true); }}
-              className="text-xs text-gray-500 hover:text-hearth-600"
+              className="text-xs text-hearth-text-muted hover:text-hearth-600"
             >
               + Add context
             </button>

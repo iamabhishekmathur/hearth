@@ -36,7 +36,7 @@ function StatusBadge({ status }: { status: string }) {
   const label = status === 'awaiting_approval' ? 'Awaiting Approval' : status;
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${styles[status] ?? 'bg-gray-50 text-gray-600 ring-gray-500/10'}`}
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${styles[status] ?? 'bg-hearth-bg text-hearth-text-muted ring-gray-500/10'}`}
     >
       {label}
     </span>
@@ -51,7 +51,7 @@ function ScopeBadge({ scope }: { scope: string }) {
   };
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${styles[scope] ?? 'bg-gray-50 text-gray-600 ring-gray-500/10'}`}
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset ${styles[scope] ?? 'bg-hearth-bg text-hearth-text-muted ring-gray-500/10'}`}
     >
       {scope}
     </span>
@@ -136,18 +136,18 @@ function ParameterInputForm({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+    <div className="space-y-3 rounded-lg border border-hearth-border bg-hearth-bg p-4">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-hearth-text-muted">
         Parameter Values
       </h4>
       {parameters.map((param) => (
         <div key={param.name}>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-hearth-text">
             {param.label || param.name}
             {param.required && <span className="ml-0.5 text-red-500">*</span>}
           </label>
           {param.description && (
-            <p className="mb-1 text-xs text-gray-400">{param.description}</p>
+            <p className="mb-1 text-xs text-hearth-text-faint">{param.description}</p>
           )}
           {param.type === 'boolean' ? (
             <label className="inline-flex items-center gap-2">
@@ -155,15 +155,15 @@ function ParameterInputForm({
                 type="checkbox"
                 checked={!!values[param.name]}
                 onChange={(e) => handleChange(param.name, param.type, e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-hearth-600 focus:ring-hearth-500"
+                className="h-4 w-4 rounded border-hearth-border-strong text-hearth-600 focus:ring-hearth-accent"
               />
-              <span className="text-sm text-gray-700">Enabled</span>
+              <span className="text-sm text-hearth-text">Enabled</span>
             </label>
           ) : param.type === 'enum' && param.options ? (
             <select
               value={String(values[param.name] ?? '')}
               onChange={(e) => handleChange(param.name, param.type, e.target.value)}
-              className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:ring-hearth-500"
+              className="block w-full rounded-md border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:ring-hearth-accent"
             >
               <option value="">Select...</option>
               {param.options.map((opt) => (
@@ -177,7 +177,7 @@ function ParameterInputForm({
               type={param.type === 'number' ? 'number' : param.type === 'date' ? 'date' : 'text'}
               value={String(values[param.name] ?? '')}
               onChange={(e) => handleChange(param.name, param.type, e.target.value)}
-              className="block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-hearth-500 focus:ring-hearth-500"
+              className="block w-full rounded-md border border-hearth-border-strong px-3 py-1.5 text-sm shadow-hearth-1 focus:border-hearth-accent focus:ring-hearth-accent"
               placeholder={`Enter ${param.label || param.name}`}
             />
           )}
@@ -194,7 +194,7 @@ function ParameterInputForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-lg border border-hearth-border-strong px-3.5 py-2 text-sm font-medium text-hearth-text hover:bg-hearth-bg"
         >
           Cancel
         </button>
@@ -216,11 +216,11 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+      <div className="flex items-center justify-between border-b border-hearth-border px-5 py-3">
         <button
           type="button"
           onClick={onClose}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+          className="flex items-center gap-1.5 text-sm text-hearth-text-muted hover:text-hearth-text"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path
@@ -239,44 +239,44 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
         {/* Summary */}
         {run.summary && (
           <div className="mb-4">
-            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
               Summary
             </h4>
-            <p className="text-sm text-gray-800">{run.summary}</p>
+            <p className="text-sm text-hearth-text">{run.summary}</p>
           </div>
         )}
 
         {/* Metadata */}
-        <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3">
+        <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg bg-hearth-bg p-3">
           <div>
-            <span className="text-xs font-medium text-gray-400">Started</span>
-            <p className="text-sm text-gray-900">{new Date(run.startedAt).toLocaleString()}</p>
+            <span className="text-xs font-medium text-hearth-text-faint">Started</span>
+            <p className="text-sm text-hearth-text">{new Date(run.startedAt).toLocaleString()}</p>
           </div>
           {run.completedAt && (
             <div>
-              <span className="text-xs font-medium text-gray-400">Completed</span>
-              <p className="text-sm text-gray-900">{new Date(run.completedAt).toLocaleString()}</p>
+              <span className="text-xs font-medium text-hearth-text-faint">Completed</span>
+              <p className="text-sm text-hearth-text">{new Date(run.completedAt).toLocaleString()}</p>
             </div>
           )}
           {run.durationMs != null && (
             <div>
-              <span className="text-xs font-medium text-gray-400">Duration</span>
-              <p className="text-sm text-gray-900">{formatDuration(run.durationMs)}</p>
+              <span className="text-xs font-medium text-hearth-text-faint">Duration</span>
+              <p className="text-sm text-hearth-text">{formatDuration(run.durationMs)}</p>
             </div>
           )}
           {run.tokenCount != null && (
             <div>
-              <span className="text-xs font-medium text-gray-400">Tokens</span>
-              <p className="text-sm text-gray-900">{run.tokenCount.toLocaleString()}</p>
+              <span className="text-xs font-medium text-hearth-text-faint">Tokens</span>
+              <p className="text-sm text-hearth-text">{run.tokenCount.toLocaleString()}</p>
             </div>
           )}
           {run.triggeredBy === 'event' && (
             <div>
-              <span className="text-xs font-medium text-gray-400">Triggered By</span>
-              <p className="text-sm text-gray-900">
+              <span className="text-xs font-medium text-hearth-text-faint">Triggered By</span>
+              <p className="text-sm text-hearth-text">
                 Event
                 {run.triggerEvent?.eventType && (
-                  <span className="ml-1 text-xs text-gray-500">({run.triggerEvent.eventType})</span>
+                  <span className="ml-1 text-xs text-hearth-text-muted">({run.triggerEvent.eventType})</span>
                 )}
               </p>
             </div>
@@ -298,11 +298,11 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
         {/* Output */}
         {outputText && (
           <div>
-            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
               Output
             </h4>
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <div className="prose prose-sm max-w-none text-gray-800">
+            <div className="rounded-lg border border-hearth-border bg-hearth-card p-4">
+              <div className="prose prose-sm max-w-none text-hearth-text">
                 <pre className="whitespace-pre-wrap text-sm leading-relaxed">{outputText}</pre>
               </div>
             </div>
@@ -311,7 +311,7 @@ function RunDetail({ run, onClose }: { run: RoutineRun; onClose: () => void }) {
 
         {/* Empty output */}
         {!outputText && !run.error && run.status === 'success' && (
-          <p className="text-sm text-gray-400">Run completed with no output.</p>
+          <p className="text-sm text-hearth-text-faint">Run completed with no output.</p>
         )}
       </div>
     </div>
@@ -381,7 +381,7 @@ function RunHistoryList({
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-2.5">
+      <div className="flex items-center justify-between border-b border-hearth-border px-5 py-2.5">
         <div className="flex items-center gap-1.5">
           {/* Filter pills */}
           {['all', 'success', 'failed', 'running', 'awaiting_approval'].map((s) => {
@@ -401,7 +401,7 @@ function RunHistoryList({
                 className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                   statusFilter === s
                     ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-hearth-chip text-hearth-text-muted hover:bg-hearth-chip'
                 }`}
               >
                 {label} {count > 0 && `(${count})`}
@@ -412,7 +412,7 @@ function RunHistoryList({
         <button
           type="button"
           onClick={() => loadRuns(page)}
-          className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-md p-1.5 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
           aria-label="Refresh"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -429,12 +429,12 @@ function RunHistoryList({
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-hearth-border border-t-hearth-600" />
           </div>
         ) : filteredRuns.length === 0 ? (
           <div className="py-12 text-center">
             <svg
-              className="mx-auto h-10 w-10 text-gray-300"
+              className="mx-auto h-10 w-10 text-hearth-text-faint"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -446,7 +446,7 @@ function RunHistoryList({
             </svg>
             {statusFilter !== 'all' ? (
               <>
-                <p className="mt-2 text-sm text-gray-500">No {statusFilter} runs</p>
+                <p className="mt-2 text-sm text-hearth-text-muted">No {statusFilter} runs</p>
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
@@ -457,8 +457,8 @@ function RunHistoryList({
               </>
             ) : (
               <>
-                <p className="mt-2 text-sm text-gray-500">No runs yet</p>
-                <p className="mt-0.5 text-xs text-gray-400">
+                <p className="mt-2 text-sm text-hearth-text-muted">No runs yet</p>
+                <p className="mt-0.5 text-xs text-hearth-text-faint">
                   Runs will appear here after the routine executes.
                 </p>
                 <button
@@ -484,7 +484,7 @@ function RunHistoryList({
                   key={run.id}
                   type="button"
                   onClick={() => setSelectedRun(run)}
-                  className="group flex w-full items-start gap-3 px-5 py-3 text-left transition-colors hover:bg-gray-50"
+                  className="group flex w-full items-start gap-3 px-5 py-3 text-left transition-colors hover:bg-hearth-bg"
                 >
                   {/* Status indicator */}
                   <div className="mt-1.5 flex-shrink-0">
@@ -495,11 +495,11 @@ function RunHistoryList({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium capitalize text-gray-900">
+                        <span className="text-sm font-medium capitalize text-hearth-text">
                           {run.status === 'awaiting_approval' ? 'Awaiting Approval' : run.status}
                         </span>
                         {run.durationMs != null && (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-hearth-text-faint">
                             {formatDuration(run.durationMs)}
                           </span>
                         )}
@@ -509,14 +509,14 @@ function RunHistoryList({
                           </span>
                         )}
                       </div>
-                      <span className="flex-shrink-0 text-xs text-gray-400">
+                      <span className="flex-shrink-0 text-xs text-hearth-text-faint">
                         {formatRelativeTime(run.startedAt)}
                       </span>
                     </div>
 
                     {/* Summary */}
                     {run.summary && (
-                      <p className="mt-0.5 truncate text-xs text-gray-600">{run.summary}</p>
+                      <p className="mt-0.5 truncate text-xs text-hearth-text-muted">{run.summary}</p>
                     )}
 
                     {/* Error preview */}
@@ -526,13 +526,13 @@ function RunHistoryList({
 
                     {/* Output preview */}
                     {outputPreview && !run.error && !run.summary && (
-                      <p className="mt-0.5 truncate text-xs text-gray-500">{outputPreview}</p>
+                      <p className="mt-0.5 truncate text-xs text-hearth-text-muted">{outputPreview}</p>
                     )}
                   </div>
 
                   {/* Chevron */}
                   <svg
-                    className="mt-1.5 h-4 w-4 flex-shrink-0 text-gray-300 group-hover:text-gray-400"
+                    className="mt-1.5 h-4 w-4 flex-shrink-0 text-hearth-text-faint group-hover:text-hearth-text-faint"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                   >
@@ -551,8 +551,8 @@ function RunHistoryList({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-gray-200 px-5 py-2.5">
-          <p className="text-xs text-gray-500">
+        <div className="flex items-center justify-between border-t border-hearth-border px-5 py-2.5">
+          <p className="text-xs text-hearth-text-muted">
             {total} run{total !== 1 ? 's' : ''} total
           </p>
           <div className="flex items-center gap-1.5">
@@ -560,18 +560,18 @@ function RunHistoryList({
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+              className="rounded-md px-2 py-1 text-xs font-medium text-hearth-text-muted hover:bg-hearth-chip disabled:opacity-40"
             >
               Previous
             </button>
-            <span className="px-2 text-xs text-gray-500">
+            <span className="px-2 text-xs text-hearth-text-muted">
               {page} / {totalPages}
             </span>
             <button
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+              className="rounded-md px-2 py-1 text-xs font-medium text-hearth-text-muted hover:bg-hearth-chip disabled:opacity-40"
             >
               Next
             </button>
@@ -623,7 +623,7 @@ function StateTab({ routineId }: { routineId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-hearth-border border-t-hearth-600" />
       </div>
     );
   }
@@ -631,14 +631,14 @@ function StateTab({ routineId }: { routineId: string }) {
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
           Routine State
         </h4>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={load}
-            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-1.5 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
             aria-label="Refresh state"
           >
             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -659,7 +659,7 @@ function StateTab({ routineId }: { routineId: string }) {
             </button>
           ) : (
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">Are you sure?</span>
+              <span className="text-xs text-hearth-text-muted">Are you sure?</span>
               <button
                 type="button"
                 onClick={handleReset}
@@ -671,7 +671,7 @@ function StateTab({ routineId }: { routineId: string }) {
               <button
                 type="button"
                 onClick={() => setConfirmReset(false)}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-xs font-medium text-hearth-text-muted hover:bg-hearth-bg"
               >
                 Cancel
               </button>
@@ -681,15 +681,15 @@ function StateTab({ routineId }: { routineId: string }) {
       </div>
 
       {state && Object.keys(state).length > 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-800">
+        <div className="rounded-lg border border-hearth-border bg-hearth-card p-4">
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-hearth-text">
             {JSON.stringify(state, null, 2)}
           </pre>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-gray-300 py-8 text-center">
-          <p className="text-sm text-gray-500">No state stored</p>
-          <p className="mt-0.5 text-xs text-gray-400">
+        <div className="rounded-lg border border-dashed border-hearth-border-strong py-8 text-center">
+          <p className="text-sm text-hearth-text-muted">No state stored</p>
+          <p className="mt-0.5 text-xs text-hearth-text-faint">
             State will be populated after the routine runs with stateful mode enabled.
           </p>
         </div>
@@ -736,7 +736,7 @@ export function RoutineDetail({
   if (editing) {
     return (
       <div className="p-5">
-        <h3 className="mb-4 text-base font-semibold text-gray-900">Edit Routine</h3>
+        <h3 className="mb-4 text-base font-semibold text-hearth-text">Edit Routine</h3>
         <RoutineForm
           initial={{
             name: routine.name,
@@ -760,22 +760,22 @@ export function RoutineDetail({
   return (
     <div className="flex h-full flex-col">
       {/* Panel header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+      <div className="flex items-center justify-between border-b border-hearth-border px-5 py-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span
-              className={`flex h-2.5 w-2.5 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
+              className={`flex h-2.5 w-2.5 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-hearth-border-strong'}`}
             />
-            <h3 className="truncate text-base font-semibold text-gray-900">{routine.name}</h3>
+            <h3 className="truncate text-base font-semibold text-hearth-text">{routine.name}</h3>
           </div>
           {routine.description && (
-            <p className="mt-0.5 truncate text-sm text-gray-500">{routine.description}</p>
+            <p className="mt-0.5 truncate text-sm text-hearth-text-muted">{routine.description}</p>
           )}
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="ml-3 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          className="ml-3 rounded-md p-1.5 text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted"
           aria-label="Close detail panel"
         >
           <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -785,7 +785,7 @@ export function RoutineDetail({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 px-5">
+      <div className="flex border-b border-hearth-border px-5">
         {(['overview', 'history', 'state'] as const).map((tab) => {
           const label = tab === 'history' ? 'Run History' : tab === 'state' ? 'State' : 'Overview';
           return (
@@ -796,7 +796,7 @@ export function RoutineDetail({
               className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
                 activeTab === tab
                   ? 'border-hearth-600 text-hearth-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-hearth-text-muted hover:border-hearth-border-strong hover:text-hearth-text'
               }`}
             >
               {label}
@@ -811,33 +811,33 @@ export function RoutineDetail({
           <div className="space-y-5">
             {/* Prompt */}
             <div>
-              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                 Prompt
               </h4>
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="whitespace-pre-wrap text-sm text-gray-800">{routine.prompt}</p>
+              <div className="rounded-lg bg-hearth-bg p-3">
+                <p className="whitespace-pre-wrap text-sm text-hearth-text">{routine.prompt}</p>
               </div>
             </div>
 
             {/* Metadata grid */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                   Schedule
                 </h4>
-                <p className="text-sm text-gray-900">
+                <p className="text-sm text-hearth-text">
                   {routine.schedule ? formatSchedule(routine.schedule) : 'None'}
                 </p>
                 {routine.schedule && (
-                  <p className="mt-0.5 font-mono text-xs text-gray-400">{routine.schedule}</p>
+                  <p className="mt-0.5 font-mono text-xs text-hearth-text-faint">{routine.schedule}</p>
                 )}
               </div>
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                   Status
                 </h4>
                 <span
-                  className={`inline-flex items-center gap-1.5 text-sm ${routine.enabled ? 'text-green-700' : 'text-gray-500'}`}
+                  className={`inline-flex items-center gap-1.5 text-sm ${routine.enabled ? 'text-green-700' : 'text-hearth-text-muted'}`}
                 >
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${routine.enabled ? 'bg-green-500' : 'bg-gray-400'}`}
@@ -849,7 +849,7 @@ export function RoutineDetail({
               {/* Scope */}
               {routine.scope && (
                 <div>
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                     Scope
                   </h4>
                   <ScopeBadge scope={routine.scope} />
@@ -858,26 +858,26 @@ export function RoutineDetail({
 
               {/* Trigger type */}
               <div>
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                   Trigger
                 </h4>
-                <p className="text-sm text-gray-900">{triggerType}</p>
+                <p className="text-sm text-hearth-text">{triggerType}</p>
               </div>
 
               {routine.lastRunAt && (
                 <div>
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                     Last Run
                   </h4>
-                  <p className="text-sm text-gray-900">
+                  <p className="text-sm text-hearth-text">
                     {new Date(routine.lastRunAt).toLocaleString()}
                   </p>
-                  <p className="text-xs text-gray-400">{formatRelativeTime(routine.lastRunAt)}</p>
+                  <p className="text-xs text-hearth-text-faint">{formatRelativeTime(routine.lastRunAt)}</p>
                 </div>
               )}
               {routine.lastRunStatus && (
                 <div>
-                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                     Last Result
                   </h4>
                   <StatusBadge status={routine.lastRunStatus} />
@@ -888,20 +888,20 @@ export function RoutineDetail({
             {/* Parameters */}
             {routine.parameters && routine.parameters.length > 0 && (
               <div>
-                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                   Parameters
                 </h4>
-                <div className="rounded-lg border border-gray-200 bg-white">
+                <div className="rounded-lg border border-hearth-border bg-hearth-card">
                   <div className="divide-y divide-gray-100">
                     {routine.parameters.map((param) => (
                       <div key={param.name} className="flex items-center justify-between px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm text-gray-900">{param.name}</span>
+                          <span className="font-mono text-sm text-hearth-text">{param.name}</span>
                           {param.required && (
                             <span className="text-[10px] font-medium text-red-500">required</span>
                           )}
                         </div>
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-500">
+                        <span className="rounded-full bg-hearth-chip px-2 py-0.5 font-mono text-xs text-hearth-text-muted">
                           {param.type}
                         </span>
                       </div>
@@ -914,7 +914,7 @@ export function RoutineDetail({
             {/* Checkpoints */}
             {routine.checkpoints && routine.checkpoints.length > 0 && (
               <div>
-                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                   Approval Checkpoints
                 </h4>
                 <div className="space-y-1.5">
@@ -940,7 +940,7 @@ export function RoutineDetail({
             {((routine.chainsFrom && routine.chainsFrom.length > 0) ||
               (routine.chainsTo && routine.chainsTo.length > 0)) && (
               <div>
-                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                   Chain Connections
                 </h4>
                 <div className="space-y-1.5">
@@ -1002,7 +1002,7 @@ export function RoutineDetail({
             {routine.runs && routine.runs.length > 0 && (
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-hearth-text-faint">
                     Recent Runs
                   </h4>
                   <button
@@ -1017,28 +1017,28 @@ export function RoutineDetail({
                   {routine.runs.slice(0, 3).map((run) => (
                     <div
                       key={run.id}
-                      className="rounded-md bg-gray-50 px-3 py-2"
+                      className="rounded-md bg-hearth-bg px-3 py-2"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <RunStatusDot status={run.status} />
-                          <span className="text-xs font-medium capitalize text-gray-700">
+                          <span className="text-xs font-medium capitalize text-hearth-text">
                             {run.status === 'awaiting_approval'
                               ? 'Awaiting Approval'
                               : run.status}
                           </span>
                           {run.durationMs != null && (
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-hearth-text-faint">
                               {formatDuration(run.durationMs)}
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-hearth-text-faint">
                           {formatRelativeTime(run.startedAt)}
                         </span>
                       </div>
                       {run.summary && (
-                        <p className="mt-0.5 truncate pl-4 text-xs text-gray-500">{run.summary}</p>
+                        <p className="mt-0.5 truncate pl-4 text-xs text-hearth-text-muted">{run.summary}</p>
                       )}
                     </div>
                   ))}
@@ -1056,7 +1056,7 @@ export function RoutineDetail({
             )}
 
             {/* Actions */}
-            <div className="flex gap-2 border-t border-gray-100 pt-4">
+            <div className="flex gap-2 border-t border-hearth-border pt-4">
               <button
                 type="button"
                 onClick={handleRunNow}
@@ -1068,7 +1068,7 @@ export function RoutineDetail({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="rounded-lg border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-hearth-border-strong px-3.5 py-2 text-sm font-medium text-hearth-text hover:bg-hearth-bg"
               >
                 Edit
               </button>

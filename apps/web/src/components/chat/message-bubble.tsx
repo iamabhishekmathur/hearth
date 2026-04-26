@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -6,33 +6,72 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, ChatAttachment } from '@hearth/shared';
 import type { Artifact } from '@/hooks/use-artifacts';
 import { ArtifactBadge } from './artifact-badge';
+import { HAvatar } from '@/components/ui/primitives';
+
+function ensureClosedCodeFences(content: string): string {
+  const fenceCount = (content.match(/```/g) || []).length;
+  if (fenceCount % 2 !== 0) return content + '\n```';
+  return content;
+}
+
+const MemoizedSyntaxHighlighter = memo(SyntaxHighlighter);
+
+interface CitationSource {
+  index: number;
+  type: string;
+  label: string;
+  content: string;
+}
 
 interface MessageBubbleProps {
   message: ChatMessage;
-  /** Artifacts linked to messages in this session */
   artifacts?: Artifact[];
-  /** Callback to open an artifact in the side panel */
   onOpenArtifact?: (id: string) => void;
+}
+
+function renderWithCitations(text: string, sources?: CitationSource[]): React.ReactNode {
+  if (!sources || sources.length === 0) return text;
+  const parts = text.split(/(\[\d+\])/g);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => {
+    const match = /^\[(\d+)\]$/.exec(part);
+    if (!match) return part;
+    const idx = parseInt(match[1], 10);
+    const source = sources.find((s) => s.index === idx);
+    if (!source) return part;
+    return (
+      <span
+        key={i}
+        className="ml-0.5 inline-flex cursor-help items-center justify-center rounded-sm px-1 align-super text-[9px] font-bold"
+        style={{ background: 'var(--hearth-accent-soft)', color: 'var(--hearth-accent)' }}
+        title={`[${source.type}] ${source.label}: ${source.content.slice(0, 150)}`}
+      >
+        {idx}
+      </span>
+    );
+  });
 }
 
 export function MessageBubble({ message, artifacts, onOpenArtifact }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const messageArtifacts = artifacts?.filter((a) => a.parentMessageId === message.id) ?? [];
   const attachments = message.attachments ?? [];
+  const messageSources = (message.metadata as Record<string, unknown>)?.sources as CitationSource[] | undefined;
 
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[75%]">
-          <div className="rounded-2xl rounded-br-md bg-hearth-500 px-4 py-2.5 text-white shadow-sm">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-              {message.content}
-            </p>
+        <div className="max-w-[70%]">
+          <div
+            className="rounded-2xl rounded-br-[4px] px-4 py-3 text-[14px] leading-[1.55] font-[450]"
+            style={{ background: 'var(--hearth-text)', color: 'var(--hearth-text-inverse)' }}
+          >
+            <p className="whitespace-pre-wrap">{message.content}</p>
           </div>
           {attachments.length > 0 && (
             <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
               {attachments.map((att) => (
-                <AttachmentDisplay key={att.id} attachment={att} variant="user" />
+                <AttachmentDisplay key={att.id} attachment={att} />
               ))}
             </div>
           )}
@@ -42,64 +81,59 @@ export function MessageBubble({ message, artifacts, onOpenArtifact }: MessageBub
   }
 
   return (
-    <div className="flex justify-start">
-      <div className="max-w-[75%]">
-        <div className="rounded-2xl rounded-bl-md bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100">
-          <div className="prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1 prose-headings:text-sm prose-headings:font-semibold prose-h1:text-sm prose-h2:text-sm prose-h3:text-sm">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code({ className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const codeString = String(children).replace(/\n$/, '');
-
-                  if (match) {
-                    return (
-                      <SyntaxHighlighter
-                        style={oneDark}
-                        language={match[1]}
-                        PreTag="div"
-                        customStyle={{
-                          borderRadius: '0.5rem',
-                          fontSize: '0.8125rem',
-                        }}
-                      >
-                        {codeString}
-                      </SyntaxHighlighter>
-                    );
-                  }
-
+    <div className="flex gap-3 items-start">
+      <HAvatar kind="agent" />
+      <div className="flex-1 min-w-0">
+        <div className="prose prose-sm max-w-none text-[14.5px] leading-[1.6] text-hearth-text prose-p:my-1 prose-pre:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1 prose-headings:font-semibold prose-strong:text-hearth-text prose-code:text-hearth-accent prose-code:bg-hearth-chip prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[12.5px] prose-code:font-mono prose-code:font-normal">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p({ children }) {
+                if (!messageSources || messageSources.length === 0) {
+                  return <p>{children}</p>;
+                }
+                const processNode = (node: React.ReactNode): React.ReactNode => {
+                  if (typeof node === 'string') return renderWithCitations(node, messageSources);
+                  return node;
+                };
+                const processedChildren = Array.isArray(children)
+                  ? children.map((child, i) => <span key={i}>{processNode(child)}</span>)
+                  : processNode(children);
+                return <p>{processedChildren}</p>;
+              },
+              code({ className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '');
+                const codeString = String(children).replace(/\n$/, '');
+                if (match) {
                   return (
-                    <code
-                      className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-hearth-700"
-                      {...props}
+                    <MemoizedSyntaxHighlighter
+                      style={oneDark}
+                      language={match[1]}
+                      PreTag="div"
+                      customStyle={{ borderRadius: 'var(--hearth-radius-md)', fontSize: '12.5px' }}
                     >
-                      {children}
-                    </code>
+                      {codeString}
+                    </MemoizedSyntaxHighlighter>
                   );
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </div>
-          {messageArtifacts.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5 border-t border-gray-100 pt-2">
-              {messageArtifacts.map((artifact) => (
-                <ArtifactBadge
-                  key={artifact.id}
-                  title={artifact.title}
-                  type={artifact.type}
-                  onClick={() => onOpenArtifact?.(artifact.id)}
-                />
-              ))}
-            </div>
-          )}
+                }
+                return <code {...props}>{children}</code>;
+              },
+            }}
+          >
+            {message.id === '__streaming__' ? ensureClosedCodeFences(message.content) : message.content}
+          </ReactMarkdown>
         </div>
+        {messageArtifacts.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {messageArtifacts.map((artifact) => (
+              <ArtifactBadge key={artifact.id} title={artifact.title} type={artifact.type} onClick={() => onOpenArtifact?.(artifact.id)} />
+            ))}
+          </div>
+        )}
         {attachments.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {attachments.map((att) => (
-              <AttachmentDisplay key={att.id} attachment={att} variant="assistant" />
+              <AttachmentDisplay key={att.id} attachment={att} />
             ))}
           </div>
         )}
@@ -108,131 +142,35 @@ export function MessageBubble({ message, artifacts, onOpenArtifact }: MessageBub
   );
 }
 
-function AttachmentDisplay({
-  attachment,
-  variant,
-}: {
-  attachment: ChatAttachment;
-  variant: 'user' | 'assistant';
-}) {
+function AttachmentDisplay({ attachment }: { attachment: ChatAttachment }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const isImage = attachment.mimeType.startsWith('image/');
-
-  const openLightbox = useCallback(() => {
-    if (isImage) setLightboxOpen(true);
-  }, [isImage]);
-
-  const closeLightbox = useCallback(() => {
-    setLightboxOpen(false);
-  }, []);
 
   if (isImage) {
     return (
       <>
-        <button
-          type="button"
-          onClick={openLightbox}
-          className="overflow-hidden rounded-lg focus:outline-none focus:ring-2 focus:ring-hearth-400"
-        >
-          <img
-            src={attachment.url}
-            alt={attachment.filename}
-            className="max-h-64 rounded-lg object-cover"
-          />
+        <button type="button" onClick={() => setLightboxOpen(true)} className="overflow-hidden rounded-lg focus:outline-none">
+          <img src={attachment.url} alt={attachment.filename} className="max-h-64 rounded-lg object-cover" />
         </button>
         {lightboxOpen && (
-          <ImageLightbox
-            url={attachment.url}
-            filename={attachment.filename}
-            onClose={closeLightbox}
-          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setLightboxOpen(false)} role="dialog">
+            <img src={attachment.url} alt={attachment.filename} className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain" onClick={(e) => e.stopPropagation()} />
+          </div>
         )}
       </>
     );
   }
 
-  const borderColor = variant === 'user' ? 'border-hearth-400/30' : 'border-gray-200';
-  const bgColor = variant === 'user' ? 'bg-hearth-400/10' : 'bg-gray-50';
-  const textColor = variant === 'user' ? 'text-hearth-100' : 'text-gray-700';
-  const subtextColor = variant === 'user' ? 'text-hearth-200' : 'text-gray-400';
-
   return (
-    <a
-      href={attachment.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`flex items-center gap-2 rounded-lg border ${borderColor} ${bgColor} px-3 py-2 transition-colors hover:opacity-80`}
-    >
-      <FileIcon mimeType={attachment.mimeType} />
+    <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border border-hearth-border bg-hearth-chip px-3 py-2 hover:opacity-80">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-hearth-card-alt text-hearth-text-muted">
+        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z" clipRule="evenodd" /></svg>
+      </div>
       <div className="min-w-0">
-        <p className={`truncate text-xs font-medium ${textColor}`}>
-          {attachment.filename}
-        </p>
-        <p className={`text-[10px] ${subtextColor}`}>
-          {formatFileSize(attachment.sizeBytes)}
-        </p>
+        <p className="truncate text-xs font-medium text-hearth-text">{attachment.filename}</p>
+        <p className="text-[10px] text-hearth-text-faint">{formatFileSize(attachment.sizeBytes)}</p>
       </div>
     </a>
-  );
-}
-
-function ImageLightbox({
-  url,
-  filename,
-  onClose,
-}: {
-  url: string;
-  filename: string;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-label={`Full size view of ${filename}`}
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-        </svg>
-      </button>
-      <img
-        src={url}
-        alt={filename}
-        className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-        onClick={(e) => e.stopPropagation()}
-      />
-    </div>
-  );
-}
-
-function FileIcon({ mimeType }: { mimeType: string }) {
-  const isPdf = mimeType === 'application/pdf';
-  return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-gray-200 text-gray-500">
-      {isPdf ? (
-        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm2.25 8.5a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Zm0 3a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ) : (
-        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path
-            fillRule="evenodd"
-            d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z"
-            clipRule="evenodd"
-          />
-        </svg>
-      )}
-    </div>
   );
 }
 

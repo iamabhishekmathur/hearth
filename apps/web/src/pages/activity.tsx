@@ -6,6 +6,8 @@ import { FEED_WORTHY_ACTIONS, type ActivityEvent, type FeedAction, type CursorPa
 import { ActivityEventCard } from '@/components/activity/activity-event-card';
 import { ActivityEventGroup } from '@/components/activity/activity-event-group';
 import { ProactiveSignalCard } from '@/components/activity/proactive-signal-card';
+import { HButton, HEyebrow } from '@/components/ui/primitives';
+import { HIcon } from '@/components/ui/icon';
 
 const ACTION_LABEL_MAP: Record<FeedAction, string> = {
   task_completed: 'Tasks',
@@ -243,15 +245,18 @@ export function ActivityPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Activity</h1>
-          <p className="mt-0.5 text-sm text-gray-500">Real-time org activity across sessions, skills, and tasks</p>
+          <HEyebrow>Feed</HEyebrow>
+          <h1 className="mt-1 font-display text-[22px] font-medium" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+            Activity<span style={{ color: 'var(--hearth-accent)' }}>.</span>
+          </h1>
+          <p className="mt-0.5 text-sm text-hearth-text-muted">Real-time org activity across sessions, skills, and tasks</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="border-b border-gray-200 px-6 py-3">
+      <div className="border-b border-hearth-border px-6 py-3">
         <div role="group" aria-label="Filter activity" className="flex gap-2">
           {filterOptions.map((f) => (
             <button
@@ -259,10 +264,10 @@ export function ActivityPage() {
               type="button"
               onClick={() => setActionFilter(f.value)}
               aria-pressed={actionFilter === f.value}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-pill px-3 py-1 text-xs font-medium transition-all duration-fast ease-hearth ${
                 actionFilter === f.value
-                  ? 'bg-hearth-100 text-hearth-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-hearth-accent-soft text-hearth-accent'
+                  : 'bg-hearth-chip text-hearth-text-muted hover:bg-hearth-border'
               }`}
             >
               {f.label}
@@ -275,20 +280,18 @@ export function ActivityPage() {
       {loading ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
-            <p className="mt-3 text-sm text-gray-400">Loading activity...</p>
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-hearth-border border-t-hearth-accent" />
+            <p className="mt-3 text-sm text-hearth-text-faint">Loading activity...</p>
           </div>
         </div>
       ) : events.length === 0 && visibleSignals.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-hearth-50">
-              <svg className="h-8 w-8 text-hearth-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.577 4.878a.75.75 0 0 1 .919-.53l4.78 1.281a.75.75 0 0 1 .531.919l-1.281 4.78a.75.75 0 0 1-1.449-.387l.81-3.022a19.407 19.407 0 0 0-5.594 5.203.75.75 0 0 1-1.139.093L7 10.06l-4.72 4.72a.75.75 0 0 1-1.06-1.06l5.25-5.25a.75.75 0 0 1 1.06 0l3.074 3.073a20.923 20.923 0 0 1 5.545-4.931l-3.042.815a.75.75 0 0 1-.53-.919Z" clipRule="evenodd" />
-              </svg>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: 'var(--hearth-accent-soft)' }}>
+              <HIcon name="activity" size={32} color="var(--hearth-accent)" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">No activity yet</h2>
-            <p className="mt-1 max-w-sm text-sm text-gray-500">
+            <h2 className="font-display text-lg font-medium text-hearth-text" style={{ letterSpacing: '-0.3px' }}>No activity yet</h2>
+            <p className="mt-1 max-w-sm text-sm text-hearth-text-muted">
               Activity will appear here as your team uses Hearth — completing tasks, installing skills, running routines, and more.
             </p>
           </div>
@@ -312,8 +315,8 @@ export function ActivityPage() {
             {/* Grouped timeline */}
             {grouped.map((section) => (
               <div key={section.label}>
-                <div className="sticky top-0 z-10 bg-gray-50/95 px-2 py-1.5 backdrop-blur-sm">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                <div className="sticky top-0 z-10 px-2 py-1.5 backdrop-blur-sm" style={{ background: 'color-mix(in srgb, var(--hearth-bg) 95%, transparent)' }}>
+                  <h3 className="hearth-eyebrow">
                     {section.label}
                   </h3>
                 </div>
@@ -335,14 +338,12 @@ export function ActivityPage() {
 
             {hasMore && (
               <div className="flex justify-center py-4">
-                <button
-                  type="button"
+                <HButton
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                 >
                   {loadingMore ? 'Loading...' : 'Load more'}
-                </button>
+                </HButton>
               </div>
             )}
           </div>

@@ -65,15 +65,15 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
       {/* Agent output — what the reviewer is evaluating */}
       {task.agentOutput ? (
         <div>
-          <h4 className="mb-1 text-xs font-medium text-gray-500">Agent output</h4>
-          <div className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+          <h4 className="mb-1 text-xs font-medium text-hearth-text-muted">Agent output</h4>
+          <div className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded border border-hearth-border bg-hearth-bg p-3 text-sm text-hearth-text">
             {typeof (task.agentOutput as { result?: string }).result === 'string'
               ? (task.agentOutput as { result: string }).result
               : JSON.stringify(task.agentOutput, null, 2)}
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-500">No agent output available yet.</p>
+        <p className="text-sm text-hearth-text-muted">No agent output available yet.</p>
       )}
 
       {/* Review actions — only when task is in review */}
@@ -100,7 +100,7 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
                 type="button"
                 disabled={submitting}
                 onClick={() => setMode('changes')}
-                className="rounded-md bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
+                className="rounded-md bg-hearth-card px-3 py-1.5 text-xs font-medium text-hearth-text ring-1 ring-gray-300 hover:bg-hearth-bg"
               >
                 Request changes
               </button>
@@ -108,7 +108,7 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
                 type="button"
                 disabled={submitting}
                 onClick={() => setMode('cancel')}
-                className="ml-auto rounded-md px-3 py-1.5 text-xs text-gray-500 hover:text-red-600"
+                className="ml-auto rounded-md px-3 py-1.5 text-xs text-hearth-text-muted hover:text-red-600"
               >
                 Cancel task
               </button>
@@ -117,7 +117,7 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
 
           {mode === 'changes' && (
             <div className="space-y-2">
-              <label htmlFor="review-feedback" className="block text-xs font-medium text-gray-700">
+              <label htmlFor="review-feedback" className="block text-xs font-medium text-hearth-text">
                 What should the planner adjust?
               </label>
               <textarea
@@ -126,7 +126,7 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
                 onChange={(e) => setFeedback(e.target.value)}
                 rows={4}
                 placeholder="Be specific — this feedback is fed to the planning agent."
-                className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                className="w-full rounded-md border border-hearth-border-strong px-2 py-1.5 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -142,7 +142,7 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
                   type="button"
                   disabled={submitting}
                   onClick={() => { setMode('idle'); setFeedback(''); setError(null); }}
-                  className="rounded-md px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
+                  className="rounded-md px-3 py-1.5 text-xs text-hearth-text-muted hover:bg-hearth-chip"
                 >
                   Back
                 </button>
@@ -152,7 +152,7 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
 
           {mode === 'cancel' && (
             <div className="space-y-2">
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-hearth-text">
                 Cancel this task? It will move to <strong>archived</strong> and stop here.
               </p>
               <div className="flex gap-2">
@@ -168,7 +168,7 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
                   type="button"
                   disabled={submitting}
                   onClick={() => { setMode('idle'); setError(null); }}
-                  className="rounded-md px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
+                  className="rounded-md px-3 py-1.5 text-xs text-hearth-text-muted hover:bg-hearth-chip"
                 >
                   Keep reviewing
                 </button>
@@ -183,10 +183,10 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
       {/* Review history */}
       {reviews.length > 0 && (
         <div>
-          <h4 className="mb-2 text-xs font-medium text-gray-500">Review history</h4>
+          <h4 className="mb-2 text-xs font-medium text-hearth-text-muted">Review history</h4>
           <ul className="space-y-2">
             {reviews.map((r) => (
-              <li key={r.id} className="rounded border border-gray-200 bg-white p-2 text-sm">
+              <li key={r.id} className="rounded border border-hearth-border bg-hearth-card p-2 text-sm">
                 <div className="flex items-center gap-2">
                   <span
                     className={`rounded px-1.5 py-0.5 text-xs font-medium ${
@@ -197,12 +197,12 @@ export function TaskReviewPanel({ task, reviews, onSubmit, onCancel }: TaskRevie
                   >
                     {r.decision === 'approved' ? 'Approved' : 'Changes requested'}
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-hearth-text-faint">
                     {new Date(r.createdAt).toLocaleString()}
                   </span>
                 </div>
                 {r.feedback && (
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">{r.feedback}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-hearth-text">{r.feedback}</p>
                 )}
               </li>
             ))}

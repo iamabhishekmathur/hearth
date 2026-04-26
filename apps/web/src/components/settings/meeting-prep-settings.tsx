@@ -37,8 +37,8 @@ export function MeetingPrepSettings({ currentCadence, onUpdate }: MeetingPrepSet
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">Meeting Prep Cadence</h3>
-        <p className="mt-0.5 text-xs text-gray-500">
+        <h3 className="text-sm font-semibold text-hearth-text">Meeting Prep Cadence</h3>
+        <p className="mt-0.5 text-xs text-hearth-text-muted">
           Choose when to receive proactive meeting preparation suggestions
         </p>
       </div>
@@ -48,7 +48,7 @@ export function MeetingPrepSettings({ currentCadence, onUpdate }: MeetingPrepSet
           <label
             key={option.value}
             className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-              cadence === option.value ? 'border-hearth-300 bg-hearth-50' : 'border-gray-200 hover:bg-gray-50'
+              cadence === option.value ? 'border-hearth-300 bg-hearth-50' : 'border-hearth-border hover:bg-hearth-bg'
             }`}
           >
             <input
@@ -57,11 +57,11 @@ export function MeetingPrepSettings({ currentCadence, onUpdate }: MeetingPrepSet
               value={option.value}
               checked={cadence === option.value}
               onChange={() => setCadence(option.value)}
-              className="mt-0.5 text-hearth-600 focus:ring-hearth-500"
+              className="mt-0.5 text-hearth-600 focus:ring-hearth-accent"
             />
             <div>
-              <p className="text-sm font-medium text-gray-900">{option.label}</p>
-              <p className="text-xs text-gray-500">{option.description}</p>
+              <p className="text-sm font-medium text-hearth-text">{option.label}</p>
+              <p className="text-xs text-hearth-text-muted">{option.description}</p>
             </div>
           </label>
         ))}

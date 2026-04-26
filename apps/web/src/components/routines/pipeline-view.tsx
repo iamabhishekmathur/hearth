@@ -14,10 +14,10 @@ const STATUS_STYLES: Record<string, string> = {
 
 export function PipelineView({ pipeline, routineNames }: PipelineViewProps) {
   return (
-    <div className="rounded-lg border border-gray-200 p-4">
+    <div className="rounded-lg border border-hearth-border p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-700">Pipeline Run</h4>
-        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[pipeline.status] ?? 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+        <h4 className="text-sm font-semibold text-hearth-text">Pipeline Run</h4>
+        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[pipeline.status] ?? 'bg-hearth-chip text-hearth-text border-hearth-border'}`}>
           {pipeline.status}
         </span>
       </div>
@@ -27,11 +27,11 @@ export function PipelineView({ pipeline, routineNames }: PipelineViewProps) {
         {pipeline.runIds.map((runId, i) => (
           <div key={runId} className="flex items-center">
             {i > 0 && (
-              <svg className="mx-1 h-4 w-4 text-gray-300" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="mx-1 h-4 w-4 text-hearth-text-faint" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
               </svg>
             )}
-            <div className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">
+            <div className="rounded bg-hearth-chip px-2 py-1 text-xs text-hearth-text-muted">
               {routineNames?.[runId] ?? runId.slice(0, 8)}
             </div>
           </div>
@@ -39,7 +39,7 @@ export function PipelineView({ pipeline, routineNames }: PipelineViewProps) {
       </div>
 
       {/* Timing */}
-      <div className="mt-2 flex gap-4 text-xs text-gray-400">
+      <div className="mt-2 flex gap-4 text-xs text-hearth-text-faint">
         <span>Started: {new Date(pipeline.startedAt).toLocaleTimeString()}</span>
         {pipeline.completedAt && (
           <span>Completed: {new Date(pipeline.completedAt).toLocaleTimeString()}</span>

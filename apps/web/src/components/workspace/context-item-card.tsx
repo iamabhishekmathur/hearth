@@ -11,11 +11,11 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 const STATUS_BADGE: Record<ExtractionStatus, { label: string; color: string }> = {
-  pending: { label: 'Pending', color: 'bg-gray-100 text-gray-600' },
+  pending: { label: 'Pending', color: 'bg-hearth-chip text-hearth-text-muted' },
   processing: { label: 'Extracting...', color: 'bg-blue-100 text-blue-700' },
   completed: { label: 'Ready', color: 'bg-green-100 text-green-700' },
   failed: { label: 'Failed', color: 'bg-red-100 text-red-700' },
-  skipped: { label: 'Skipped', color: 'bg-gray-100 text-gray-500' },
+  skipped: { label: 'Skipped', color: 'bg-hearth-chip text-hearth-text-muted' },
 };
 
 interface ContextItemCardProps {
@@ -53,7 +53,7 @@ export function ContextItemCard({
   }
 
   return (
-    <div className="group rounded-lg border border-gray-200 bg-white p-3 transition-colors hover:border-gray-300">
+    <div className="group rounded-lg border border-hearth-border bg-hearth-card p-3 transition-colors hover:border-hearth-border-strong">
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -71,12 +71,12 @@ export function ContextItemCard({
                   setEditingLabel(false);
                 }
               }}
-              className="flex-1 min-w-0 rounded border border-hearth-400 px-1.5 py-0.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+              className="flex-1 min-w-0 rounded border border-hearth-400 px-1.5 py-0.5 text-sm text-hearth-text focus:outline-none focus:ring-1 focus:ring-hearth-accent"
               autoFocus
             />
           ) : (
             <span
-              className={`text-sm font-medium text-gray-900 truncate ${editable ? 'cursor-text hover:underline decoration-dotted' : ''}`}
+              className={`text-sm font-medium text-hearth-text truncate ${editable ? 'cursor-text hover:underline decoration-dotted' : ''}`}
               title={title}
               onClick={() => {
                 if (editable) {
@@ -99,7 +99,7 @@ export function ContextItemCard({
 
       {/* Preview */}
       {preview && (
-        <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{preview}</p>
+        <p className="mt-1.5 text-xs text-hearth-text-muted line-clamp-2">{preview}</p>
       )}
 
       {/* Source info */}
@@ -107,7 +107,7 @@ export function ContextItemCard({
         <p className="mt-1 text-xs text-blue-500 truncate">{item.rawValue}</p>
       )}
       {(item.type === 'file' || item.type === 'image') && item.sizeBytes != null && (
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-hearth-text-faint">
           {item.rawValue} ({formatBytes(item.sizeBytes)})
         </p>
       )}
@@ -122,7 +122,7 @@ export function ContextItemCard({
             <button
               type="button"
               onClick={() => onRefresh(item.id)}
-              className="text-[10px] text-gray-500 hover:text-hearth-600"
+              className="text-[10px] text-hearth-text-muted hover:text-hearth-600"
             >
               Refresh
             </button>
@@ -131,7 +131,7 @@ export function ContextItemCard({
             <button
               type="button"
               onClick={() => onAnalyze(item.id)}
-              className="text-[10px] text-gray-500 hover:text-hearth-600"
+              className="text-[10px] text-hearth-text-muted hover:text-hearth-600"
             >
               Analyze
             </button>
@@ -139,7 +139,7 @@ export function ContextItemCard({
           <button
             type="button"
             onClick={() => onDelete(item.id)}
-            className="text-[10px] text-gray-500 hover:text-red-600"
+            className="text-[10px] text-hearth-text-muted hover:text-red-600"
           >
             Remove
           </button>
@@ -152,7 +152,7 @@ export function ContextItemCard({
 function TypeIcon({ type }: { type: string }) {
   const icons: Record<string, React.ReactNode> = {
     note: (
-      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <svg className="h-4 w-4 text-hearth-text-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
       </svg>
     ),

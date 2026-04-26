@@ -70,7 +70,7 @@ export function SkillGovernance() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
+        <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-hearth-border border-t-hearth-600" />
       </div>
     );
   }
@@ -84,7 +84,7 @@ export function SkillGovernance() {
     <div className="flex gap-6">
       {/* Left — skill lists */}
       <div className="min-w-0 flex-1">
-        <h3 className="mb-4 text-base font-semibold text-gray-900">Skill Governance</h3>
+        <h3 className="mb-4 text-base font-semibold text-hearth-text">Skill Governance</h3>
 
         {/* Pending review */}
         {pendingSkills.length > 0 && (
@@ -124,7 +124,7 @@ export function SkillGovernance() {
         {/* Published */}
         <Section title="Published" count={publishedSkills.length} color="green">
           {publishedSkills.length === 0 ? (
-            <p className="py-3 text-center text-xs text-gray-400">No published skills</p>
+            <p className="py-3 text-center text-xs text-hearth-text-faint">No published skills</p>
           ) : (
             publishedSkills.map((skill) => (
               <SkillRow
@@ -211,7 +211,7 @@ export function SkillGovernance() {
 
       {/* Right panel — skill detail */}
       {panel?.type === 'detail' && (
-        <div className="w-[380px] shrink-0 rounded-lg border border-gray-200 bg-gray-50">
+        <div className="w-[380px] shrink-0 rounded-lg border border-hearth-border bg-hearth-bg">
           <DetailPanel
             skill={panel.skill}
             onClose={() => setPanel(null)}
@@ -250,14 +250,14 @@ function Section({
   const colorMap = {
     amber: 'text-amber-700',
     green: 'text-green-700',
-    gray: 'text-gray-700',
+    gray: 'text-hearth-text',
   };
 
   return (
     <div className="mb-5">
       <div className="mb-2 flex items-center gap-2">
         <h4 className={`text-sm font-medium ${colorMap[color]}`}>{title}</h4>
-        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500">
+        <span className="rounded-full bg-hearth-chip px-1.5 py-0.5 text-[11px] text-hearth-text-muted">
           {count}
         </span>
       </div>
@@ -284,7 +284,7 @@ function SkillRow({
       className={`group flex items-center justify-between rounded-lg border px-4 py-2.5 transition-colors ${
         selected
           ? 'border-hearth-300 bg-hearth-50'
-          : 'border-gray-100 bg-white hover:border-gray-200'
+          : 'border-hearth-border bg-hearth-card hover:border-hearth-border'
       } ${loading ? 'opacity-60' : ''}`}
     >
       <button
@@ -292,12 +292,12 @@ function SkillRow({
         onClick={onSelect}
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold uppercase text-gray-500">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hearth-chip text-xs font-bold uppercase text-hearth-text-muted">
           {skill.name.charAt(0)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-gray-900">{skill.name}</span>
+            <span className="truncate text-sm font-medium text-hearth-text">{skill.name}</span>
             {skill.scope !== 'personal' && (
               <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600">
                 {skill.scope}
@@ -305,7 +305,7 @@ function SkillRow({
             )}
           </div>
           {skill.description && (
-            <p className="mt-0.5 truncate text-xs text-gray-500">{skill.description}</p>
+            <p className="mt-0.5 truncate text-xs text-hearth-text-muted">{skill.description}</p>
           )}
         </div>
       </button>
@@ -331,7 +331,7 @@ function ActionBtn({
   const colorMap = {
     green: 'bg-green-600 text-white hover:bg-green-700',
     red: 'bg-red-600 text-white hover:bg-red-700',
-    gray: 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+    gray: 'bg-hearth-chip text-hearth-text hover:bg-hearth-border-strong',
   };
 
   return (
@@ -367,24 +367,24 @@ function DetailPanel({
   const statusColors: Record<string, string> = {
     published: 'bg-green-100 text-green-700',
     pending_review: 'bg-amber-100 text-amber-700',
-    draft: 'bg-gray-100 text-gray-600',
+    draft: 'bg-hearth-chip text-hearth-text-muted',
     deprecated: 'bg-red-100 text-red-700',
   };
 
   return (
     <div className="flex h-full max-h-[600px] flex-col">
       {/* Header */}
-      <div className="flex items-start justify-between border-b border-gray-200 px-4 py-3">
+      <div className="flex items-start justify-between border-b border-hearth-border px-4 py-3">
         <div className="min-w-0 flex-1">
-          <h4 className="truncate text-sm font-semibold text-gray-900">{skill.name}</h4>
+          <h4 className="truncate text-sm font-semibold text-hearth-text">{skill.name}</h4>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[skill.status] ?? 'bg-gray-100 text-gray-600'}`}>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[skill.status] ?? 'bg-hearth-chip text-hearth-text-muted'}`}>
               {skill.status.replace('_', ' ')}
             </span>
             <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600">
               {skill.scope}
             </span>
-            <span className="text-[10px] text-gray-400">
+            <span className="text-[10px] text-hearth-text-faint">
               {skill.installCount} install{skill.installCount !== 1 ? 's' : ''}
             </span>
           </div>
@@ -392,7 +392,7 @@ function DetailPanel({
         <button
           type="button"
           onClick={onClose}
-          className="ml-2 rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+          className="ml-2 rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -402,23 +402,23 @@ function DetailPanel({
 
       {/* Description */}
       {skill.description && (
-        <div className="border-b border-gray-200 px-4 py-3">
-          <p className="text-xs text-gray-600">{skill.description}</p>
+        <div className="border-b border-hearth-border px-4 py-3">
+          <p className="text-xs text-hearth-text-muted">{skill.description}</p>
         </div>
       )}
 
       {/* Metadata */}
-      <div className="border-b border-gray-200 px-4 py-3">
+      <div className="border-b border-hearth-border px-4 py-3">
         <div className="grid grid-cols-2 gap-2 text-xs">
           {skill.author && (
             <div>
-              <span className="text-gray-400">Author</span>
-              <p className="font-medium text-gray-700">{skill.author.name}</p>
+              <span className="text-hearth-text-faint">Author</span>
+              <p className="font-medium text-hearth-text">{skill.author.name}</p>
             </div>
           )}
           <div>
-            <span className="text-gray-400">Created</span>
-            <p className="font-medium text-gray-700">
+            <span className="text-hearth-text-faint">Created</span>
+            <p className="font-medium text-hearth-text">
               {new Date(skill.createdAt).toLocaleDateString()}
             </p>
           </div>
@@ -427,15 +427,15 @@ function DetailPanel({
 
       {/* Content preview */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">Content</p>
-        <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-gray-600">
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-hearth-text-faint">Content</p>
+        <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-hearth-text-muted">
           {skill.content.slice(0, 1200)}
           {skill.content.length > 1200 && '\n...'}
         </pre>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 border-t border-gray-200 px-4 py-3">
+      <div className="flex items-center gap-2 border-t border-hearth-border px-4 py-3">
         {onApprove && onReject && (
           <>
             <button

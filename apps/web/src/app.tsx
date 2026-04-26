@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { AppShell } from '@/components/layout/app-shell';
 import { LoginPage } from '@/pages/login';
 import { RegisterPage } from '@/pages/register';
+import { SetupWizard } from '@/pages/setup-wizard';
+import { api } from '@/lib/api-client';
 
 // Lazy-load heavy pages for code-splitting
 const ChatPage = lazy(() => import('@/pages/chat').then((m) => ({ default: m.ChatPage })));
@@ -18,7 +20,7 @@ const DecisionsPage = lazy(() => import('@/pages/decisions').then((m) => ({ defa
 function PageFallback() {
   return (
     <div className="flex h-full items-center justify-center">
-      <p className="text-sm text-gray-400">Loading...</p>
+      <p className="text-sm text-hearth-text-faint">Loading...</p>
     </div>
   );
 }
@@ -31,12 +33,12 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
       return (
         <div className="flex h-full items-center justify-center">
           <div className="text-center">
-            <p className="text-sm font-medium text-red-600">Failed to load page</p>
-            <p className="mt-1 text-xs text-gray-500">{this.state.error.message}</p>
+            <p className="text-sm font-medium text-hearth-err">Failed to load page</p>
+            <p className="mt-1 text-xs text-hearth-text-muted">{this.state.error.message}</p>
             <button
               type="button"
               onClick={() => this.setState({ error: null })}
-              className="mt-3 rounded bg-hearth-600 px-3 py-1 text-xs text-white hover:bg-hearth-700"
+              className="mt-3 rounded-md bg-hearth-text px-3 py-1.5 text-xs font-semibold text-hearth-text-inverse hover:opacity-90"
             >
               Retry
             </button>
@@ -56,6 +58,7 @@ function getHashRoute(): string {
 function Router() {
   const { user, loading } = useAuth();
   const [route, setRoute] = useState(getHashRoute);
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
   useEffect(() => {
     function handleHashChange() {
@@ -65,20 +68,31 @@ function Router() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  useEffect(() => {
+    api.get<{ data: { needsSetup: boolean } }>('/admin/setup/status')
+      .then((res) => setNeedsSetup(res.data.needsSetup))
+      .catch(() => setNeedsSetup(false));
+  }, []);
+
   const navigate = useCallback((path: string) => {
     window.location.hash = path;
   }, []);
 
   // Loading state
-  if (loading) {
+  if (loading || needsSetup === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-hearth-bg">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-hearth-600">Hearth</h1>
-          <p className="mt-2 text-sm text-gray-400">Loading...</p>
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-xl text-white font-display font-medium text-[28px]" style={{ background: 'var(--hearth-accent-grad)', letterSpacing: -0.8 }}>H</div>
+          <p className="mt-4 text-sm text-hearth-text-faint">Loading...</p>
         </div>
       </div>
     );
+  }
+
+  // First-run setup wizard (no users exist yet)
+  if (needsSetup) {
+    return <SetupWizard onComplete={() => setNeedsSetup(false)} />;
   }
 
   // Public shared session page (no auth required)

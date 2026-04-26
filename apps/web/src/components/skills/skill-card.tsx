@@ -25,13 +25,13 @@ export function SkillRow({
 }: SkillRowProps) {
   return (
     <div
-      className={`flex cursor-pointer items-center gap-3 px-6 py-3 transition-colors hover:bg-gray-50 ${
+      className={`flex cursor-pointer items-center gap-3 px-6 py-3 transition-colors hover:bg-hearth-bg ${
         selected ? 'bg-hearth-50' : ''
       }`}
       onClick={onSelect}
     >
       {/* Icon */}
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold text-gray-500">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hearth-chip text-xs font-semibold text-hearth-text-muted">
         {skill.name
           .split('-')
           .map((w) => w[0])
@@ -43,7 +43,7 @@ export function SkillRow({
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-gray-900">{skill.name}</p>
+          <p className="truncate text-sm font-medium text-hearth-text">{skill.name}</p>
           {skill.status === 'pending_review' && (
             <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
               Pending review
@@ -55,11 +55,11 @@ export function SkillRow({
             </span>
           )}
         </div>
-        <p className="truncate text-xs text-gray-500">{skill.description || 'No description'}</p>
+        <p className="truncate text-xs text-hearth-text-muted">{skill.description || 'No description'}</p>
       </div>
 
       {/* Install count */}
-      <span className="shrink-0 text-xs text-gray-400">{skill.installCount} installs</span>
+      <span className="shrink-0 text-xs text-hearth-text-faint">{skill.installCount} installs</span>
 
       {/* Action button */}
       <button
@@ -74,7 +74,7 @@ export function SkillRow({
         }}
         className={`shrink-0 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
           installed
-            ? 'border border-gray-300 text-gray-600 hover:bg-gray-100'
+            ? 'border border-hearth-border-strong text-hearth-text-muted hover:bg-hearth-chip'
             : 'bg-hearth-600 text-white hover:bg-hearth-700'
         }`}
       >

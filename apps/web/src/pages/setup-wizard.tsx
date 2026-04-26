@@ -143,63 +143,64 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
   if (step === 'admin') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-hearth-bg p-4">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-hearth-600">Welcome to Hearth</h1>
-            <p className="mt-2 text-gray-500">Let's set up your workspace</p>
+            <h1 className="text-3xl font-bold text-hearth-accent">Welcome to Hearth</h1>
+            <p className="mt-2 text-hearth-text-muted">Let's set up your workspace</p>
           </div>
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Create Admin Account</h2>
+          <div className="rounded-xl bg-hearth-card p-6 shadow-hearth-1">
+            <h2 className="mb-4 text-lg font-semibold text-hearth-text">Create Admin Account</h2>
             <form onSubmit={handleCreateAdmin} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+                <label className="mb-1 block text-sm font-medium text-hearth-text">Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                <label className="mb-1 block text-sm font-medium text-hearth-text">Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+                <label className="mb-1 block text-sm font-medium text-hearth-text">Password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Organization Name <span className="text-gray-400">(optional)</span>
+                <label className="mb-1 block text-sm font-medium text-hearth-text">
+                  Organization Name <span className="text-hearth-text-faint">(optional)</span>
                 </label>
                 <input
                   type="text"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   placeholder="My Company"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                  className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
                 />
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-hearth-600 py-2.5 text-sm font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
+                className="w-full rounded-lg py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                    style={{ background: 'var(--hearth-accent)' }}
               >
                 {loading ? 'Creating...' : 'Create Admin Account'}
               </button>
@@ -216,18 +217,18 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
     const canSave = testStatus === 'ok' && !!selectedModel;
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-hearth-bg p-4">
         <div className="w-full max-w-lg">
           <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold text-hearth-600">Connect an AI Provider</h1>
-            <p className="mt-1.5 text-sm text-gray-500">
+            <h1 className="text-2xl font-bold text-hearth-accent">Connect an AI Provider</h1>
+            <p className="mt-1.5 text-sm text-hearth-text-muted">
               Hearth needs an LLM to power the chat and agent features.
             </p>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-hearth-card p-6 shadow-hearth-1">
             {/* Provider selection */}
-            <p className="mb-3 text-sm font-medium text-gray-700">Choose a provider</p>
+            <p className="mb-3 text-sm font-medium text-hearth-text">Choose a provider</p>
             <div className="grid grid-cols-3 gap-2">
               {PROVIDERS.map((p) => (
                 <button
@@ -237,7 +238,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                   className={`rounded-lg border px-4 py-3 text-center text-sm font-medium transition-colors ${
                     selectedProvider === p.id
                       ? 'border-hearth-500 bg-hearth-50 text-hearth-700'
-                      : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                      : 'border-hearth-border text-hearth-text hover:border-hearth-border-strong hover:bg-hearth-chip'
                   }`}
                 >
                   {p.name}
@@ -249,7 +250,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
             {provider && (
               <div className="mt-5 space-y-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-hearth-text">
                     {provider.label}
                   </label>
                   <input
@@ -260,17 +261,17 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                       setTestStatus('idle');
                     }}
                     placeholder={provider.placeholder}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                    className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 font-mono text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
                     autoComplete="off"
                   />
-                  <p className="mt-1 text-xs text-gray-400">{provider.hint}</p>
+                  <p className="mt-1 text-xs text-hearth-text-faint">{provider.hint}</p>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleTest}
                   disabled={!canTest || testStatus === 'testing'}
-                  className="w-full rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="w-full rounded-lg border border-hearth-border-strong py-2 text-sm font-medium text-hearth-text hover:bg-hearth-chip disabled:opacity-50"
                 >
                   {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
                 </button>
@@ -284,13 +285,13 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                 {/* Model selection — shown after successful test */}
                 {testStatus === 'ok' && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                    <label className="mb-1 block text-sm font-medium text-hearth-text">
                       Default model
                     </label>
                     <select
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+                      className="w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
                     >
                       {MODELS[selectedProvider!].map((m) => (
                         <option key={m.value} value={m.value}>
@@ -306,7 +307,8 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
                     type="button"
                     onClick={handleSaveLlm}
                     disabled={saving}
-                    className="w-full rounded-lg bg-hearth-600 py-2.5 text-sm font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
+                    className="w-full rounded-lg py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                    style={{ background: 'var(--hearth-accent)' }}
                   >
                     {saving ? 'Saving...' : 'Save & Continue'}
                   </button>
@@ -318,7 +320,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
             <button
               type="button"
               onClick={() => { setStep('done'); onComplete(); }}
-              className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-600"
+              className="mt-4 w-full text-center text-xs text-hearth-text-faint hover:text-hearth-text-muted"
             >
               Skip for now (configure later in Settings)
             </button>

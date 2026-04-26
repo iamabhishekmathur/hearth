@@ -21,7 +21,7 @@ const ACTION_COLORS: Record<string, string> = {
   skill_published: 'bg-purple-100 text-purple-700',
   skill_install: 'bg-blue-100 text-blue-700',
   routine_run: 'bg-yellow-100 text-yellow-700',
-  session_created: 'bg-gray-100 text-gray-600',
+  session_created: 'bg-hearth-chip text-hearth-text-muted',
 };
 
 const ENTITY_ROUTE_MAP: Record<string, string> = {
@@ -82,7 +82,7 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
   const { user } = useAuth();
   const relativeTime = useTimeAgo(event.createdAt);
   const label = ACTION_LABELS[event.action] ?? event.action.replace(/_/g, ' ');
-  const colorClass = ACTION_COLORS[event.action] ?? 'bg-gray-100 text-gray-600';
+  const colorClass = ACTION_COLORS[event.action] ?? 'bg-hearth-chip text-hearth-text-muted';
   const details = event.details ?? {};
   const entityName = (details.title ?? details.name ?? event.entityId ?? '') as string;
   const entityLink = getEntityLink(event.entityType, event.entityId);
@@ -122,12 +122,12 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
   }, [event.id]);
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-gray-100 bg-white p-3">
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-700">
+    <div className="flex items-start gap-3 rounded-lg border border-hearth-border bg-hearth-card p-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hearth-chip text-sm font-medium text-hearth-text">
         {event.userName?.charAt(0).toUpperCase() ?? '?'}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-900">
+        <p className="text-sm text-hearth-text">
           <span className="font-medium">{event.userName ?? 'System'}</span>{' '}
           {label}
           {entityName && (
@@ -138,7 +138,7 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
                   {entityName}
                 </a>
               ) : (
-                <span className="font-medium text-gray-700">{entityName}</span>
+                <span className="font-medium text-hearth-text">{entityName}</span>
               )}
             </>
           )}
@@ -147,9 +147,9 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
           <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${colorClass}`}>
             {event.action.replace(/_/g, ' ')}
           </span>
-          <span className="text-xs text-gray-400">{relativeTime}</span>
+          <span className="text-xs text-hearth-text-faint">{relativeTime}</span>
           {metricsText && (
-            <span className="text-xs text-gray-400">{metricsText}</span>
+            <span className="text-xs text-hearth-text-faint">{metricsText}</span>
           )}
         </div>
 

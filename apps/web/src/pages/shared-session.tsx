@@ -63,19 +63,19 @@ export function SharedSessionPage({ token, isAuthenticated }: SharedSessionPageP
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-400">Loading shared session...</p>
+      <div className="flex min-h-screen items-center justify-center bg-hearth-bg">
+        <p className="text-sm text-hearth-text-faint">Loading shared session...</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-hearth-bg">
         <div className="text-center">
-          <h1 className="text-xl font-bold text-gray-900">Not Found</h1>
-          <p className="mt-2 text-sm text-gray-500">{error ?? 'Session not available'}</p>
-          <a href="/" className="mt-4 inline-block text-sm text-hearth-600 hover:underline">
+          <h1 className="text-xl font-bold text-hearth-text">Not Found</h1>
+          <p className="mt-2 text-sm text-hearth-text-muted">{error ?? 'Session not available'}</p>
+          <a href="/" className="mt-4 inline-block text-sm text-hearth-accent hover:underline">
             Go to Hearth
           </a>
         </div>
@@ -84,7 +84,7 @@ export function SharedSessionPage({ token, isAuthenticated }: SharedSessionPageP
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-hearth-bg">
       {/* Sign-in banner for unauthenticated viewers */}
       {!isAuthenticated && (
         <div className="border-b border-hearth-200 bg-hearth-50 px-6 py-3">
@@ -94,7 +94,8 @@ export function SharedSessionPage({ token, isAuthenticated }: SharedSessionPageP
             </p>
             <a
               href="/#/login"
-              className="rounded-lg bg-hearth-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-hearth-700"
+              className="rounded-lg px-4 py-1.5 text-sm font-medium text-white"
+              style={{ background: 'var(--hearth-accent)' }}
             >
               Sign in
             </a>
@@ -103,22 +104,22 @@ export function SharedSessionPage({ token, isAuthenticated }: SharedSessionPageP
       )}
 
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-6 py-4">
+      <div className="border-b border-hearth-border bg-hearth-card px-6 py-4">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-hearth-600">Hearth</span>
-            <span className="text-sm text-gray-400">Shared Session</span>
+            <span className="text-lg font-bold text-hearth-accent">Hearth</span>
+            <span className="text-sm text-hearth-text-faint">Shared Session</span>
           </div>
-          <h1 className="mt-2 text-xl font-semibold text-gray-900">
+          <h1 className="mt-2 text-xl font-semibold text-hearth-text">
             {data.session.title ?? 'Untitled Session'}
           </h1>
-          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+          <div className="mt-1 flex items-center gap-2 text-xs text-hearth-text-muted">
             {data.session.ownerName && (
               <span>Shared by {data.session.ownerName}</span>
             )}
             <span>{new Date(data.session.createdAt).toLocaleDateString()}</span>
             {data.contentFilterLabel && data.shareType !== 'full' && (
-              <span className="rounded bg-gray-100 px-1.5 py-0.5">
+              <span className="rounded bg-hearth-chip px-1.5 py-0.5">
                 Showing: {data.contentFilterLabel}
               </span>
             )}
@@ -131,7 +132,7 @@ export function SharedSessionPage({ token, isAuthenticated }: SharedSessionPageP
                 type="button"
                 onClick={handleDuplicate}
                 disabled={duplicating}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm text-hearth-text hover:bg-hearth-chip disabled:opacity-50"
               >
                 <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />
@@ -154,20 +155,20 @@ export function SharedSessionPage({ token, isAuthenticated }: SharedSessionPageP
                 msg.role === 'user'
                   ? 'bg-hearth-50 ring-1 ring-hearth-100'
                   : msg.role === 'assistant'
-                    ? 'bg-white ring-1 ring-gray-100'
-                    : 'bg-gray-50'
+                    ? 'bg-hearth-card ring-1 ring-hearth-border'
+                    : 'bg-hearth-bg'
               }`}
             >
-              <div className="mb-1 text-xs font-medium text-gray-500">
+              <div className="mb-1 text-xs font-medium text-hearth-text-muted">
                 {msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'Hearth' : msg.role}
               </div>
-              <div className="whitespace-pre-wrap text-sm text-gray-900">{msg.content}</div>
+              <div className="whitespace-pre-wrap text-sm text-hearth-text">{msg.content}</div>
             </div>
           ))}
         </div>
 
         {data.messages.length === 0 && (
-          <p className="text-center text-sm text-gray-400">No messages in this shared view</p>
+          <p className="text-center text-sm text-hearth-text-faint">No messages in this shared view</p>
         )}
       </div>
     </div>

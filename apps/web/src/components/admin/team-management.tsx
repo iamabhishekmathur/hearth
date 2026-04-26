@@ -23,12 +23,12 @@ export function TeamManagement() {
     fetchTeams();
   }, [deleteTeam, fetchTeams]);
 
-  if (loading) return <p className="text-sm text-gray-400">Loading teams...</p>;
+  if (loading) return <p className="text-sm text-hearth-text-faint">Loading teams...</p>;
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-base font-semibold text-gray-900">Teams ({teams.length})</h3>
+        <h3 className="text-base font-semibold text-hearth-text">Teams ({teams.length})</h3>
         <button
           type="button"
           onClick={() => setShowForm(!showForm)}
@@ -46,20 +46,20 @@ export function TeamManagement() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             placeholder="Team name..."
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none"
             autoFocus
           />
           <button type="button" onClick={handleCreate} className="rounded-lg bg-hearth-600 px-3 py-1.5 text-xs text-white hover:bg-hearth-700">Create</button>
-          <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600">Cancel</button>
+          <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-xs text-hearth-text-muted">Cancel</button>
         </div>
       )}
 
       <div className="space-y-2">
         {teams.map((team) => (
-          <div key={team.id} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+          <div key={team.id} className="flex items-center justify-between rounded-lg border border-hearth-border px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-gray-900">{team.name}</p>
-              <p className="text-xs text-gray-400">{team._count?.users ?? 0} members</p>
+              <p className="text-sm font-medium text-hearth-text">{team.name}</p>
+              <p className="text-xs text-hearth-text-faint">{team._count?.users ?? 0} members</p>
             </div>
             <button
               type="button"

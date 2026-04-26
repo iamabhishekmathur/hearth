@@ -49,11 +49,11 @@ export function TriggerConfig({ webhookEndpoints, value, onChange, apiBaseUrl }:
     <div className="space-y-3">
       {/* Endpoint selector */}
       <div>
-        <label className="block text-xs font-medium text-gray-600">Webhook Endpoint</label>
+        <label className="block text-xs font-medium text-hearth-text-muted">Webhook Endpoint</label>
         <select
           value={selectedEndpoint}
           onChange={(e) => { setSelectedEndpoint(e.target.value); setEventType(''); }}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+          className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
         >
           <option value="">Select an endpoint...</option>
           {webhookEndpoints.map((ep) => (
@@ -67,11 +67,11 @@ export function TriggerConfig({ webhookEndpoints, value, onChange, apiBaseUrl }:
       {/* Event type selector */}
       {selectedEndpoint && (
         <div>
-          <label className="block text-xs font-medium text-gray-600">Event Type</label>
+          <label className="block text-xs font-medium text-hearth-text-muted">Event Type</label>
           <select
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="mt-1 block w-full rounded-lg border border-hearth-border-strong px-3 py-2 text-sm shadow-hearth-1 focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           >
             <option value="">Select event type...</option>
             {events.map((evt) => (
@@ -84,10 +84,10 @@ export function TriggerConfig({ webhookEndpoints, value, onChange, apiBaseUrl }:
 
       {/* Webhook URL display */}
       {webhookUrl && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <p className="mb-1 text-xs font-medium text-gray-500">Webhook URL</p>
+        <div className="rounded-lg border border-hearth-border bg-hearth-bg p-3">
+          <p className="mb-1 text-xs font-medium text-hearth-text-muted">Webhook URL</p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 truncate text-xs text-gray-700">{webhookUrl}</code>
+            <code className="flex-1 truncate text-xs text-hearth-text">{webhookUrl}</code>
             <button
               type="button"
               onClick={() => navigator.clipboard.writeText(webhookUrl)}
@@ -96,7 +96,7 @@ export function TriggerConfig({ webhookEndpoints, value, onChange, apiBaseUrl }:
               Copy
             </button>
           </div>
-          <p className="mt-1.5 text-xs text-gray-400">
+          <p className="mt-1.5 text-xs text-hearth-text-faint">
             Configure this URL in your {endpoint?.provider} webhook settings.
           </p>
         </div>

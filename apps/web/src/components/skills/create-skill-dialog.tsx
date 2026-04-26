@@ -60,12 +60,12 @@ export function CreateSkillPanel({ onClose, onCreated }: CreateSkillPanelProps) 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <h2 className="text-base font-semibold text-gray-900">Create Skill</h2>
+      <div className="flex items-center justify-between border-b border-hearth-border px-5 py-4">
+        <h2 className="text-base font-semibold text-hearth-text">Create Skill</h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -76,34 +76,34 @@ export function CreateSkillPanel({ onClose, onCreated }: CreateSkillPanelProps) 
       {/* Form */}
       <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Name</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text">Name</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="my-skill-name"
-            className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           />
-          <p className="mt-0.5 text-[11px] text-gray-400">Lowercase letters, digits, and hyphens</p>
+          <p className="mt-0.5 text-[11px] text-hearth-text-faint">Lowercase letters, digits, and hyphens</p>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Description</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text">Description</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Brief description of this skill"
-            className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Scope</label>
+          <label className="mb-1 block text-xs font-medium text-hearth-text">Scope</label>
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as 'personal' | 'team' | 'org')}
-            className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 text-sm focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           >
             <option value="personal">Personal — only you</option>
             <option value="team">Team — your team</option>
@@ -121,15 +121,15 @@ export function CreateSkillPanel({ onClose, onCreated }: CreateSkillPanelProps) 
         )}
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
+          <label className="mb-1 block text-xs font-medium text-hearth-text">
             Content
-            <span className="ml-1 font-normal text-gray-400">(Markdown + YAML frontmatter)</span>
+            <span className="ml-1 font-normal text-hearth-text-faint">(Markdown + YAML frontmatter)</span>
           </label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={14}
-            className="w-full rounded-lg border border-gray-300 px-3 py-1.5 font-mono text-xs leading-relaxed focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded-lg border border-hearth-border-strong px-3 py-1.5 font-mono text-xs leading-relaxed focus:border-hearth-accent focus:outline-none focus:ring-1 focus:ring-hearth-accent"
           />
         </div>
 
@@ -137,11 +137,11 @@ export function CreateSkillPanel({ onClose, onCreated }: CreateSkillPanelProps) 
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 border-t border-gray-100 px-5 py-3">
+      <div className="flex items-center gap-2 border-t border-hearth-border px-5 py-3">
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-lg border border-gray-300 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          className="flex-1 rounded-lg border border-hearth-border-strong py-2 text-sm text-hearth-text hover:bg-hearth-bg"
         >
           Cancel
         </button>

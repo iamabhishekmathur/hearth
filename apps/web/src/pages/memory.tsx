@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useMemory } from '@/hooks/use-memory';
+import { HButton, HEyebrow, HCard } from '@/components/ui/primitives';
 import type { MemoryEntry, MemoryLayer } from '@hearth/shared';
 
 const LAYERS: { value: MemoryLayer | 'all'; label: string }[] = [
@@ -117,16 +118,19 @@ export function MemoryPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-hearth-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Memory</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <HEyebrow>Knowledge Base</HEyebrow>
+            <h1 className="mt-1 font-display text-[22px] font-medium" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+              Memory<span style={{ color: 'var(--hearth-accent)' }}>.</span>
+            </h1>
+            <p className="mt-1 text-sm text-hearth-text-muted">
               {total} entries across all accessible layers
             </p>
           </div>
-          <button
-            type="button"
+          <HButton
+            variant="accent"
             onClick={() => {
               setShowCreate(true);
               setEditingEntry(null);
@@ -134,10 +138,9 @@ export function MemoryPage() {
               setFormSource('');
               setFormLayer('user');
             }}
-            className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-hearth-700"
           >
             New Entry
-          </button>
+          </HButton>
         </div>
 
         {/* Search */}
@@ -148,27 +151,20 @@ export function MemoryPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="flex-1 rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-2 text-sm text-hearth-text placeholder:text-hearth-text-faint focus:border-hearth-accent focus:outline-none focus:shadow-hearth-focus"
           />
-          <button
-            type="button"
-            onClick={handleSearch}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            Search
-          </button>
+          <HButton onClick={handleSearch}>Search</HButton>
           {searchResults && (
-            <button
-              type="button"
+            <HButton
+              variant="ghost"
               onClick={() => {
                 setSearchQuery('');
                 clearSearch();
                 reload();
               }}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
             >
               Clear
-            </button>
+            </HButton>
           )}
         </div>
 
@@ -179,10 +175,10 @@ export function MemoryPage() {
               key={l.value}
               type="button"
               onClick={() => setActiveLayer(l.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-pill px-3 py-1 text-xs font-medium transition-all duration-fast ease-hearth ${
                 activeLayer === l.value
-                  ? 'bg-hearth-100 text-hearth-700'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-hearth-accent-soft text-hearth-accent'
+                  : 'text-hearth-text-muted hover:bg-hearth-chip'
               }`}
             >
               {l.label}
@@ -193,17 +189,17 @@ export function MemoryPage() {
 
       {/* Create / Edit form */}
       {(showCreate || editingEntry) && (
-        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">
+        <div className="border-b border-hearth-border bg-hearth-card-alt px-6 py-4">
+          <h3 className="mb-3 text-sm font-semibold text-hearth-text">
             {editingEntry ? 'Edit Entry' : 'New Memory Entry'}
           </h3>
           {!editingEntry && (
             <div className="mb-3">
-              <label className="mb-1 block text-xs font-medium text-gray-600">Layer</label>
+              <label className="mb-1 block text-xs font-medium text-hearth-text-muted">Layer</label>
               <select
                 value={formLayer}
                 onChange={(e) => setFormLayer(e.target.value as MemoryLayer)}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                className="rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-1.5 text-sm text-hearth-text"
               >
                 {LAYERS.filter((l) => l.value !== 'all' && canWriteLayer(l.value as MemoryLayer)).map((l) => (
                   <option key={l.value} value={l.value}>
@@ -218,30 +214,25 @@ export function MemoryPage() {
             onChange={(e) => setFormContent(e.target.value)}
             placeholder="Memory content..."
             rows={3}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-full rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-2 text-sm text-hearth-text placeholder:text-hearth-text-faint focus:border-hearth-accent focus:outline-none focus:shadow-hearth-focus"
           />
           <input
             type="text"
             value={formSource}
             onChange={(e) => setFormSource(e.target.value)}
             placeholder="Source (optional)"
-            className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="mt-2 w-full rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-2 text-sm text-hearth-text placeholder:text-hearth-text-faint focus:border-hearth-accent focus:outline-none focus:shadow-hearth-focus"
           />
           <div className="mt-3 flex gap-2">
-            <button
-              type="button"
+            <HButton
+              variant="accent"
               onClick={editingEntry ? handleUpdate : handleCreate}
-              className="rounded-lg bg-hearth-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-hearth-700"
             >
               {editingEntry ? 'Save' : 'Create'}
-            </button>
-            <button
-              type="button"
-              onClick={cancelForm}
-              className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-            >
+            </HButton>
+            <HButton variant="ghost" onClick={cancelForm}>
               Cancel
-            </button>
+            </HButton>
           </div>
         </div>
       )}
@@ -250,37 +241,37 @@ export function MemoryPage() {
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-sm text-gray-400">Loading...</p>
+            <p className="text-sm text-hearth-text-faint">Loading...</p>
           </div>
         ) : displayEntries.length === 0 ? (
           <div className="flex items-center justify-center py-12">
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-hearth-text-faint">
               {searchResults ? 'No search results' : 'No memory entries yet'}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-hearth-border">
             {displayEntries.map((entry) => (
-              <div key={entry.id} className="px-6 py-4 hover:bg-gray-50">
+              <div key={entry.id} className="px-6 py-4 transition-colors hover:bg-hearth-card-alt">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center gap-2">
                       <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${LAYER_COLORS[entry.layer as MemoryLayer]}`}
+                        className={`inline-flex rounded-pill px-2 py-0.5 text-xs font-medium ${LAYER_COLORS[entry.layer as MemoryLayer]}`}
                       >
                         {entry.layer}
                       </span>
                       {entry.source && (
-                        <span className="text-xs text-gray-400">{entry.source}</span>
+                        <span className="text-xs text-hearth-text-faint">{entry.source}</span>
                       )}
                       {'score' in entry && (
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-hearth-text-faint">
                           score: {((entry as unknown as { score: number }).score * 100).toFixed(1)}
                         </span>
                       )}
                     </div>
-                    <p className="whitespace-pre-wrap text-sm text-gray-900">{entry.content}</p>
-                    <p className="mt-1 text-xs text-gray-400">
+                    <p className="whitespace-pre-wrap text-sm text-hearth-text">{entry.content}</p>
+                    <p className="mt-1 text-xs text-hearth-text-faint">
                       {new Date(entry.updatedAt).toLocaleString()}
                     </p>
                   </div>
@@ -290,7 +281,7 @@ export function MemoryPage() {
                         <button
                           type="button"
                           onClick={() => startEdit(entry)}
-                          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          className="rounded-md p-1 text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted"
                           title="Edit"
                         >
                           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -301,7 +292,7 @@ export function MemoryPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(entry.id)}
-                          className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                          className="rounded-md p-1 text-hearth-text-faint hover:bg-red-50 hover:text-red-500"
                           title="Delete"
                         >
                           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -324,27 +315,25 @@ export function MemoryPage() {
 
       {/* Pagination */}
       {!searchResults && total > 20 && (
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-3">
-          <p className="text-xs text-gray-500">
+        <div className="flex items-center justify-between border-t border-hearth-border px-6 py-3">
+          <p className="text-xs text-hearth-text-muted">
             Page {page} of {Math.ceil(total / 20)}
           </p>
           <div className="flex gap-2">
-            <button
-              type="button"
+            <HButton
+              size="sm"
               disabled={page <= 1}
               onClick={() => fetchMemory(activeLayer === 'all' ? undefined : activeLayer, page - 1)}
-              className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 disabled:opacity-50"
             >
               Previous
-            </button>
-            <button
-              type="button"
+            </HButton>
+            <HButton
+              size="sm"
               disabled={page >= Math.ceil(total / 20)}
               onClick={() => fetchMemory(activeLayer === 'all' ? undefined : activeLayer, page + 1)}
-              className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 disabled:opacity-50"
             >
               Next
-            </button>
+            </HButton>
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { TaskExecutionStep } from '@hearth/shared';
 
 const STATUS_ICONS: Record<string, { icon: string; color: string }> = {
-  pending: { icon: '○', color: 'text-gray-400' },
+  pending: { icon: '○', color: 'text-hearth-text-faint' },
   running: { icon: '●', color: 'text-blue-500' },
   completed: { icon: '✓', color: 'text-green-500' },
   failed: { icon: '✗', color: 'text-red-500' },
@@ -34,12 +34,12 @@ function StepRow({ step }: { step: TaskExecutionStep }) {
   const hasDetails = step.input != null || step.output != null;
 
   return (
-    <div role="listitem" className="rounded-lg border border-gray-100">
+    <div role="listitem" className="rounded-lg border border-hearth-border">
       <button
         type="button"
         onClick={() => hasDetails && setExpanded((v) => !v)}
         className={`flex w-full items-start gap-3 p-3 text-left ${
-          hasDetails ? 'hover:bg-gray-50' : 'cursor-default'
+          hasDetails ? 'hover:bg-hearth-bg' : 'cursor-default'
         }`}
         aria-expanded={hasDetails ? expanded : undefined}
       >
@@ -52,34 +52,34 @@ function StepRow({ step }: { step: TaskExecutionStep }) {
           {statusConfig.icon}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-900">
-            <span className="mr-1 text-xs text-gray-400">#{step.stepNumber}</span>
+          <p className="text-sm text-hearth-text">
+            <span className="mr-1 text-xs text-hearth-text-faint">#{step.stepNumber}</span>
             {step.description}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {step.phase && (
               <span
                 className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                  PHASE_STYLES[step.phase] ?? 'bg-gray-100 text-gray-600'
+                  PHASE_STYLES[step.phase] ?? 'bg-hearth-chip text-hearth-text-muted'
                 }`}
               >
                 {step.phase}
               </span>
             )}
             {step.toolUsed && (
-              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
+              <span className="rounded bg-hearth-chip px-1.5 py-0.5 text-xs text-hearth-text-muted">
                 {step.toolUsed}
               </span>
             )}
             {step.durationMs != null && (
-              <span className="text-xs text-gray-400">{step.durationMs}ms</span>
+              <span className="text-xs text-hearth-text-faint">{step.durationMs}ms</span>
             )}
-            <span className="text-xs text-gray-400">{step.status}</span>
+            <span className="text-xs text-hearth-text-faint">{step.status}</span>
           </div>
         </div>
         {hasDetails && (
           <svg
-            className={`mt-0.5 h-4 w-4 text-gray-400 transition-transform ${
+            className={`mt-0.5 h-4 w-4 text-hearth-text-faint transition-transform ${
               expanded ? 'rotate-90' : ''
             }`}
             viewBox="0 0 20 20"
@@ -96,19 +96,19 @@ function StepRow({ step }: { step: TaskExecutionStep }) {
       </button>
 
       {expanded && hasDetails && (
-        <div className="space-y-2 border-t border-gray-100 bg-gray-50/50 p-3">
+        <div className="space-y-2 border-t border-hearth-border bg-hearth-bg/50 p-3">
           {step.input != null && (
             <div>
-              <p className="mb-1 text-xs font-medium text-gray-500">Input</p>
-              <pre className="max-h-40 overflow-auto rounded border border-gray-200 bg-white p-2 text-xs text-gray-700">
+              <p className="mb-1 text-xs font-medium text-hearth-text-muted">Input</p>
+              <pre className="max-h-40 overflow-auto rounded border border-hearth-border bg-hearth-card p-2 text-xs text-hearth-text">
                 {formatJson(step.input)}
               </pre>
             </div>
           )}
           {step.output != null && (
             <div>
-              <p className="mb-1 text-xs font-medium text-gray-500">Output</p>
-              <pre className="max-h-60 overflow-auto rounded border border-gray-200 bg-white p-2 text-xs text-gray-700">
+              <p className="mb-1 text-xs font-medium text-hearth-text-muted">Output</p>
+              <pre className="max-h-60 overflow-auto rounded border border-hearth-border bg-hearth-card p-2 text-xs text-hearth-text">
                 {formatJson(step.output)}
               </pre>
             </div>
@@ -122,7 +122,7 @@ function StepRow({ step }: { step: TaskExecutionStep }) {
 export function TaskExecutionLog({ steps }: TaskExecutionLogProps) {
   if (steps.length === 0) {
     return (
-      <p className="text-center text-xs text-gray-400 py-4">
+      <p className="text-center text-xs text-hearth-text-faint py-4">
         No execution steps yet
       </p>
     );

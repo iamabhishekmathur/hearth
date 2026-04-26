@@ -4,6 +4,7 @@ import { SkillRow } from '@/components/skills/skill-card';
 import { SkillPanel } from '@/components/skills/skill-detail';
 import { CreateSkillPanel } from '@/components/skills/create-skill-dialog';
 import { ImportSkillPanel } from '@/components/skills/import-skill-dialog';
+import { HButton, HEyebrow } from '@/components/ui/primitives';
 import type { ApiResponse } from '@hearth/shared';
 
 interface Skill {
@@ -165,41 +166,39 @@ export function SkillsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Skills</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <HEyebrow>Capabilities</HEyebrow>
+          <h1 className="mt-1 font-display text-[22px] font-medium" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+            Skills<span style={{ color: 'var(--hearth-accent)' }}>.</span>
+          </h1>
+          <p className="mt-0.5 text-sm text-hearth-text-muted">
             Install skills to shape how your AI assistant works
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPanel({ type: 'import' })}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
+          <HButton onClick={() => setPanel({ type: 'import' })}>
             Import from GitHub
-          </button>
-          <button
-            type="button"
+          </HButton>
+          <HButton
+            variant="accent"
             onClick={() => setPanel({ type: 'create' })}
-            className="rounded-lg bg-hearth-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-hearth-700"
           >
             Create Skill
-          </button>
+          </HButton>
         </div>
       </div>
 
       {/* Tabs + Search */}
-      <div className="flex items-center gap-4 border-b border-gray-200 px-6">
-        <Tab label="All" count={allCount} active={tab === 'all'} onClick={() => setTab('all')} />
-        <Tab
+      <div className="flex items-center gap-4 border-b border-hearth-border px-6">
+        <SkillTab label="All" count={allCount} active={tab === 'all'} onClick={() => setTab('all')} />
+        <SkillTab
           label="Installed"
           count={installedCount}
           active={tab === 'installed'}
           onClick={() => setTab('installed')}
         />
-        <Tab
+        <SkillTab
           label="Recommended"
           count={recommendedCount}
           active={tab === 'recommended'}
@@ -212,7 +211,7 @@ export function SkillsPage() {
             placeholder="Search skills..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-56 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-hearth-500 focus:outline-none focus:ring-1 focus:ring-hearth-500"
+            className="w-56 rounded-md border border-hearth-border-strong bg-hearth-card px-3 py-1.5 text-sm text-hearth-text placeholder:text-hearth-text-faint focus:border-hearth-accent focus:outline-none focus:shadow-hearth-focus"
           />
         </div>
       </div>
@@ -224,12 +223,12 @@ export function SkillsPage() {
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
-                <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-hearth-600" />
-                <p className="mt-2 text-sm text-gray-400">Loading skills...</p>
+                <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-hearth-border border-t-hearth-accent" />
+                <p className="mt-2 text-sm text-hearth-text-faint">Loading skills...</p>
               </div>
             </div>
           ) : filteredSkills.length === 0 ? (
-            <div className="py-20 text-center text-sm text-gray-400">
+            <div className="py-20 text-center text-sm text-hearth-text-faint">
               {searchQuery
                 ? 'No skills match your search'
                 : tab === 'installed'
@@ -239,7 +238,7 @@ export function SkillsPage() {
                     : 'No skills available'}
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-hearth-border">
               {filteredSkills.map((skill) => (
                 <SkillRow
                   key={skill.id}
@@ -258,7 +257,7 @@ export function SkillsPage() {
 
         {/* Right panel */}
         {panel && (
-          <div className="w-[420px] shrink-0 border-l border-gray-200 bg-white">
+          <div className="w-[420px] shrink-0 border-l border-hearth-border bg-hearth-card">
             {panel.type === 'detail' && (
               <SkillPanel
                 skill={panel.skill}
@@ -287,7 +286,7 @@ export function SkillsPage() {
   );
 }
 
-function Tab({
+function SkillTab({
   label,
   count,
   active,
@@ -302,20 +301,20 @@ function Tab({
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex items-center gap-1.5 py-3 text-sm font-medium transition-colors ${
-        active ? 'text-hearth-700' : 'text-gray-500 hover:text-gray-700'
+      className={`relative flex items-center gap-1.5 py-3 text-sm font-medium transition-all duration-fast ease-hearth ${
+        active ? 'text-hearth-accent' : 'text-hearth-text-muted hover:text-hearth-text'
       }`}
     >
       {label}
       <span
-        className={`rounded-full px-1.5 py-0.5 text-[11px] ${
-          active ? 'bg-hearth-100 text-hearth-700' : 'bg-gray-100 text-gray-500'
+        className={`rounded-pill px-1.5 py-0.5 text-[11px] ${
+          active ? 'bg-hearth-accent-soft text-hearth-accent' : 'bg-hearth-chip text-hearth-text-muted'
         }`}
       >
         {count}
       </span>
       {active && (
-        <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-hearth-600" />
+        <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-hearth-accent" />
       )}
     </button>
   );

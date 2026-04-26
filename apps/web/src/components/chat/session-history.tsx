@@ -117,7 +117,7 @@ export function SessionHistory({ openSessionIds, onSelect, onDelete }: SessionHi
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex shrink-0 items-center gap-1 px-2.5 py-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+        className="flex shrink-0 items-center gap-1 px-2.5 py-2 text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted"
         title="Chat history (⌘K)"
       >
         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -130,12 +130,12 @@ export function SessionHistory({ openSessionIds, onSelect, onDelete }: SessionHi
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-lg border border-gray-200 bg-white shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-4">
           {/* Search input */}
-          <div className="border-b border-gray-100 p-2">
-            <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+          <div className="border-b border-hearth-border p-2">
+            <div className="flex items-center gap-2 rounded-md border border-hearth-border bg-hearth-bg px-2.5 py-1.5">
               <svg
-                className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                className="h-3.5 w-3.5 shrink-0 text-hearth-text-faint"
                 viewBox="0 0 20 20"
                 fill="currentColor"
               >
@@ -160,9 +160,9 @@ export function SessionHistory({ openSessionIds, onSelect, onDelete }: SessionHi
                   }
                 }}
                 placeholder="Search chats..."
-                className="min-w-0 flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent text-sm text-hearth-text placeholder-hearth-text-faint focus:outline-none"
               />
-              <kbd className="hidden rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] text-gray-400 sm:inline">
+              <kbd className="hidden rounded border border-hearth-border bg-hearth-card px-1.5 py-0.5 text-[10px] text-hearth-text-faint sm:inline">
                 ⌘K
               </kbd>
             </div>
@@ -171,9 +171,9 @@ export function SessionHistory({ openSessionIds, onSelect, onDelete }: SessionHi
           {/* Session list */}
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <p className="px-3 py-6 text-center text-xs text-gray-400">Loading...</p>
+              <p className="px-3 py-6 text-center text-xs text-hearth-text-faint">Loading...</p>
             ) : filteredOwn.length === 0 && filteredShared.length === 0 ? (
-              <p className="px-3 py-6 text-center text-xs text-gray-400">
+              <p className="px-3 py-6 text-center text-xs text-hearth-text-faint">
                 {query ? 'No chats found' : 'No chat history'}
               </p>
             ) : (
@@ -182,7 +182,7 @@ export function SessionHistory({ openSessionIds, onSelect, onDelete }: SessionHi
                 {filteredOwn.length > 0 && (
                   <>
                     <div className="px-3 pb-1 pt-2">
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-hearth-text-faint">
                         {query ? 'Results' : 'Recent'}
                       </p>
                     </div>
@@ -203,7 +203,7 @@ export function SessionHistory({ openSessionIds, onSelect, onDelete }: SessionHi
                 {filteredShared.length > 0 && (
                   <>
                     <div className="px-3 pb-1 pt-3">
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-hearth-text-faint">
                         Shared by team
                       </p>
                     </div>
@@ -241,14 +241,14 @@ function SessionRow({
 }) {
   return (
     <div
-      className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-gray-50"
+      className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-hearth-bg"
       onClick={onSelect}
     >
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm ${isOpen ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+        <p className={`truncate text-sm ${isOpen ? 'font-medium text-hearth-text' : 'text-hearth-text'}`}>
           {session.title || 'Untitled chat'}
         </p>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-hearth-text-faint">
           {formatRelativeDate(session.updatedAt)}
         </p>
       </div>
@@ -259,7 +259,7 @@ function SessionRow({
         className={`shrink-0 rounded p-1 transition-all ${
           isConfirming
             ? 'bg-red-100 text-red-500'
-            : 'text-gray-300 opacity-0 hover:bg-gray-200 hover:text-gray-500 group-hover:opacity-100'
+            : 'text-hearth-text-faint opacity-0 hover:bg-hearth-chip hover:text-hearth-text-muted group-hover:opacity-100'
         }`}
       >
         <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -285,17 +285,17 @@ function SharedSessionRow({
 }) {
   return (
     <div
-      className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-gray-50"
+      className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-hearth-bg"
       onClick={onSelect}
     >
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-hearth-100 text-[10px] font-medium text-hearth-700">
         {session.user?.name?.charAt(0)?.toUpperCase() ?? '?'}
       </span>
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm ${isOpen ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+        <p className={`truncate text-sm ${isOpen ? 'font-medium text-hearth-text' : 'text-hearth-text'}`}>
           {session.title || 'Untitled chat'}
         </p>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-hearth-text-faint">
           {session.user?.name ?? 'Unknown'} · {formatRelativeDate(session.updatedAt)}
         </p>
       </div>
