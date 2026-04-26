@@ -148,7 +148,7 @@ export async function* agentLoop(
     const toolResults = await Promise.all(
       pendingToolCalls.map(async (toolCall) => {
         const startTime = Date.now();
-        const result = await executeTool(toolCall.name, toolCall.input, toolMap);
+        const result = await executeTool(toolCall.name, toolCall.input, toolMap, context.userId);
         const durationMs = Date.now() - startTime;
         return { toolCall, result, durationMs };
       }),

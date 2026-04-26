@@ -1,5 +1,6 @@
 import type { ChatEvent, NormalizedEvent } from '@hearth/shared';
 import type { RoutineRunContext } from '../services/routine-context-service.js';
+import type { CitationSource } from './system-prompt.js';
 
 export interface AgentContext {
   userId: string;
@@ -10,6 +11,7 @@ export interface AgentContext {
   providerId?: string;
   latestMessage?: string;
   activeArtifactId?: string;
+  timezone?: string;
   visionEnabled?: boolean;
   // Routine-specific context (Features 1, 2)
   routineRunContext?: RoutineRunContext;
@@ -17,8 +19,10 @@ export interface AgentContext {
   routineId?: string;
   // Cognitive query context (Digital Co-Worker)
   cognitiveQuerySubjectId?: string;
+  rollingSummary?: string;
   // These will be populated by context-builder
   systemPrompt: string;
+  sources?: CitationSource[];
   tools: AgentTool[];
 }
 

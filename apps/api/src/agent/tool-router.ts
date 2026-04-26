@@ -11,6 +11,7 @@ import { createProposedSkill } from '../services/experience-service.js';
 import { getContextItem } from '../services/task-context-service.js';
 import { emitToSessionEvent } from '../ws/socket-manager.js';
 import { prisma } from '../lib/prisma.js';
+import { checkToolRateLimit } from '../middleware/rate-limiter.js';
 import { logger } from '../lib/logger.js';
 
 interface ToolRouterContext {
@@ -1688,6 +1689,7 @@ export async function executeTool(
   toolName: string,
   input: Record<string, unknown>,
   tools: Map<string, AgentTool>,
+  userId?: string,
 ): Promise<ToolResult> {
   const tool = tools.get(toolName);
 
@@ -1696,6 +1698,17 @@ export async function executeTool(
       output: { message: `Tool "${toolName}" not yet implemented` },
       error: `Unknown tool: ${toolName}`,
     };
+  }
+
+  // Per-tool rate limit check
+  if (userId) {
+    const rateLimitError = checkToolRateLimit(userId, toolName);
+    if (rateLimitError) {
+      return {
+        output: { error: rateLimitError },
+        error: rateLimitError,
+      };
+    }
   }
 
   try {

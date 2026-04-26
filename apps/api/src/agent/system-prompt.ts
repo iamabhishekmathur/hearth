@@ -13,6 +13,20 @@ import {
 } from '../services/cognitive-profile-service.js';
 import { logger } from '../lib/logger.js';
 
+// ─── Citation Sources ────────────────────────────────────────────────
+
+export interface CitationSource {
+  index: number;
+  type: 'memory' | 'experience' | 'decision' | 'skill' | 'context';
+  label: string;
+  content: string;
+}
+
+export interface SystemPromptResult {
+  prompt: string;
+  sources: CitationSource[];
+}
+
 // ─── Prompt Budget (approximate token counts per section) ────────────
 const SECTION_BUDGETS: Record<string, number> = {
   identity: 2000,
@@ -123,8 +137,10 @@ When in doubt: act, be brief, and let the user redirect you.`;
  * Builds the system prompt by assembling the full identity chain:
  * org SOUL.md → user SOUL.md → IDENTITY.md → relevant memories → installed skills
  */
-export async function buildSystemPrompt(context: Partial<AgentContext>): Promise<string> {
+export async function buildSystemPrompt(context: Partial<AgentContext>): Promise<SystemPromptResult> {
   const parts: string[] = [];
+  const sources: CitationSource[] = [];
+  let sourceIndex = 1;
 
   // 1. Identity chain (org SOUL.md → user SOUL.md → IDENTITY.md)
   if (context.orgId && context.userId) {
@@ -152,6 +168,34 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
     parts.push(DEFAULT_SYSTEM_PROMPT);
   }
 
+  // 1b. Current date/time context
+  {
+    const tz = context.timezone ?? 'UTC';
+    const now = new Date();
+    let formatted: string;
+    try {
+      formatted = new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: tz,
+        timeZoneName: 'short',
+      }).format(now);
+    } catch {
+      // Invalid timezone — fall back to UTC
+      formatted = now.toUTCString();
+    }
+    parts.push(`## Current Context\n\nCurrent date and time: ${formatted} (${tz})`);
+  }
+
+  // 1c. Rolling conversation summary
+  if (context.rollingSummary) {
+    parts.push(`## Conversation Summary\n\nThe following is a summary of earlier messages in this conversation:\n\n${context.rollingSummary}`);
+  }
+
   // 2a. User preferences — always loaded regardless of query relevance
   if (context.orgId && context.userId) {
     try {
@@ -167,9 +211,11 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
       });
 
       if (userMemories.length > 0) {
-        let memSection = '\n## User Context\nAlways apply these preferences and facts about the user:\n';
+        let memSection = '\n## User Context\nAlways apply these preferences and facts about the user. Cite items using their [N] marker when relevant.\n';
         for (const mem of userMemories) {
-          memSection += `\n- ${mem.content}`;
+          memSection += `\n- [${sourceIndex}] ${mem.content}`;
+          sources.push({ index: sourceIndex, type: 'memory', label: 'User memory', content: mem.content });
+          sourceIndex++;
         }
         parts.push(truncateToTokenBudget(memSection, SECTION_BUDGETS.userMemories));
       }
@@ -189,7 +235,9 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
       if (experiences.length > 0) {
         let expSection = '\n## Past Experience\nRelevant learnings from previous sessions:\n';
         for (const exp of experiences) {
-          expSection += `\n**${exp.taskSummary}** (${exp.outcome})`;
+          expSection += `\n[${sourceIndex}] **${exp.taskSummary}** (${exp.outcome})`;
+          sources.push({ index: sourceIndex, type: 'experience', label: exp.taskSummary, content: exp.learnings.join('; ') });
+          sourceIndex++;
           for (const learning of exp.learnings) {
             expSection += `\n- ${learning}`;
           }
@@ -227,7 +275,9 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
         for (const mem of extraMemories) {
           if (mem && typeof mem === 'object' && 'content' in mem) {
             const entry = mem as { layer: string; content: string };
-            ctxSection += `\n- [${entry.layer}] ${entry.content}`;
+            ctxSection += `\n- [${sourceIndex}] [${entry.layer}] ${entry.content}`;
+            sources.push({ index: sourceIndex, type: 'context', label: `${entry.layer} context`, content: entry.content });
+            sourceIndex++;
           }
         }
         parts.push(truncateToTokenBudget(ctxSection, SECTION_BUDGETS.relevantContext));
@@ -261,9 +311,10 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
         if (relevantDecisions.length > 0) {
           decSection += '\n### Past Decisions\n';
           for (const d of relevantDecisions) {
-            const outcomeNote = '';
-            decSection += `- [${d.domain ?? 'general'}] "${d.title}" (${d.status}, ${d.confidence} confidence)\n`;
+            decSection += `- [${sourceIndex}] [${d.domain ?? 'general'}] "${d.title}" (${d.status}, ${d.confidence} confidence)\n`;
             decSection += `  Rationale: ${d.reasoning.slice(0, 200)}${d.reasoning.length > 200 ? '...' : ''}\n`;
+            sources.push({ index: sourceIndex, type: 'decision', label: d.title, content: d.reasoning.slice(0, 300) });
+            sourceIndex++;
           }
         }
 
@@ -463,7 +514,16 @@ ${JSON.stringify(profile, null, 2)}
 
 If you solve a multi-step problem using 3+ tools and the approach would be useful for similar future tasks, use the \`propose_skill\` tool to save it as a reusable skill. The skill will be saved as a draft for the user to review — it won't be auto-applied. Only propose skills for genuinely reusable patterns, not one-off tasks.`);
 
-  // 6. Artifacts guidance
+  // 6. Confidence & uncertainty guidance
+  parts.push(`## Confidence & Uncertainty
+
+- When you are unsure about a fact, say so clearly rather than guessing.
+- Never fabricate URLs, citations, statistics, or data. Use web_search or web_fetch to verify.
+- If your information might be outdated, note this and offer to search for current data.
+- When multiple interpretations exist, briefly state your assumption and proceed.
+- If you lack information needed to complete a task well, state what additional context would help.`);
+
+  // 7. Artifacts guidance
   parts.push(`## Artifacts
 
 Use artifacts when producing content the user will want to view, copy, or iterate on. Supported types: code, document, diagram, table, html.
@@ -478,5 +538,12 @@ Guidelines:
 - When the user says "update that" or "change the code", use update_artifact on the most recent relevant artifact.
 - Use list_artifacts if you're unsure whether an artifact already exists for a given topic.`);
 
-  return parts.join('\n\n');
+  // 8. Citation guidance (only if sources were collected)
+  if (sources.length > 0) {
+    parts.push(`## Citations
+
+When your response draws on injected context (memories, experiences, decisions), cite the source inline using [N] notation matching the numbers above. Only cite when the information directly informs your answer. Do not cite for general knowledge.`);
+  }
+
+  return { prompt: parts.join('\n\n'), sources };
 }

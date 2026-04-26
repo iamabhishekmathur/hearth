@@ -39,6 +39,7 @@ interface UseArtifactsReturn {
   closePanel: () => void;
   togglePanel: () => void;
   fetchVersions: (artifactId: string) => void;
+  saveArtifactContent: (artifactId: string, content: string) => Promise<void>;
 }
 
 export function useArtifacts(sessionId: string | null): UseArtifactsReturn {
@@ -127,6 +128,20 @@ export function useArtifacts(sessionId: string | null): UseArtifactsReturn {
     }
   }, []);
 
+  const saveArtifactContent = useCallback(async (artifactId: string, content: string) => {
+    try {
+      const res = await api.patch<ApiResponse<Artifact>>(
+        `/chat/artifacts/${artifactId}`,
+        { content },
+      );
+      if (res.data) {
+        setArtifacts((prev) => prev.map((a) => (a.id === artifactId ? res.data! : a)));
+      }
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
   const activeArtifact = artifacts.find((a) => a.id === activeArtifactId) ?? null;
 
   return {
@@ -139,5 +154,6 @@ export function useArtifacts(sessionId: string | null): UseArtifactsReturn {
     closePanel,
     togglePanel,
     fetchVersions,
+    saveArtifactContent,
   };
 }

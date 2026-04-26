@@ -18,6 +18,8 @@ interface CognitiveQueryMeta {
 interface UseChatReturn {
   messages: ChatMessage[];
   sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => Promise<void>;
+  retryLastMessage: () => void;
+  regenerateMessage: () => void;
   isStreaming: boolean;
   thinking: string | null;
   toolCalls: ToolCallInfo[];
@@ -42,6 +44,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
   const streamingContentRef = useRef('');
   const toolCallIdRef = useRef(0);
+  const lastFailedContentRef = useRef<string | null>(null);
 
   // Track current subscription so sendMessage can set it up eagerly
   const subscribedSessionRef = useRef<string | null>(null);
@@ -116,6 +119,8 @@ export function useChat(sessionId: string | null): UseChatReturn {
         setError(event.message);
         setIsStreaming(false);
         setThinking(null);
+        // lastFailedContentRef is set by the sendMessage catch block for HTTP errors.
+        // For SSE errors, the content was already sent; retry isn't useful.
         break;
 
       case 'done':
@@ -266,6 +271,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
         await api.post(`/chat/sessions/${sid}/messages`, body);
       } catch (err) {
+        lastFailedContentRef.current = content;
         setError(err instanceof Error ? err.message : 'Failed to send message');
         setIsStreaming(false);
       }
@@ -273,5 +279,31 @@ export function useChat(sessionId: string | null): UseChatReturn {
     [sessionId, subscribe],
   );
 
-  return { messages, sendMessage, isStreaming, thinking, toolCalls, error, presenceUsers };
+  const retryLastMessage = useCallback(() => {
+    const content = lastFailedContentRef.current;
+    if (!content) return;
+    lastFailedContentRef.current = null;
+    setError(null);
+    sendMessage(content);
+  }, [sendMessage]);
+
+  const regenerateMessage = useCallback(() => {
+    // Find the last user message, remove the following assistant message, and re-send
+    setMessages((prev) => {
+      const lastAssistantIdx = prev.length - 1;
+      if (lastAssistantIdx < 0 || prev[lastAssistantIdx].role !== 'assistant') return prev;
+      // Find the user message before it
+      let userIdx = lastAssistantIdx - 1;
+      while (userIdx >= 0 && prev[userIdx].role !== 'user') userIdx--;
+      if (userIdx < 0) return prev;
+      const userContent = prev[userIdx].content;
+      // Remove the assistant message
+      const updated = prev.slice(0, lastAssistantIdx);
+      // Trigger re-send after state update
+      setTimeout(() => sendMessage(userContent), 0);
+      return updated;
+    });
+  }, [sendMessage]);
+
+  return { messages, sendMessage, retryLastMessage, regenerateMessage, isStreaming, thinking, toolCalls, error, presenceUsers };
 }

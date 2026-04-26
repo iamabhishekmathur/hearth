@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { buildSystemPrompt } from './system-prompt.js';
+import { buildSystemPrompt, type CitationSource } from './system-prompt.js';
 import { createToolRouter } from './tool-router.js';
 import type { AgentContext } from './types.js';
 import type { RoutineRunContext } from '../services/routine-context-service.js';
@@ -10,6 +10,7 @@ export interface BuildAgentContextOpts {
   triggerEvent?: NormalizedEvent;
   routineId?: string;
   cognitiveQuerySubjectId?: string;
+  timezone?: string;
 }
 
 /**
@@ -48,13 +49,14 @@ export async function buildAgentContext(
     sessionId,
     latestMessage,
     activeArtifactId,
+    timezone: opts?.timezone,
     routineRunContext: opts?.routineRunContext,
     triggerEvent: opts?.triggerEvent,
     routineId: opts?.routineId,
     cognitiveQuerySubjectId: opts?.cognitiveQuerySubjectId,
   };
 
-  const [systemPrompt, toolMap] = await Promise.all([
+  const [promptResult, toolMap] = await Promise.all([
     buildSystemPrompt(partialContext),
     createToolRouter({ userId, orgId, teamId: teamId ?? null, sessionId, routineId: opts?.routineId, visionEnabled }),
   ]);
@@ -67,11 +69,13 @@ export async function buildAgentContext(
     sessionId,
     latestMessage,
     visionEnabled,
+    timezone: opts?.timezone,
     routineRunContext: opts?.routineRunContext,
     triggerEvent: opts?.triggerEvent,
     routineId: opts?.routineId,
     cognitiveQuerySubjectId: opts?.cognitiveQuerySubjectId,
-    systemPrompt,
+    systemPrompt: promptResult.prompt,
+    sources: promptResult.sources,
     tools,
   };
 }

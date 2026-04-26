@@ -1,6 +1,7 @@
-import type { ChatMessageRole, SessionVisibility, CollaboratorRole, ChatAttachment } from '@hearth/shared';
+import type { ChatMessageRole, SessionVisibility, CollaboratorRole, ChatAttachment, LLMMessage } from '@hearth/shared';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { logger } from '../lib/logger.js';
 
 /**
  * Transforms a DB attachment row into the shared API type,
@@ -344,4 +345,69 @@ export async function searchOrgMembers(orgId: string, query: string, excludeUser
     select: { id: true, name: true, email: true },
     take: 10,
   });
+}
+
+/**
+ * Summarizes earlier messages in a conversation when it grows too long.
+ * Returns a concise summary suitable for injecting as context, or null if
+ * the conversation is short enough not to need summarization.
+ *
+ * Thresholds: >40 messages or >100K total chars.
+ * Keeps the last `keepRecent` messages intact and summarizes the rest.
+ */
+export async function summarizeEarlierMessages(
+  messages: Array<{ role: string; content: string }>,
+  opts: { keepRecent?: number } = {},
+): Promise<string | null> {
+  const keepRecent = opts.keepRecent ?? 10;
+  const totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);
+
+  // Check if summarization is needed
+  if (messages.length <= 40 && totalChars <= 100_000) {
+    return null;
+  }
+
+  // Split into older messages (to summarize) and recent messages (to keep)
+  const splitIdx = Math.max(0, messages.length - keepRecent);
+  const olderMessages = messages.slice(0, splitIdx);
+
+  if (olderMessages.length === 0) return null;
+
+  // Build a condensed representation of older messages
+  const condensed = olderMessages
+    .map((m) => {
+      const truncated = m.content.length > 500
+        ? m.content.slice(0, 500) + '...'
+        : m.content;
+      return `[${m.role}]: ${truncated}`;
+    })
+    .join('\n');
+
+  try {
+    const { providerRegistry } = await import('../llm/provider-registry.js');
+    const summaryMessages: LLMMessage[] = [
+      {
+        role: 'user',
+        content: `Summarize this conversation history in 3-5 concise paragraphs, preserving key decisions, facts, and context. Focus on information that would be needed to continue the conversation.\n\n${condensed}`,
+      },
+    ];
+
+    let summary = '';
+    const stream = providerRegistry.chatWithFallback({
+      model: 'claude-haiku-4-5-20251001',
+      messages: summaryMessages,
+      maxTokens: 1024,
+    });
+
+    for await (const event of stream) {
+      if (event.type === 'text_delta') {
+        summary += event.content;
+      }
+    }
+
+    return summary || null;
+  } catch (err) {
+    logger.error({ err }, 'Failed to summarize earlier messages');
+    return null;
+  }
 }

@@ -152,13 +152,14 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
   try {
     const sessionId = req.params.id as string;
     const userId = req.user!.id;
-    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery } = req.body as {
+    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery, timezone } = req.body as {
       content?: string;
       model?: string;
       providerId?: string;
       activeArtifactId?: string;
       attachmentIds?: string[];
       cognitiveQuery?: { subjectUserId: string };
+      timezone?: string;
     };
 
     if (!content) {
@@ -236,9 +237,39 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     res.status(202).json({ data: { messageId: userMessage.id } });
 
     // Build agent context and run the agent loop asynchronously.
-    runAgent(sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId).catch((err) => {
+    runAgent(sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone).catch((err) => {
       logger.error({ err, sessionId }, 'Agent loop unhandled error');
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/messages/:messageId/feedback — rate a message
+ */
+router.post('/sessions/:id/messages/:messageId/feedback', requireAuth, async (req, res, next) => {
+  try {
+    const { rating } = req.body as { rating?: 'positive' | 'negative' };
+    if (!rating || !['positive', 'negative'].includes(rating)) {
+      res.status(400).json({ error: 'rating must be "positive" or "negative"' });
+      return;
+    }
+    const messageId = req.params.messageId as string;
+    const { prisma } = await import('../lib/prisma.js');
+    const message = await prisma.chatMessage.findFirst({
+      where: { id: messageId, session: { id: req.params.id as string } },
+    });
+    if (!message) {
+      res.status(404).json({ error: 'Message not found' });
+      return;
+    }
+    const metadata = (message.metadata as Record<string, unknown>) ?? {};
+    await prisma.chatMessage.update({
+      where: { id: messageId },
+      data: { metadata: { ...metadata, feedback: rating } as never },
+    });
+    res.json({ data: { messageId, rating } });
   } catch (err) {
     next(err);
   }
@@ -354,6 +385,19 @@ router.get('/users/search', requireAuth, async (req, res, next) => {
 });
 
 /**
+ * GET /integrations/active — list connected integration IDs
+ */
+router.get('/integrations/active', requireAuth, async (_req, res, next) => {
+  try {
+    const { mcpGateway } = await import('../mcp/gateway.js');
+    const integrations = mcpGateway.getConnectedIntegrations();
+    res.json({ data: integrations });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /cognitive-profile/status — get user's cognitive profile opt-in status
  */
 router.get('/cognitive-profile/status', requireAuth, async (req, res, next) => {
@@ -419,6 +463,7 @@ async function runAgent(
   latestMessage?: string,
   activeArtifactId?: string,
   cognitiveQuerySubjectId?: string,
+  timezone?: string,
 ): Promise<void> {
   let assistantContent = '';
   let errorMessage: string | null = null;
@@ -427,13 +472,25 @@ async function runAgent(
   let iterationCount = 0;
   let totalTokens = 0;
   const toolFailures: string[] = [];
+  let contextSources: Array<{ index: number; type: string; label: string; content: string }> = [];
 
   try {
     const context = await buildAgentContext(ownerUserId, sessionId, latestMessage, activeArtifactId, {
       cognitiveQuerySubjectId,
+      timezone,
     });
     if (model) context.model = model;
     if (providerId) context.providerId = providerId;
+    contextSources = context.sources ?? [];
+
+    // Emit memory debug info for dev/debug tools
+    if (contextSources.length > 0) {
+      emitToSessionEvent(sessionId, 'memory:debug', {
+        sources: contextSources,
+        rollingSummary: null,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     // Load conversation history — skip tool-role messages (providers reject
     // them without matching tool_use_id linkage from the original call).
@@ -480,7 +537,22 @@ async function runAgent(
         };
       });
 
-    for await (const event of agentLoop(context, messages)) {
+    // Rolling summary: if conversation is long, summarize older messages
+    const rawForSummary = dbMessages
+      .filter((m) => m.role !== 'tool')
+      .map((m) => ({ role: m.role, content: m.content }));
+    const rollingSummary = await chatService.summarizeEarlierMessages(rawForSummary);
+
+    let finalMessages = messages;
+    if (rollingSummary) {
+      // Keep only the last 10 messages, prepend summary as a system message
+      const keepRecent = 10;
+      finalMessages = messages.slice(Math.max(0, messages.length - keepRecent));
+      // Inject summary into the agent context for system prompt
+      context.rollingSummary = rollingSummary;
+    }
+
+    for await (const event of agentLoop(context, finalMessages)) {
       emitToSession(sessionId, event);
 
       if (event.type === 'text_delta') {
@@ -516,6 +588,7 @@ async function runAgent(
         await chatService.addMessage(sessionId, 'assistant', finalContent, {
           error: errorMessage ?? undefined,
           errorSource: sawErrorEvent ? 'llm' : errorMessage ? 'runtime' : undefined,
+          sources: contextSources.length > 0 ? contextSources : undefined,
         });
       }
     } catch (persistErr) {
