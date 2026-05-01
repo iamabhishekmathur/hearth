@@ -33,15 +33,20 @@ export async function createContextItem(
     data.type === 'text_block' ||
     data.type === 'chat_excerpt';
 
-  // Get next sort order
-  const lastItem = await prisma.taskContextItem.findFirst({
-    where: { taskId },
-    orderBy: { sortOrder: 'desc' },
-    select: { sortOrder: true },
-  });
+  // Get next sort order + the parent task's orgId in parallel.
+  const [task, lastItem] = await Promise.all([
+    prisma.task.findUnique({ where: { id: taskId }, select: { orgId: true } }),
+    prisma.taskContextItem.findFirst({
+      where: { taskId },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    }),
+  ]);
+  if (!task) throw new Error(`Task ${taskId} not found`);
 
   const item = await prisma.taskContextItem.create({
     data: {
+      orgId: task.orgId,
       taskId,
       type: data.type,
       label: data.label ?? null,

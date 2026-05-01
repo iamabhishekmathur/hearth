@@ -11,6 +11,7 @@ export type NotificationType =
   | 'reaction_on_your_message';
 
 export interface NotifyInput {
+  orgId: string;
   userId: string;
   type: NotificationType;
   title: string;
@@ -28,6 +29,7 @@ export async function notify(input: NotifyInput): Promise<void> {
   try {
     const row = await prisma.notification.create({
       data: {
+        orgId: input.orgId,
         userId: input.userId,
         type: input.type,
         title: input.title,

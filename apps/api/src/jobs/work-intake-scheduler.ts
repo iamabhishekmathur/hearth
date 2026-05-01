@@ -34,6 +34,17 @@ export function createWorkIntakeWorker() {
     async (job: Job<IntakeJobData>) => {
       const { type, userId, message } = job.data;
 
+      // Resolve orgId from the user's team. Skip job if user has no org.
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { team: { select: { orgId: true } } },
+      });
+      const orgId = user?.team?.orgId;
+      if (!orgId) {
+        logger.warn({ userId, type }, 'Skipping intake job: user has no org');
+        return { skipped: true, reason: 'User has no org' };
+      }
+
       switch (type) {
         case 'slack_message': {
           if (!message) return { skipped: true };
@@ -45,6 +56,7 @@ export function createWorkIntakeWorker() {
             messageId: message.messageId,
             channel: message.channel,
             userId,
+            orgId,
           });
 
           return result;

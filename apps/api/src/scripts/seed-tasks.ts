@@ -12,13 +12,20 @@ const prisma = new PrismaClient();
  * Idempotent: clears prior seed data first (matched by sample titles).
  */
 async function main() {
-  const user = await prisma.user.findFirst();
+  const user = await prisma.user.findFirst({
+    include: { team: { select: { orgId: true } } },
+  });
   if (!user) {
     console.log('No user found — run the app and register first');
     process.exit(1);
   }
+  if (!user.team?.orgId) {
+    console.log(`User ${user.email} has no team/org — cannot seed tenant data`);
+    process.exit(1);
+  }
+  const orgId: string = user.team.orgId;
 
-  console.log(`Seeding tasks for user: ${user.email} (${user.id})`);
+  console.log(`Seeding tasks for user: ${user.email} (${user.id}) in org ${orgId}`);
 
   const tasks: Array<{
     title: string;
@@ -399,6 +406,7 @@ async function main() {
   for (const t of tasks) {
     const task = await prisma.task.create({
       data: {
+        orgId,
         userId: user.id,
         title: t.title,
         description: t.description,
@@ -416,6 +424,7 @@ async function main() {
       stepNumber += 1;
       await prisma.taskExecutionStep.create({
         data: {
+          orgId,
           taskId: task.id,
           stepNumber,
           description: s.description,
@@ -432,6 +441,7 @@ async function main() {
       stepNumber += 1;
       await prisma.taskExecutionStep.create({
         data: {
+          orgId,
           taskId: task.id,
           stepNumber,
           description: s.description,
@@ -449,6 +459,7 @@ async function main() {
     for (const sub of t.subtasks ?? []) {
       const subtask = await prisma.task.create({
         data: {
+          orgId,
           userId: user.id,
           title: sub.title,
           description: sub.description ?? null,
@@ -466,6 +477,7 @@ async function main() {
         subStepNumber += 1;
         await prisma.taskExecutionStep.create({
           data: {
+            orgId,
             taskId: subtask.id,
             stepNumber: subStepNumber,
             description: s.description,
@@ -484,6 +496,7 @@ async function main() {
     for (const r of t.reviews ?? []) {
       await prisma.taskReview.create({
         data: {
+          orgId,
           taskId: task.id,
           reviewerId: user.id,
           decision: r.decision as never,

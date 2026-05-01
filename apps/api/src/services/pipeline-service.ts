@@ -1,8 +1,17 @@
 import { prisma } from '../lib/prisma.js';
 
 export async function createPipelineRun(rootRunId: string) {
+  // Derive orgId from the routine that owns the root run.
+  const rootRun = await prisma.routineRun.findUnique({
+    where: { id: rootRunId },
+    select: { routine: { select: { orgId: true } } },
+  });
+  if (!rootRun?.routine.orgId) {
+    throw new Error(`Cannot create pipeline run: root run ${rootRunId} has no org-scoped routine`);
+  }
   return prisma.pipelineRun.create({
     data: {
+      orgId: rootRun.routine.orgId,
       rootRunId,
       status: 'running',
       runIds: [rootRunId],

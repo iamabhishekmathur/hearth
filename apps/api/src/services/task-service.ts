@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 export async function createTask(
+  orgId: string,
   userId: string,
   data: {
     title: string;
@@ -25,6 +26,7 @@ export async function createTask(
 ) {
   return prisma.task.create({
     data: {
+      orgId,
       userId,
       title: data.title,
       description: data.description ?? null,
@@ -151,8 +153,10 @@ export async function addComment(
   content: string,
   isAgent = false,
 ) {
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { orgId: true } });
+  if (!task) throw new Error(`Task ${taskId} not found`);
   return prisma.taskComment.create({
-    data: { taskId, userId, content, isAgent },
+    data: { orgId: task.orgId, taskId, userId, content, isAgent },
     include: { user: { select: { id: true, name: true } } },
   });
 }
@@ -178,13 +182,18 @@ export async function addExecutionStep(
     status?: TaskStepStatus;
   },
 ) {
-  const lastStep = await prisma.taskExecutionStep.findFirst({
-    where: { taskId },
-    orderBy: { stepNumber: 'desc' },
-  });
+  const [task, lastStep] = await Promise.all([
+    prisma.task.findUnique({ where: { id: taskId }, select: { orgId: true } }),
+    prisma.taskExecutionStep.findFirst({
+      where: { taskId },
+      orderBy: { stepNumber: 'desc' },
+    }),
+  ]);
+  if (!task) throw new Error(`Task ${taskId} not found`);
 
   return prisma.taskExecutionStep.create({
     data: {
+      orgId: task.orgId,
       taskId,
       stepNumber: (lastStep?.stepNumber ?? 0) + 1,
       description: data.description,
@@ -230,8 +239,14 @@ export async function createSubtask(
   userId: string,
   data: { title: string; description?: string },
 ) {
+  const parent = await prisma.task.findUnique({
+    where: { id: parentTaskId },
+    select: { orgId: true },
+  });
+  if (!parent) throw new Error(`Parent task ${parentTaskId} not found`);
   return prisma.task.create({
     data: {
+      orgId: parent.orgId,
       userId,
       title: data.title,
       description: data.description ?? null,
@@ -270,8 +285,11 @@ export async function createReview(
   reviewerId: string,
   data: { decision: ReviewDecision; feedback?: string },
 ) {
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { orgId: true } });
+  if (!task) throw new Error(`Task ${taskId} not found`);
   return prisma.taskReview.create({
     data: {
+      orgId: task.orgId,
       taskId,
       reviewerId,
       decision: data.decision,

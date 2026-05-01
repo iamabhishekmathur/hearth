@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireOrg } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 const router: ReturnType<typeof Router> = Router();
@@ -64,7 +64,7 @@ const upload = multer({
  * Creates a ChatAttachment record with no message link (messageId = null).
  * The attachment is linked when the chat message is sent with attachmentIds.
  */
-router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
+router.post('/', requireAuth, requireOrg, upload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {
@@ -77,6 +77,8 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
 
     const attachment = await prisma.chatAttachment.create({
       data: {
+        // requireOrg guarantees orgId is non-null
+        orgId: req.user!.orgId!,
         filename: file.originalname,
         mimeType: file.mimetype,
         sizeBytes: file.size,

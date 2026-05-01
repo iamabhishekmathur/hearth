@@ -106,11 +106,12 @@ export async function generateMeetingPrep(
  * Create a task from an accepted meeting prep nudge.
  */
 export async function acceptPrepNudge(
+  orgId: string,
   userId: string,
   eventSummary: string,
   prepContent: string,
 ) {
-  return taskService.createTask(userId, {
+  return taskService.createTask(orgId, userId, {
     title: `Prep: ${eventSummary}`,
     description: prepContent,
     source: 'meeting',

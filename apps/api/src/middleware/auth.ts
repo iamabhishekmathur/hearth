@@ -76,6 +76,28 @@ export const requireAuth: RequestHandler = (req, res, next) => {
 };
 
 /**
+ * Requires the authenticated user to be a member of an org (i.e. have a team).
+ * Use this on routes that create or read tenant-owned data — guarantees
+ * req.user.orgId is non-null for downstream handlers and services.
+ *
+ * Must be used after requireAuth.
+ */
+export const requireOrg: RequestHandler = (req, res, next) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  if (!req.user.orgId) {
+    res.status(400).json({
+      error: 'No organization',
+      message: 'Your account is not associated with an organization. Ask an admin to add you to a team.',
+    });
+    return;
+  }
+  next();
+};
+
+/**
  * Requires the authenticated user to have one of the specified roles.
  * Must be used after `requireAuth`.
  */

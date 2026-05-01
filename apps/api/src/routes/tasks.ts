@@ -4,7 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import type { TaskStatus, TaskSource, TaskContextItemType, ReviewDecision } from '@hearth/shared';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireOrg } from '../middleware/auth.js';
 import * as taskService from '../services/task-service.js';
 import * as contextService from '../services/task-context-service.js';
 import { enqueueExtraction } from '../jobs/task-context-extraction-job.js';
@@ -55,7 +55,7 @@ router.get('/:id', requireAuth, async (req, res, next) => {
 /**
  * POST /tasks — create a task
  */
-router.post('/', requireAuth, async (req, res, next) => {
+router.post('/', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const { title, description, source, priority, parentTaskId } = req.body as {
       title?: string;
@@ -76,7 +76,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const task = await taskService.createTask(req.user!.id, {
+    const task = await taskService.createTask(req.user!.orgId!, req.user!.id, {
       title,
       description,
       source,
