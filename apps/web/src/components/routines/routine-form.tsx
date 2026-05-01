@@ -291,7 +291,7 @@ export function RoutineForm({ initial, onSubmit, onCancel, submitLabel = 'Create
   const isValid = name.trim() && prompt.trim() && (!needsSchedule || schedule.trim());
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
       {/* Name + Description */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

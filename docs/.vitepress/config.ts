@@ -1,10 +1,71 @@
 import { defineConfig } from 'vitepress';
 
+const commonSidebar = [
+  {
+    text: 'Get started',
+    collapsed: false,
+    items: [
+      { text: 'Overview', link: '/' },
+      { text: 'Getting Started', link: '/getting-started/' },
+      { text: 'User Guide', link: '/guide/' },
+      { text: 'Admin Guide', link: '/platform/' },
+      { text: 'Self-Hosting', link: '/self-hosting/' },
+    ],
+  },
+  {
+    text: 'Developers',
+    collapsed: false,
+    items: [
+      { text: 'Developer Overview', link: '/developers/' },
+      { text: 'API Reference', link: '/developers/api/' },
+      { text: 'Chat & Sessions', link: '/developers/api/chat' },
+      { text: 'Tasks', link: '/developers/api/tasks' },
+      { text: 'Memory', link: '/developers/api/memory' },
+      { text: 'Skills', link: '/developers/api/skills' },
+      { text: 'Routines', link: '/developers/api/routines' },
+      { text: 'Activity', link: '/developers/api/activity' },
+      { text: 'Artifacts', link: '/developers/api/artifacts' },
+      { text: 'Approvals', link: '/developers/api/approvals' },
+      { text: 'Decisions', link: '/developers/api/decisions' },
+      { text: 'Admin', link: '/developers/api/admin' },
+      { text: 'Webhooks & Uploads', link: '/developers/api/webhooks' },
+      { text: 'WebSocket Events', link: '/developers/websocket-events' },
+    ],
+  },
+  {
+    text: 'Architecture',
+    collapsed: true,
+    items: [
+      { text: 'System Overview', link: '/developers/architecture/' },
+      { text: 'Agent System', link: '/developers/architecture/agent' },
+      { text: 'Database', link: '/developers/architecture/database' },
+      { text: 'Services', link: '/developers/architecture/services' },
+    ],
+  },
+  {
+    text: 'Build and extend',
+    collapsed: true,
+    items: [
+      { text: 'SKILL.md Format', link: '/developers/skill-format' },
+      { text: 'Skill Examples', link: '/developers/skill-examples' },
+      { text: 'MCP Overview', link: '/developers/connectors/' },
+      { text: 'Building Connectors', link: '/developers/connectors/building' },
+      { text: 'How to Contribute', link: '/developers/contributing/' },
+      { text: 'Development Setup', link: '/developers/contributing/development' },
+    ],
+  },
+];
+
 export default defineConfig({
   title: 'Hearth Docs',
   description: 'Documentation for the Hearth AI productivity platform',
 
-  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }]],
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+    ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;600&display=swap' }],
+  ],
 
   themeConfig: {
     logo: '/logo.svg',
@@ -18,68 +79,11 @@ export default defineConfig({
     ],
 
     sidebar: {
-      // Single-page guides — no sidebar, use on-page TOC
-      '/getting-started/': [],
-      '/guide/': [],
-      '/platform/': [],
-      '/self-hosting/': [],
-
-      // Multi-page developer reference — sidebar navigation
-      '/developers/': [
-        {
-          text: 'Developers',
-          link: '/developers/',
-          items: [
-            {
-              text: 'API Reference',
-              collapsed: false,
-              items: [
-                { text: 'Overview', link: '/developers/api/' },
-                { text: 'Chat & Sessions', link: '/developers/api/chat' },
-                { text: 'Tasks', link: '/developers/api/tasks' },
-                { text: 'Memory', link: '/developers/api/memory' },
-                { text: 'Skills', link: '/developers/api/skills' },
-                { text: 'Routines', link: '/developers/api/routines' },
-                { text: 'Activity', link: '/developers/api/activity' },
-                { text: 'Artifacts', link: '/developers/api/artifacts' },
-                { text: 'Approvals', link: '/developers/api/approvals' },
-                { text: 'Decisions', link: '/developers/api/decisions' },
-                { text: 'Admin', link: '/developers/api/admin' },
-                { text: 'Webhooks & Uploads', link: '/developers/api/webhooks' },
-              ],
-            },
-            { text: 'WebSocket Events', link: '/developers/websocket-events' },
-            {
-              text: 'Architecture',
-              collapsed: false,
-              items: [
-                { text: 'System Overview', link: '/developers/architecture/' },
-                { text: 'Agent System', link: '/developers/architecture/agent' },
-                { text: 'Database', link: '/developers/architecture/database' },
-                { text: 'Services', link: '/developers/architecture/services' },
-              ],
-            },
-            { text: 'SKILL.md Format', link: '/developers/skill-format' },
-            { text: 'Skill Examples', link: '/developers/skill-examples' },
-            {
-              text: 'Connectors',
-              collapsed: true,
-              items: [
-                { text: 'MCP Overview', link: '/developers/connectors/' },
-                { text: 'Building Connectors', link: '/developers/connectors/building' },
-              ],
-            },
-            {
-              text: 'Contributing',
-              collapsed: true,
-              items: [
-                { text: 'How to Contribute', link: '/developers/contributing/' },
-                { text: 'Development Setup', link: '/developers/contributing/development' },
-              ],
-            },
-          ],
-        },
-      ],
+      '/getting-started/': commonSidebar,
+      '/guide/': commonSidebar,
+      '/platform/': commonSidebar,
+      '/self-hosting/': commonSidebar,
+      '/developers/': commonSidebar,
     },
 
     socialLinks: [{ icon: 'github', link: 'https://github.com/iamabhishekmathur/hearth' }],
@@ -103,7 +107,7 @@ export default defineConfig({
     },
   },
 
-  appearance: 'dark',
+  appearance: true,
 
   ignoreDeadLinks: [
     /^https?:\/\/localhost/,

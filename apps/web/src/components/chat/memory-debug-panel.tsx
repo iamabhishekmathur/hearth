@@ -36,7 +36,7 @@ export function MemoryDebugPanel({ debugInfo, onClose }: MemoryDebugPanelProps) 
   }, {});
 
   return (
-    <div className="border-b border-hearth-border bg-hearth-bg">
+    <div className="border-b border-hearth-border bg-hearth-bg animate-fade-in">
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-hearth-text-muted">

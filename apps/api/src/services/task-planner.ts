@@ -175,6 +175,24 @@ export function createTaskPlanningWorker() {
         await taskService.updateTask(taskId, userId, { status: 'executing' });
         emitToTask(taskId, { type: 'task:updated', status: 'executing' });
 
+        // If this task originated from a chat session, post a progress
+        // milestone back into the source chat.
+        try {
+          const fullTask = await taskService.getTask(taskId, userId);
+          if (fullTask?.sourceSessionId) {
+            const chatService = await import('./chat-service.js');
+            await chatService.postTaskProgress({
+              sessionId: fullTask.sourceSessionId,
+              taskId,
+              milestone: 'executing',
+              taskTitle: fullTask.title,
+              taskStatus: 'executing',
+            });
+          }
+        } catch (progressErr) {
+          logger.warn({ err: progressErr, taskId }, 'postTaskProgress(executing) failed');
+        }
+
         // Enqueue execution for the parent task itself
         await enqueueExecution(taskId, userId);
 

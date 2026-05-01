@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { ChatMessage } from '@hearth/shared';
+import type { ChatMessage, MessageAuthor } from '@hearth/shared';
 import type { ToolCallInfo } from '@/hooks/use-chat';
 import type { Artifact } from '@/hooks/use-artifacts';
 import { MessageBubble } from './message-bubble';
@@ -7,6 +7,15 @@ import { ThinkingIndicator } from './thinking-indicator';
 import { ToolCallCard } from './tool-call-card';
 import { StarterPrompts } from './starter-prompts';
 import { MessageActions } from './message-actions';
+import { ReactionChips } from './reaction-chips';
+import { TaskChip } from './task-chip';
+import { TaskSuggestionCard } from './task-suggestion-card';
+import { TaskShapeNudge } from './task-shape-nudge';
+import { TaskProgressCard } from './task-progress-card';
+import { RoutineNudge } from './routine-nudge';
+import { detectTaskShape, deriveTaskTitle } from '@/lib/task-shape-detector';
+import type { TaskChipInfo } from '@/hooks/use-chat';
+import type { TaskSuggestionEvent } from '@hearth/shared';
 import { HIcon } from '@/components/ui/icon';
 
 interface MessageListProps {
@@ -14,7 +23,7 @@ interface MessageListProps {
   isStreaming: boolean;
   thinking: string | null;
   toolCalls: ToolCallInfo[];
-  authors?: Map<string, string>;
+  authors?: Map<string, MessageAuthor>;
   isCollaborative?: boolean;
   onDuplicateFromMessage?: (messageId: string) => void;
   readOnly?: boolean;
@@ -26,6 +35,17 @@ interface MessageListProps {
   onStarterSelect?: (prompt: string) => void;
   onRegenerate?: () => void;
   sessionId?: string;
+  /**
+   * Frozen "what was new when I opened this" anchor. The "New" divider
+   * renders above the message immediately after this id and never moves
+   * while the session is open.
+   */
+  unreadAnchorId?: string | null;
+  onMessageVisible?: (messageId: string) => void;
+  taskChips?: Map<string, TaskChipInfo[]>;
+  taskSuggestions?: Map<string, TaskSuggestionEvent>;
+  onDismissTaskSuggestion?: (suggestionId: string) => void;
+  onUnlinkTask?: (messageId: string, taskId: string) => void;
 }
 
 export function MessageList({
@@ -33,12 +53,25 @@ export function MessageList({
   onDuplicateFromMessage, readOnly, artifacts, onOpenArtifact,
   governanceBanner, governanceWarnings, governanceBlocks,
   onStarterSelect, onRegenerate, sessionId,
+  unreadAnchorId, onMessageVisible,
+  taskChips, taskSuggestions, onDismissTaskSuggestion, onUnlinkTask,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
+  // True only when the user has scrolled away AND new content has arrived
+  // since they were last at the bottom. Plain scroll-up alone shouldn't
+  // surface a "new messages" nag.
+  const [hasNewWhileAway, setHasNewWhileAway] = useState(false);
+  // Latches true once the user has reached the bottom of the list. The
+  // unread divider is dismissed at that point — they've read everything.
+  // Reset whenever the anchor changes (i.e. a new session is opened).
+  const [dividerDismissed, setDividerDismissed] = useState(false);
   const userScrolledRef = useRef(false);
+  const lastBottomCountRef = useRef(messages.length);
+
+  useEffect(() => {
+    setDividerDismissed(false);
+  }, [unreadAnchorId]);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -46,18 +79,29 @@ export function MessageList({
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const isNearBottom = distanceFromBottom < 200;
     userScrolledRef.current = !isNearBottom;
-    setShowScrollButton(!isNearBottom);
-  }, []);
+    if (isNearBottom) {
+      setDividerDismissed(true);
+      setHasNewWhileAway(false);
+      lastBottomCountRef.current = messages.length;
+    }
+  }, [messages.length]);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     userScrolledRef.current = false;
-    setShowScrollButton(false);
-  }, []);
+    setHasNewWhileAway(false);
+    lastBottomCountRef.current = messages.length;
+  }, [messages.length]);
 
   useEffect(() => {
     if (!userScrolledRef.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      lastBottomCountRef.current = messages.length;
+      return;
+    }
+    // User is scrolled away — flag new-content arrival so the pill can show.
+    if (messages.length > lastBottomCountRef.current) {
+      setHasNewWhileAway(true);
     }
   }, [messages, thinking, toolCalls]);
 
@@ -78,7 +122,10 @@ export function MessageList({
             Start a conversation
           </h2>
           <p className="mt-1 text-[13px] text-hearth-text-muted">
-            Type a message below to begin.
+            Iterate live with the AI. Type a message below to begin.
+          </p>
+          <p className="mt-3 text-[11.5px] text-hearth-text-faint">
+            Want to step away while the agent works? Type <code className="rounded bg-hearth-chip px-1 py-0.5 font-mono text-[10.5px] text-hearth-text-muted">/task</code> or hover any message.
           </p>
         </div>
       </div>
@@ -94,19 +141,125 @@ export function MessageList({
             <span>This conversation is monitored per your organization's governance policies.</span>
           </div>
         )}
-        {messages.map((msg) => {
-          const authorName = isCollaborative && msg.createdBy && authors?.has(msg.createdBy) ? authors.get(msg.createdBy) : undefined;
+        {messages.map((msg, idx) => {
+          // System task-progress messages render as compact progress cards
+          // instead of normal bubbles. They have no chip / suggestion / actions.
+          if (msg.role === 'system') {
+            const meta = (msg.metadata ?? {}) as Record<string, unknown>;
+            if (meta.kind === 'task_progress') {
+              return (
+                <TaskProgressCard
+                  key={msg.id}
+                  taskId={String(meta.taskId)}
+                  taskTitle={String(meta.taskTitle ?? '')}
+                  milestone={meta.milestone as 'started' | 'executing' | 'review' | 'done' | 'failed'}
+                />
+              );
+            }
+          }
+
+          const author = msg.createdBy ? authors?.get(msg.createdBy) : undefined;
+          const prev = messages[idx - 1];
+          const showAuthor = !!isCollaborative && msg.role === 'user'
+            && !!author
+            && (prev?.role !== 'user' || prev?.createdBy !== msg.createdBy);
+          const respondingToAuthor = msg.role === 'assistant' && msg.respondingToMessageId
+            ? (() => {
+                const target = messages.find((m) => m.id === msg.respondingToMessageId);
+                return target?.createdBy ? authors?.get(target.createdBy) : undefined;
+              })()
+            : undefined;
+
+          // Unread divider sits above the first message after the frozen
+          // anchor — does not move while the session is open, and is
+          // dismissed once the user reaches the bottom.
+          const isFirstUnread = !!unreadAnchorId
+            && !dividerDismissed
+            && prev?.id === unreadAnchorId;
+
           return (
-            <div
-              key={msg.id}
-              className="group relative"
-              onMouseEnter={() => setHoveredMessageId(msg.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
-            >
-              {authorName && msg.role === 'user' && (
-                <p className="mb-0.5 text-right text-[11px] text-hearth-text-faint">{authorName}</p>
+            <div key={msg.id}>
+              {isFirstUnread && (
+                <div className="my-2 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--hearth-accent)' }}>
+                  <span className="h-px flex-1" style={{ background: 'var(--hearth-accent)' }} />
+                  <span>New</span>
+                  <span className="h-px flex-1" style={{ background: 'var(--hearth-accent)' }} />
+                </div>
               )}
-              <MessageBubble message={msg} artifacts={artifacts} onOpenArtifact={onOpenArtifact} />
+              <MessageRow
+                message={msg}
+                onVisible={onMessageVisible}
+              >
+              <MessageBubble
+                message={msg}
+                artifacts={artifacts}
+                onOpenArtifact={onOpenArtifact}
+                author={msg.role === 'user' ? author : undefined}
+                showAuthor={showAuthor}
+                respondingToAuthor={respondingToAuthor}
+              />
+
+              {sessionId && msg.id !== '__streaming__' && msg.reactions && msg.reactions.length > 0 && (
+                <ReactionChips
+                  sessionId={sessionId}
+                  messageId={msg.id}
+                  reactions={msg.reactions}
+                  align={msg.role === 'user' ? 'end' : 'start'}
+                />
+              )}
+
+              {taskChips?.get(msg.id)?.map((chip) => (
+                <TaskChip
+                  key={chip.taskId}
+                  chip={chip}
+                  align={msg.role === 'user' ? 'end' : 'start'}
+                  onUnlink={onUnlinkTask}
+                />
+              ))}
+
+              {taskSuggestions?.get(msg.id) && onDismissTaskSuggestion && (
+                <TaskSuggestionCard
+                  suggestion={taskSuggestions.get(msg.id)!}
+                  onLocalDismiss={() => onDismissTaskSuggestion(taskSuggestions.get(msg.id)!.id)}
+                />
+              )}
+
+              {/* "This looks like a task" nudge — only on assistant messages
+                  with multi-step shape, no existing chip, no pending
+                  suggestion, and not the streaming placeholder. */}
+              {sessionId
+                && msg.role === 'assistant'
+                && msg.id !== '__streaming__'
+                && !taskChips?.get(msg.id)?.length
+                && !taskSuggestions?.get(msg.id)
+                && (() => {
+                  const sig = detectTaskShape(msg.content);
+                  if (!sig.matches) return null;
+                  return (
+                    <TaskShapeNudge
+                      sessionId={sessionId}
+                      messageId={msg.id}
+                      initialTitle={deriveTaskTitle(msg.content)}
+                      dismissalKey={`hearth.task-nudge.dismissed.${sessionId}.${msg.id}`}
+                    />
+                  );
+                })()}
+
+              {/* "Make it a routine?" nudge — only on user messages, skip
+                  optimistic placeholders. The hook calls the recurrence
+                  endpoint and renders if ≥2 prior similar prompts exist. */}
+              {sessionId
+                && msg.role === 'user'
+                && !msg.id.startsWith('user_')
+                && msg.id !== '__streaming__'
+                && msg.content && msg.content.length >= 10
+                && (
+                  <RoutineNudge
+                    prompt={msg.content}
+                    messageId={msg.id}
+                    dismissalKey={`hearth.routine-nudge.dismissed.${sessionId}.${msg.id}`}
+                  />
+                )}
 
               {governanceWarnings?.has(msg.id) && (
                 <div className="mt-1 flex items-center gap-1 text-xs" style={{ color: 'var(--hearth-warn)' }}>
@@ -124,7 +277,7 @@ export function MessageList({
                 </div>
               )}
 
-              {hoveredMessageId === msg.id && !readOnly && msg.id !== '__streaming__' && sessionId && (
+              {!readOnly && msg.id !== '__streaming__' && sessionId && (
                 <MessageActions
                   messageId={msg.id}
                   sessionId={sessionId}
@@ -134,6 +287,7 @@ export function MessageList({
                   onDuplicate={msg.role === 'user' && onDuplicateFromMessage ? () => onDuplicateFromMessage(msg.id) : undefined}
                 />
               )}
+              </MessageRow>
             </div>
           );
         })}
@@ -147,7 +301,7 @@ export function MessageList({
         <div ref={bottomRef} />
       </div>
 
-      {showScrollButton && (
+      {hasNewWhileAway && (
         <button
           type="button"
           onClick={scrollToBottom}
@@ -160,6 +314,53 @@ export function MessageList({
           </span>
         </button>
       )}
+    </div>
+  );
+}
+
+interface MessageRowProps {
+  message: ChatMessage;
+  onVisible?: (messageId: string) => void;
+  children: React.ReactNode;
+}
+
+function MessageRow({ message, onVisible, children }: MessageRowProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Mark as read after the message has been continuously visible for 1.5s.
+  // Skip optimistic / streaming placeholders.
+  useEffect(() => {
+    if (!onVisible) return;
+    if (message.id === '__streaming__' || message.id.startsWith('user_')) return;
+    const el = ref.current;
+    if (!el) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          timer = setTimeout(() => onVisible(message.id), 1500);
+        } else if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [message.id, onVisible]);
+
+  return (
+    <div
+      ref={ref}
+      className="group relative"
+      data-message-id={message.id}
+    >
+      {children}
     </div>
   );
 }

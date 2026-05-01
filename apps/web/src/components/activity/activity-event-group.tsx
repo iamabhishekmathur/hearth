@@ -35,7 +35,7 @@ export function ActivityEventGroup({ action, events }: ActivityEventGroupProps) 
 
   if (expanded) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2 animate-fade-in">
         <button
           type="button"
           onClick={() => setExpanded(false)}
@@ -57,7 +57,7 @@ export function ActivityEventGroup({ action, events }: ActivityEventGroupProps) 
     <button
       type="button"
       onClick={() => setExpanded(true)}
-      className="flex w-full items-center gap-3 rounded-lg border border-hearth-border bg-hearth-card p-3 text-left hover:bg-hearth-bg"
+      className="flex w-full items-center gap-3 rounded-lg border border-hearth-border bg-hearth-card p-3 text-left hover:bg-hearth-bg animate-fade-in"
     >
       {/* Stacked avatars */}
       <div className="flex -space-x-2">

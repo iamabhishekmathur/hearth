@@ -14,7 +14,7 @@ export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarPro
 
   return (
     <aside
-      className="flex h-full flex-col items-center border-r border-hearth-border bg-hearth-rail"
+      className="flex h-full flex-col items-center border-r border-hearth-border bg-hearth-rail animate-fade-in"
       style={{ width: 76, minWidth: 76 }}
     >
       {/* Logo */}
@@ -32,7 +32,7 @@ export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarPro
       {/* Primary nav */}
       <nav className="flex flex-col items-center gap-1">
         <HRailItem icon="chat" label="Chat" active={active('/chat')} onClick={() => onNavigate('/chat')} />
-        <HRailItem icon="board" label="Workspace" active={active('/workspace')} onClick={() => onNavigate('/workspace')} />
+        <HRailItem icon="board" label="Tasks" active={active('/tasks')} onClick={() => onNavigate('/tasks')} />
         <HRailItem icon="clock" label="Routines" active={active('/routines')} onClick={() => onNavigate('/routines')} />
         <HRailItem icon="skills" label="Skills" active={active('/skills')} onClick={() => onNavigate('/skills')} />
         <HRailItem icon="memory" label="Memory" active={active('/memory')} onClick={() => onNavigate('/memory')} />

@@ -1,5 +1,8 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { api } from '@/lib/api-client';
+import { emitTyping, emitComposing, emitHeartbeat } from '@/lib/socket-client';
+import type { ComposingUser, PresenceUser } from '@hearth/shared';
+import { TaskComposer, type TaskComposerSubmit } from './task-composer';
 
 export interface PendingAttachment {
   id?: string; // Set after upload completes
@@ -25,12 +28,26 @@ interface ChatInputProps {
   };
   /** Whether @mention cognitive queries are available */
   cognitiveEnabled?: boolean;
+  /** Active session id — used for presence emission */
+  sessionId?: string | null;
+  /** Other users currently typing (excludes me) */
+  typingUsers?: PresenceUser[];
+  /** Other users currently composing (excludes me) */
+  composingUsers?: ComposingUser[];
+  /** Anchor message id for /task slash composer (typically the latest message in the session) */
+  latestMessageId?: string | null;
 }
 
 const ACCEPTED_TYPES = 'image/*,application/pdf,text/*,application/json';
 
-export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const [focused, setFocused] = useState(false);
+  const [taskSlashOpen, setTaskSlashOpen] = useState(false);
+  const [taskSlashSeed, setTaskSlashSeed] = useState('');
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const composingThresholdsHitRef = useRef<Set<number>>(new Set());
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionResults, setMentionResults] = useState<MentionUser[]>([]);
@@ -116,6 +133,15 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
     if ((!trimmed && attachments.length === 0) || disabled) return;
+    // Intercept /task — open the inline composer instead of sending to the agent.
+    const slashMatch = /^\/task(?:\s+(.*))?$/.exec(trimmed);
+    if (slashMatch && sessionId && latestMessageId) {
+      setTaskSlashSeed(slashMatch[1]?.trim() ?? '');
+      setTaskSlashOpen(true);
+      setValue('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      return;
+    }
     onSend(trimmed, attachments, selectedMention ?? undefined);
     setValue('');
     setAttachments([]);
@@ -125,7 +151,12 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [value, attachments, disabled, onSend, selectedMention]);
+  }, [value, attachments, disabled, onSend, selectedMention, sessionId, latestMessageId]);
+
+  const handleTaskSlashSubmit = useCallback((_result: TaskComposerSubmit) => {
+    setTaskSlashOpen(false);
+    setTaskSlashSeed('');
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -168,6 +199,49 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
       ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     }
   }, []);
+
+  // Emit typing (3s debounce) and composing-at-thresholds whenever value changes.
+  useEffect(() => {
+    if (!sessionId) return;
+    const len = value.length;
+
+    // Typing: fire on every keystroke; server collapses with TTL.
+    if (len > 0) {
+      if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+      emitTyping(sessionId);
+      typingDebounceRef.current = setTimeout(() => {
+        // Re-emit if still typing 3s later (keeps server TTL alive)
+        if (textareaRef.current?.value && textareaRef.current.value.length > 0) {
+          emitTyping(sessionId);
+        }
+      }, 3_000);
+    }
+
+    // Composing thresholds: 1, 50, 200 chars (each fires once per crossing)
+    const thresholds = [1, 50, 200];
+    for (const t of thresholds) {
+      if (len >= t && !composingThresholdsHitRef.current.has(t)) {
+        composingThresholdsHitRef.current.add(t);
+        emitComposing(sessionId, len);
+      }
+    }
+    if (len === 0) composingThresholdsHitRef.current.clear();
+  }, [value, sessionId]);
+
+  // Heartbeat while focused, to defer the server-side idle sweep.
+  useEffect(() => {
+    if (!sessionId || !focused) {
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = undefined;
+      return;
+    }
+    emitHeartbeat(sessionId);
+    heartbeatIntervalRef.current = setInterval(() => emitHeartbeat(sessionId), 30_000);
+    return () => {
+      if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = undefined;
+    };
+  }, [sessionId, focused]);
 
   const handleFileSelect = useCallback(() => {
     fileInputRef.current?.click();
@@ -356,6 +430,24 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
           </div>
         )}
 
+        {/* Slash-command /task composer */}
+        {taskSlashOpen && sessionId && latestMessageId && (
+          <div className="mb-2">
+            <TaskComposer
+              sessionId={sessionId}
+              anchorMessageId={latestMessageId}
+              provenance="chat_slash"
+              initialTitle={taskSlashSeed}
+              initialAttachRecentN={6}
+              onSubmit={handleTaskSlashSubmit}
+              onCancel={() => { setTaskSlashOpen(false); setTaskSlashSeed(''); }}
+            />
+          </div>
+        )}
+
+        {/* Composing / typing presence */}
+        <PresenceBanner typingUsers={typingUsers ?? []} composingUsers={composingUsers ?? []} myInputFocused={focused} />
+
         <div className="flex items-end gap-2">
           {/* Attachment button */}
           <button
@@ -407,6 +499,8 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled }: 
             onKeyDown={handleKeyDown}
             onInput={handleInput}
             onPaste={handlePaste}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             placeholder="Type a message..."
             disabled={disabled}
             rows={1}
@@ -436,4 +530,62 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function PresenceBanner({
+  typingUsers,
+  composingUsers,
+  myInputFocused,
+}: {
+  typingUsers: PresenceUser[];
+  composingUsers: ComposingUser[];
+  myInputFocused: boolean;
+}) {
+  // Composing takes precedence over typing in the message — composing implies typing.
+  const composingNames = composingUsers.map((u) => u.name);
+  const typingOnly = typingUsers
+    .filter((t) => !composingUsers.some((c) => c.userId === t.userId))
+    .map((t) => t.name);
+
+  // Soft-warn: only when I'm focused AND someone else is composing.
+  const showSoftWarn = myInputFocused && composingUsers.length > 0;
+
+  if (composingNames.length === 0 && typingOnly.length === 0) return null;
+
+  const summary = (() => {
+    if (composingNames.length > 0) {
+      const names = formatNameList(composingNames);
+      return `${names} ${composingNames.length === 1 ? 'is' : 'are'} composing a prompt…`;
+    }
+    const names = formatNameList(typingOnly);
+    return `${names} ${typingOnly.length === 1 ? 'is' : 'are'} typing…`;
+  })();
+
+  return (
+    <div className="mb-1 flex flex-col gap-1">
+      <div className="flex items-center gap-1.5 text-[11px] text-hearth-text-faint">
+        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: 'var(--hearth-accent)' }} />
+        <span>{summary}</span>
+      </div>
+      {showSoftWarn && (
+        <div
+          className="inline-flex items-center gap-1.5 self-start rounded-md px-2 py-0.5 text-[11px]"
+          style={{
+            background: 'color-mix(in srgb, var(--hearth-warn) 12%, transparent)',
+            color: 'var(--hearth-warn)',
+          }}
+        >
+          <span aria-hidden>⚠</span>
+          <span>Your prompt may interleave with theirs — consider waiting.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatNameList(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names[0]}, ${names[1]} and ${names.length - 2} other${names.length - 2 > 1 ? 's' : ''}`;
 }

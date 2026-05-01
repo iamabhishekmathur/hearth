@@ -25,7 +25,7 @@ export function SkillRow({
 }: SkillRowProps) {
   return (
     <div
-      className={`flex cursor-pointer items-center gap-3 px-6 py-3 transition-colors hover:bg-hearth-bg ${
+      className={`flex cursor-pointer items-center gap-3 px-6 py-3 transition-colors hover:bg-hearth-bg animate-fade-in ${
         selected ? 'bg-hearth-50' : ''
       }`}
       onClick={onSelect}

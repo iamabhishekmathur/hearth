@@ -21,7 +21,7 @@ export function SherpaNudge({ recommendation, onInstall, onDismiss }: SherpaNudg
   };
 
   return (
-    <div className="mx-4 mb-3 rounded-lg border border-hearth-200 bg-hearth-50 p-3">
+    <div className="mx-4 mb-3 rounded-lg border border-hearth-200 bg-hearth-50 p-3 animate-fade-in">
       <div className="flex items-start gap-2">
         <svg className="mt-0.5 h-4 w-4 shrink-0 text-hearth-500" viewBox="0 0 20 20" fill="currentColor">
           <path d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1Z" />

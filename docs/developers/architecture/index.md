@@ -48,7 +48,7 @@ Every technology choice optimizes for the fastest path to a working product with
 Single-page application with Tailwind CSS and shadcn/ui components. Primary views:
 
 - **Chat** — Conversational interface with streaming responses
-- **Workspace** — Kanban board for task management with sub-agent orchestration
+- **Tasks** — Kanban board for task management with sub-agent orchestration
 - **Routines** — Scheduled automations (daily briefs, meeting prep, inbox processing)
 - **Skills** — Browse, install, and manage agent skills
 - **Memory** — View and curate organization, team, and personal memory

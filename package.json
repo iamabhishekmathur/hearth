@@ -15,7 +15,8 @@
     "db:seed": "pnpm --filter @hearth/api exec prisma db seed",
     "db:studio": "pnpm --filter @hearth/api exec prisma studio",
     "docs:dev": "pnpm --filter @hearth/docs dev",
-    "docs:build": "pnpm --filter @hearth/docs build"
+    "docs:build": "pnpm --filter @hearth/docs build",
+    "seed:gtm-demo": "pnpm --filter @hearth/api seed:gtm-demo"
   },
   "pnpm": {
     "overrides": {

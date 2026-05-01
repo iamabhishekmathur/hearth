@@ -57,6 +57,7 @@ enum TaskSource {
   manual
   agent_proposed
   sub_agent
+  chat_user
 }
 
 enum TaskStepStatus {
@@ -169,6 +170,7 @@ enum TaskContextItemType {
   image
   text_block
   mcp_reference
+  chat_excerpt
 }
 
 enum ExtractionStatus {
@@ -352,6 +354,11 @@ model User {
   taskContextItems   TaskContextItem[]
   decisionsCreated   Decision[]           @relation("DecisionsCreated")
   outcomesObserved   DecisionOutcome[]    @relation("OutcomesObserved")
+  sessionReads       SessionRead[]
+  messageReactions   MessageReaction[]
+  notifications      Notification[]
+  notificationPreference NotificationPreference?
+  taskSuggestions    TaskSuggestion[]
 
   @@map("users")
 }
@@ -377,6 +384,9 @@ model ChatSession {
   agentExperiences  AgentExperience[]
   thoughtPatterns   ThoughtPattern[]
   decisions          Decision[]
+  reads              SessionRead[]
+  promotedTasks     Task[]                @relation("TaskFromSession")
+  taskSuggestions   TaskSuggestion[]
 
   @@map("chat_sessions")
 }
@@ -396,19 +406,58 @@ model SessionShare {
 }
 
 model ChatMessage {
-  id        String          @id @default(uuid())
-  sessionId String          @map("session_id")
-  role      ChatMessageRole
-  content   String
-  metadata  Json            @default("{}")
-  createdBy String?         @map("created_by")
-  createdAt DateTime        @default(now()) @map("created_at")
+  id                    String          @id @default(uuid())
+  sessionId             String          @map("session_id")
+  role                  ChatMessageRole
+  content               String
+  metadata              Json            @default("{}")
+  createdBy             String?         @map("created_by")
+  respondingToMessageId String?         @map("responding_to_message_id")
+  producedTaskIds       String[]        @default([]) @map("produced_task_ids")
+  createdAt             DateTime        @default(now()) @map("created_at")
 
-  session     ChatSession      @relation(fields: [sessionId], references: [id])
-  author      User?            @relation("MessageAuthor", fields: [createdBy], references: [id])
-  attachments ChatAttachment[]
+  session         ChatSession       @relation(fields: [sessionId], references: [id])
+  author          User?             @relation("MessageAuthor", fields: [createdBy], references: [id])
+  attachments     ChatAttachment[]
+  respondingTo    ChatMessage?      @relation("MessageReply", fields: [respondingToMessageId], references: [id])
+  replies         ChatMessage[]     @relation("MessageReply")
+  reads           SessionRead[]
+  reactions       MessageReaction[]
+  producedTasks   Task[]            @relation("TaskFromMessage")
+  taskSuggestions TaskSuggestion[]
 
+  @@index([respondingToMessageId])
   @@map("chat_messages")
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  emoji     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("message_reactions")
+}
+
+model SessionRead {
+  sessionId         String   @map("session_id")
+  userId            String   @map("user_id")
+  lastReadMessageId String?  @map("last_read_message_id")
+  lastReadAt        DateTime @default(now()) @map("last_read_at")
+
+  session     ChatSession  @relation(fields: [sessionId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  lastMessage ChatMessage? @relation(fields: [lastReadMessageId], references: [id])
+
+  @@id([sessionId, userId])
+  @@index([userId])
+  @@map("session_reads")
 }
 
 model ChatAttachment {
@@ -485,19 +534,21 @@ model ArtifactVersion {
 // ──────────────────────────────────────────────
 
 model Task {
-  id           String     @id @default(uuid())
-  userId       String     @map("user_id")
-  title        String
-  description  String?
-  status       TaskStatus @default(auto_detected)
-  source       TaskSource
-  sourceRef    Json?      @map("source_ref")
-  context      Json       @default("{}")
-  parentTaskId String?    @map("parent_task_id")
-  agentOutput  Json?      @map("agent_output")
-  priority     Int        @default(0)
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id              String     @id @default(uuid())
+  userId          String     @map("user_id")
+  title           String
+  description     String?
+  status          TaskStatus @default(auto_detected)
+  source          TaskSource
+  sourceRef       Json?      @map("source_ref")
+  sourceSessionId String?    @map("source_session_id")
+  sourceMessageId String?    @map("source_message_id")
+  context         Json       @default("{}")
+  parentTaskId    String?    @map("parent_task_id")
+  agentOutput     Json?      @map("agent_output")
+  priority        Int        @default(0)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
 
   user           User                @relation(fields: [userId], references: [id])
   parentTask     Task?               @relation("SubTasks", fields: [parentTaskId], references: [id])
@@ -507,7 +558,12 @@ model Task {
   reviews        TaskReview[]
   skillProposals Skill[]
   contextItems   TaskContextItem[]
+  sourceSession  ChatSession?        @relation("TaskFromSession", fields: [sourceSessionId], references: [id])
+  sourceMessage  ChatMessage?        @relation("TaskFromMessage", fields: [sourceMessageId], references: [id])
+  suggestion     TaskSuggestion?
 
+  @@index([sourceSessionId])
+  @@index([sourceMessageId])
   @@map("tasks")
 }
 
@@ -537,6 +593,9 @@ model TaskContextItem {
   // Image vision analysis
   visionAnalysis   String?             @map("vision_analysis")
 
+  // Chat excerpt deep-link (used when type = chat_excerpt)
+  deepLink         String?             @map("deep_link")
+
   // Semantic search
   embedding        Unsupported("vector")?
 
@@ -550,6 +609,30 @@ model TaskContextItem {
 
   @@index([taskId, sortOrder])
   @@map("task_context_items")
+}
+
+model TaskSuggestion {
+  id                          String   @id @default(uuid())
+  sessionId                   String   @map("session_id")
+  messageId                   String   @map("message_id")
+  userId                      String   @map("user_id")
+  proposedTitle               String   @map("proposed_title")
+  proposedDescription         String?  @map("proposed_description")
+  suggestedContextMessageIds  Json     @default("[]") @map("suggested_context_message_ids")
+  confidence                  Float    @default(0.5)
+  status                      String   @default("pending") // pending | accepted | dismissed | expired
+  acceptedTaskId              String?  @unique @map("accepted_task_id")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  resolvedAt                  DateTime? @map("resolved_at")
+
+  session       ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  message       ChatMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id])
+  acceptedTask  Task?        @relation(fields: [acceptedTaskId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@index([sessionId, status])
+  @@map("task_suggestions")
 }
 
 model TaskComment {
@@ -1318,4 +1401,36 @@ model MeetingIngestion {
 
   @@index([orgId, meetingDate(sort: Desc)])
   @@map("meeting_ingestions")
+}
+
+// ──────────────────────────────────────────────
+// Notifications
+// ──────────────────────────────────────────────
+
+model Notification {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  type       String
+  title      String
+  body       String?
+  entityType String?   @map("entity_type")
+  entityId   String?   @map("entity_id")
+  sessionId  String?   @map("session_id")
+  readAt     DateTime? @map("read_at")
+  emailedAt  DateTime? @map("emailed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId String @id @map("user_id")
+  prefs  Json   @default("{}")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }

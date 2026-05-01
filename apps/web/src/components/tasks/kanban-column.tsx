@@ -54,7 +54,7 @@ export function KanbanColumn({
     <div
       role="list"
       aria-label={`${config.label} column, ${tasks.length} tasks`}
-      className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-hearth-bg"
+      className="flex w-72 flex-shrink-0 flex-col rounded-lg bg-hearth-bg animate-fade-in"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

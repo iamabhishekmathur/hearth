@@ -177,11 +177,12 @@ export function SkillsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HButton onClick={() => setPanel({ type: 'import' })}>
+          <HButton variant="ghost" onClick={() => setPanel({ type: 'import' })}>
             Import from GitHub
           </HButton>
           <HButton
             variant="accent"
+            icon="plus"
             onClick={() => setPanel({ type: 'create' })}
           >
             Create Skill
@@ -219,7 +220,7 @@ export function SkillsPage() {
       {/* Content — list + panel */}
       <div className="flex flex-1 overflow-hidden">
         {/* Skill list */}
-        <div className="flex-1 overflow-y-auto">
+        <div key={tab} className="flex-1 overflow-y-auto animate-fade-in">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
@@ -257,7 +258,7 @@ export function SkillsPage() {
 
         {/* Right panel */}
         {panel && (
-          <div className="w-[420px] shrink-0 border-l border-hearth-border bg-hearth-card">
+          <div className="w-[420px] shrink-0 border-l border-hearth-border bg-hearth-card animate-fade-in">
             {panel.type === 'detail' && (
               <SkillPanel
                 skill={panel.skill}

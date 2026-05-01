@@ -258,7 +258,7 @@ export function RoutineTemplateBrowser({ onSelect, onClose }: RoutineTemplateBro
                   key={template.id}
                   type="button"
                   onClick={() => onSelect(template)}
-                  className="group rounded-lg border border-hearth-border p-4 text-left transition-all hover:border-hearth-300 hover:shadow-hearth-1"
+                  className="group rounded-lg border border-hearth-border p-4 text-left transition-all hover:border-hearth-300 hover:shadow-hearth-1 animate-fade-in"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-hearth-chip text-sm font-bold text-hearth-text-muted group-hover:bg-hearth-100 group-hover:text-hearth-600">

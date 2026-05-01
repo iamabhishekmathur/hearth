@@ -210,16 +210,97 @@ Artifact types: `code`, `document`, `diagram`, `table`, `html`, `image`.
 
 ### Sharing and Collaboration
 
-- **Visibility:** Click **Share** in the header to toggle between **Private** (owner only) and **Org** (visible to everyone).
-- **Share links:** Create share links with content filters (all messages, responses only, prompts only) and optional expiration.
-- **Multiplayer:** When a session is shared, other users see a **Join conversation** button. After joining, everyone can send messages with author labels. Presence avatars show who's viewing.
-- **Branching:** Hover any message and click **Duplicate from here** to fork a new session from that point.
+Hearth chat is **multiplayer-first**: a session is a shared cognitive workspace, not a private DM with the AI.
+
+**Visibility & access**
+
+- **Private** (default) — only the owner sees the session.
+- **Org** — any org member can find the session in their **Shared sessions** list and join.
+- **Explicit collaborators** — invite specific people via the share dialog with a role: **viewer** (read-only) or **contributor** (can prompt the AI). Added users get an in-app notification.
+- **Public share links** — generate a tokenised link with optional expiration and content filter (all messages, results only, template).
+
+**Real-time presence**
+
+- **Avatar row** at the top of the chat shows everyone currently in the session. Avatar opacity reflects state: full = active, dimmed = viewing, faint = idle.
+- **Typing indicator** — "Sarah is typing…" appears above the input as soon as someone else starts.
+- **Composing indicator** — for longer prompts (≥1, 50, or 200 chars), shows "Sarah is composing a prompt…" so you know they're about to send something substantial.
+- **Concurrent compose warning** — if you start typing while a teammate is composing, an inline pill warns "Your prompt may interleave with theirs." Soft-warn only; you can ignore it.
+
+**Per-message attribution**
+
+- Every user message in a multi-author session shows the author's name + a deterministic colour avatar (eight-colour palette, hashed from user ID — same person, same colour everywhere).
+- Each AI reply shows "↳ replying to [name]" so you know which prompt produced it.
+
+**Reactions**
+
+Hover any non-streaming message → click the ☺ icon → pick from the allowed set: 👍 👎 ✅ ❓ ⚠️ 🎯. Reactions appear as chips below the message and update live for everyone in the room.
+
+**Unread tracking**
+
+- A horizontal **New** divider appears on session open above the first message you haven't seen.
+- Per-session **unread badges** appear on the session tab when activity arrives in a session you're not currently viewing.
+- The divider auto-dismisses once you scroll to the bottom; the badge clears as you read.
+
+**Notifications**
+
+A bell icon in the top-right of the app shows persistent notifications for:
+- Being added as a collaborator
+- Tasks created from your chats (see [Promoting chat into tasks](#promoting-chat-into-tasks))
+- Future: mentions, comments, governance blocks
+
+Click any notification to jump to the relevant session/task.
+
+**Branching**
+
+- Hover any message → **Fork conversation from here** (git-branch icon) creates a new session forked from that point. Useful for trying alternative directions without losing the original thread.
 
 ---
 
-## Workspace
+## Artifacts vs Tasks: when to use which
 
-Click **Workspace** in the sidebar to open the kanban board.
+Hearth has two ways to get work done with the AI. Choosing the right one keeps you out of the wrong tool's weak spots.
+
+**Artifacts in chat = co-production.** You're in the room. You and the AI iterate live on a single shaped output (doc, code, diagram, table, HTML, image). The chat is your control surface. When the conversation ends, the work is done.
+
+**Tasks on the board = delegation.** You're stepping away. The AI orchestrates multi-step work, possibly touches external systems, lands in a review gate. You come back later to approve or send it back.
+
+### One-line heuristic
+
+> **"Will I still be looking at this conversation when the work is done?"**
+>
+> Yes → artifact.  No → task.
+
+### Decision table
+
+| Signal | Stay in chat (artifacts) | Promote to task |
+|---|:---:|:---:|
+| Still figuring out what you want | ✓ | |
+| You've decided; want to step away | | ✓ |
+| One shaped output (doc / code / diagram) | ✓ | |
+| Multi-step work, possibly subtasks | | ✓ |
+| Touches external systems (Slack, PR, ticket) | | ✓ |
+| Want a review gate before it ships | | ✓ |
+| You'll want to find this work again next week | | ✓ (the board is your spatial memory) |
+| Someone else might own the followthrough | | ✓ |
+| It's recurring | _Routines_ — see [Routines](#routines) |
+
+### The fuzzy cases
+
+Some asks live on the boundary. "Draft a JD for staff PM" can be either: as an artifact you iterate live with the AI; as a task the agent goes off, drafts it, attaches the source chat as context, and lands in your backlog for review.
+
+When in doubt:
+
+- **Default to artifact** when the AI's response *is* the deliverable.
+- **Promote to task** when the AI's response would say "ok, I'll need to look at X, then synthesize Y, then publish to Z" (multi-step shape).
+- **Make it a routine** when you've asked for the same thing more than twice.
+
+The AI can also propose this for you — see [AI-suggested tasks](#ai-suggested-tasks) below.
+
+---
+
+## Tasks
+
+Click **Tasks** in the sidebar to open the kanban board.
 
 ### The Board
 
@@ -253,7 +334,37 @@ You can also **drag-and-drop** files onto the context panel, or **paste** — UR
 
 Each context item shows its extraction status (Pending, Extracting, Ready, Failed). Failed extractions can be retried with the **Refresh** button. All extracted content is serialized into the agent's prompt with intelligent token budgeting — if context is too large, the agent can drill into truncated items on demand.
 
-**Deep linking:** Append `?taskId=<id>` to the Workspace URL to open a specific task directly.
+**Deep linking:** Append `?taskId=<id>` to the Tasks URL to open a specific task directly.
+
+### Promoting chat into tasks
+
+Most useful tasks start as a chat exchange. Hearth gives you three ways to move work from a conversation onto the board.
+
+**A. The Create-task button.** Hover any non-streaming message → click the kanban icon (📋) in the action bar. A composer popover opens, pre-filled with a title derived from the message. Edit, pick **Backlog** or **Run now**, click Create.
+
+**B. The `/task` slash command.** Type `/task` (optionally followed by a title) in the chat input → a composer slides up above the input, anchored on the latest message and pre-attached to the last 6 messages of context. Submit and it lands on the board.
+
+**C. AI-suggested tasks.** When the AI thinks you've described task-shaped work, it can propose one inline. A card appears under its message with the proposed title, attached context preview, and Accept / Run now / Dismiss buttons. The agent picks `propose_task` (a suggestion you confirm) over `create_task` (it just does it) when intent is ambiguous — so you stay in control.
+
+For all three paths:
+
+- The originating chat session is recorded on the task (back-link).
+- A **chat excerpt** is auto-attached as a context item — the planning + execution agents see the conversation that led to the task.
+- A persistent **"✓ Task created · [title] · View →"** chip renders under the originating message. Clicking the link opens the task panel.
+- A toast slides down from the top of the chat for 5 seconds with **Undo**. After the window closes, the toast disappears but the chip stays.
+
+**Run now vs. Backlog**
+
+- **Backlog** — the task is just stashed; the agent doesn't run yet. Use when you want to triage later.
+- **Run now** — the task goes straight to **Planning**, which auto-progresses to **Executing**. The agent runs in the background; the chat stays untouched. Watch live progress on the task detail panel.
+
+**Reverse navigation (task → chat)**
+
+Open any task that was promoted from chat → the panel header shows **↩ From conversation: [session title]**. Clicking opens the chat session and scrolls to the originating message with a brief highlight. Chat-excerpt context items have their own **↩ Open in chat** links.
+
+**Idempotency**
+
+Promoting the same message twice returns the existing task. No duplicate rows, no duplicate chips.
 
 ### Work Intake
 

@@ -8,6 +8,7 @@ const TYPE_ICONS: Record<string, string> = {
   image: 'image',
   text_block: 'text',
   mcp_reference: 'integration',
+  chat_excerpt: 'chat',
 };
 
 const STATUS_BADGE: Record<ExtractionStatus, { label: string; color: string }> = {
@@ -53,7 +54,7 @@ export function ContextItemCard({
   }
 
   return (
-    <div className="group rounded-lg border border-hearth-border bg-hearth-card p-3 transition-colors hover:border-hearth-border-strong">
+    <div className="group rounded-lg border border-hearth-border bg-hearth-card p-3 transition-colors hover:border-hearth-border-strong animate-fade-in">
       {/* Header row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -105,6 +106,16 @@ export function ContextItemCard({
       {/* Source info */}
       {item.type === 'link' && (
         <p className="mt-1 text-xs text-blue-500 truncate">{item.rawValue}</p>
+      )}
+      {item.type === 'chat_excerpt' && item.deepLink && (
+        <a
+          href={`#${item.deepLink}`}
+          className="mt-1 inline-flex items-center gap-1 text-xs text-hearth-accent hover:underline"
+          title="Open the source chat"
+        >
+          <span aria-hidden>↩</span>
+          Open in chat
+        </a>
       )}
       {(item.type === 'file' || item.type === 'image') && item.sizeBytes != null && (
         <p className="mt-1 text-xs text-hearth-text-faint">

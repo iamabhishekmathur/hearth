@@ -105,6 +105,7 @@ export function RoutinesPage() {
           </div>
           <HButton
             variant="accent"
+            icon="plus"
             onClick={() => setShowCreate(true)}
           >
             New Routine
@@ -162,12 +163,14 @@ export function RoutinesPage() {
         </div>
         <div className="flex items-center gap-2">
           <HButton
+            variant="ghost"
             onClick={() => { setView('templates'); setSelected(null); }}
           >
             Browse Templates
           </HButton>
           <HButton
             variant="accent"
+            icon="plus"
             onClick={() => { setShowCreate(true); setSelected(null); setPrefill(null); }}
           >
             New Routine
@@ -199,7 +202,7 @@ export function RoutinesPage() {
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* Create form (inline bar) */}
         {showCreate && (
-          <div className="border-b border-hearth-border bg-hearth-card-alt px-6 py-4">
+          <div className="border-b border-hearth-border bg-hearth-card-alt px-6 py-4 animate-fade-in">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-hearth-text">
                 {prefill ? `Create from template: ${prefill.name}` : 'Create Routine'}
@@ -233,7 +236,7 @@ export function RoutinesPage() {
         ) : (
           <div className="flex min-h-0 flex-1">
             {/* List */}
-            <div className={`flex-1 p-4 ${selected ? 'hidden md:block' : ''}`}>
+            <div key={activeScope ?? 'all'} className={`flex-1 p-4 animate-fade-in ${selected ? 'hidden md:block' : ''}`}>
               <RoutineList
                 routines={routines}
                 selectedId={selected?.id ?? null}

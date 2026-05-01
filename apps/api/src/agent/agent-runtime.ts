@@ -164,6 +164,17 @@ export async function* agentLoop(
         durationMs,
       };
 
+      // Side-effect detection: MCP tools whose name implies a write
+      // emit a hint so the chat UI can suggest "make this a task with
+      // a review gate" — useful for high-stakes external actions.
+      if (!result.error && hasExternalSideEffect(toolCall.name)) {
+        yield {
+          type: 'side_effect',
+          toolName: toolCall.name,
+          provider: extractProvider(toolCall.name),
+        };
+      }
+
       // Add tool result message for the LLM — include error so model doesn't retry blindly
       conversationMessages.push({
         role: 'tool',
@@ -200,4 +211,33 @@ export async function* agentLoop(
   }
 
   yield { type: 'done', usage: finalUsage };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Side-effect detection
+//
+// Heuristic: MCP tool calls (prefixed `mcp__provider__action`) whose
+// action verb implies a write to an external system. We don't gate the
+// call — the agent already ran it — but we surface a UI hint so the
+// user can promote similar requests into tasks (with a review gate).
+// ────────────────────────────────────────────────────────────────────────
+
+const WRITE_VERBS = [
+  'send', 'post', 'create', 'publish', 'write', 'add', 'update',
+  'edit', 'comment', 'file', 'delete', 'remove', 'schedule', 'invite',
+  'transition', 'move', 'merge', 'close', 'reply',
+];
+
+function hasExternalSideEffect(toolName: string): boolean {
+  // Only MCP-prefixed tools are considered "external" — the rest are internal Hearth state.
+  if (!toolName.startsWith('mcp__')) return false;
+  // Strip the prefix and provider; check action verb.
+  const rest = toolName.slice('mcp__'.length).toLowerCase();
+  return WRITE_VERBS.some((v) => rest.includes(v));
+}
+
+function extractProvider(toolName: string): string {
+  // mcp__slack__send_message → slack
+  const parts = toolName.split('__');
+  return parts.length >= 2 ? parts[1] : 'integration';
 }

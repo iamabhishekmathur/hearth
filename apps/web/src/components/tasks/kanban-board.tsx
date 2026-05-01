@@ -88,7 +88,7 @@ export function KanbanBoard() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
-        <h1 className="text-xl font-bold text-hearth-text">Workspace</h1>
+        <h1 className="text-xl font-bold text-hearth-text">Tasks</h1>
         <button
           type="button"
           onClick={() => setShowCreateForm(!showCreateForm)}

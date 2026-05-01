@@ -48,14 +48,14 @@ export function ArtifactDrawer({ artifact, onClose }: ArtifactDrawerProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/40"
+        className="fixed inset-0 z-40 bg-black/40 animate-fade-in"
         onClick={onClose}
       />
 
       {/* Drawer */}
       <div
         ref={drawerRef}
-        className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl bg-hearth-card shadow-hearth-4"
+        className="fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl bg-hearth-card shadow-hearth-4 animate-scale-in"
         style={{ transform: `translateY(${translateY}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

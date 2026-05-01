@@ -12,7 +12,7 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const isRunning = toolCall.status === 'running';
 
   return (
-    <div className="ml-10">
+    <div className="ml-10 animate-fade-in">
       <button
         type="button"
         className="flex items-center gap-1.5"

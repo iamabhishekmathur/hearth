@@ -12,7 +12,60 @@ interface SocketWithUser extends Socket {
 }
 
 // In-memory presence tracking per session room
-const roomPresence = new Map<string, Map<string, { userId: string; name: string }>>();
+type PresenceState = 'active' | 'viewing' | 'idle';
+interface PresenceMember {
+  userId: string;
+  name: string;
+  lastActiveAt: number;
+  state: PresenceState;
+}
+const roomPresence = new Map<string, Map<string, PresenceMember>>();
+
+// Per-(socket,room) typing/composing TTL timers
+const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const composingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const TYPING_TTL_MS = 5_000;
+const COMPOSING_TTL_MS = 30_000;
+const IDLE_AFTER_MS = 120_000;
+
+function timerKey(socketId: string, room: string): string {
+  return `${socketId}:${room}`;
+}
+
+// Periodically demote idle users and rebroadcast state changes.
+let idleSweepStarted = false;
+function startIdleSweep(): void {
+  if (idleSweepStarted) return;
+  idleSweepStarted = true;
+  setInterval(() => {
+    const now = Date.now();
+    for (const [room, members] of roomPresence.entries()) {
+      const seenUserState = new Map<string, PresenceState>();
+      // Per-user worst (newest-state-precedence) — collapse multi-tab.
+      for (const m of members.values()) {
+        const isIdle = now - m.lastActiveAt > IDLE_AFTER_MS;
+        const next: PresenceState = isIdle ? 'idle' : m.state;
+        const prior = seenUserState.get(m.userId);
+        // Promote: active > viewing > idle
+        const rank = (s: PresenceState) => (s === 'active' ? 2 : s === 'viewing' ? 1 : 0);
+        if (!prior || rank(next) > rank(prior)) seenUserState.set(m.userId, next);
+      }
+      for (const [userId, state] of seenUserState.entries()) {
+        // If any socket for this user has a different `state` than `state`, update + emit.
+        let changed = false;
+        for (const m of members.values()) {
+          if (m.userId === userId && m.state !== state) {
+            m.state = state;
+            changed = true;
+          }
+        }
+        if (changed) {
+          ioInstance?.to(room).emit('presence:state', { userId, state });
+        }
+      }
+    }
+  }, 30_000).unref();
+}
 
 /**
  * Sets up Socket.io connection handling with session-based authentication
@@ -23,6 +76,7 @@ export function setupSocketManager(
   sessionMiddleware: RequestHandler,
 ): void {
   ioInstance = io;
+  startIdleSweep();
 
   // Share the Express session middleware with Socket.io for cookie-based auth
   io.engine.use(sessionMiddleware);
@@ -94,6 +148,8 @@ export function setupSocketManager(
         members.set(socket.id, {
           userId: socket.userId,
           name: socket.userName ?? 'Unknown',
+          lastActiveAt: Date.now(),
+          state: 'viewing',
         });
 
         // Broadcast presence:join to the room
@@ -102,12 +158,15 @@ export function setupSocketManager(
           name: socket.userName,
         });
 
-        // Send current members list to the joining user
-        const currentMembers = Array.from(members.values());
-        // Deduplicate by userId (a user may have multiple tabs/sockets)
-        const unique = new Map<string, { userId: string; name: string }>();
-        for (const m of currentMembers) {
-          unique.set(m.userId, m);
+        // Send current members list to the joining user (with state)
+        const unique = new Map<string, { userId: string; name: string; state: PresenceState }>();
+        for (const m of members.values()) {
+          // Promote to the strongest state any of the user's sockets reports.
+          const prior = unique.get(m.userId);
+          const rank = (s: PresenceState) => (s === 'active' ? 2 : s === 'viewing' ? 1 : 0);
+          if (!prior || rank(m.state) > rank(prior.state)) {
+            unique.set(m.userId, { userId: m.userId, name: m.name, state: m.state });
+          }
         }
         socket.emit('presence:list', Array.from(unique.values()));
       } catch (err) {
@@ -126,6 +185,58 @@ export function setupSocketManager(
       handlePresenceLeave(socket as SocketWithUser, room);
 
       logger.info({ socketId: socket.id, sessionId }, 'Left session room');
+    });
+
+    // Typing indicator (short TTL, no DB)
+    socket.on('presence:typing', (sessionId: string) => {
+      if (!socket.userId || typeof sessionId !== 'string') return;
+      const room = `session:${sessionId}`;
+      // Only emit if the socket is actually in the room (was access-checked at join).
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('presence:typing', { userId: socket.userId, name: socket.userName });
+      bumpActive(socket as SocketWithUser, room);
+
+      const key = timerKey(socket.id, room);
+      const prior = typingTimers.get(key);
+      if (prior) clearTimeout(prior);
+      typingTimers.set(
+        key,
+        setTimeout(() => {
+          typingTimers.delete(key);
+          ioInstance?.to(room).emit('presence:typing:stop', { userId: socket.userId });
+        }, TYPING_TTL_MS),
+      );
+    });
+
+    // Composing indicator (longer TTL — signals "I'm about to send a prompt")
+    socket.on('presence:composing', (payload: { sessionId: string; charCount: number }) => {
+      if (!socket.userId || !payload || typeof payload.sessionId !== 'string') return;
+      const room = `session:${payload.sessionId}`;
+      if (!socket.rooms.has(room)) return;
+      const charCount = Math.max(0, Math.min(10_000, Number(payload.charCount) || 0));
+      socket.to(room).emit('presence:composing', {
+        userId: socket.userId,
+        name: socket.userName,
+        charCount,
+      });
+      bumpActive(socket as SocketWithUser, room);
+
+      const key = timerKey(socket.id, room);
+      const prior = composingTimers.get(key);
+      if (prior) clearTimeout(prior);
+      composingTimers.set(
+        key,
+        setTimeout(() => {
+          composingTimers.delete(key);
+          ioInstance?.to(room).emit('presence:composing:stop', { userId: socket.userId });
+        }, COMPOSING_TTL_MS),
+      );
+    });
+
+    // Heartbeat — refresh lastActiveAt so the idle sweep doesn't demote.
+    socket.on('presence:heartbeat', (sessionId: string) => {
+      if (typeof sessionId !== 'string') return;
+      bumpActive(socket as SocketWithUser, `session:${sessionId}`);
     });
 
     // Join a task room for real-time task updates — verifies ownership
@@ -225,10 +336,32 @@ export function setupSocketManager(
 }
 
 /**
+ * Updates lastActiveAt and (if changed) broadcasts state=active for the user.
+ */
+function bumpActive(socket: SocketWithUser, room: string): void {
+  const members = roomPresence.get(room);
+  if (!members || !socket.userId) return;
+  const m = members.get(socket.id);
+  if (!m) return;
+  m.lastActiveAt = Date.now();
+  if (m.state !== 'active') {
+    m.state = 'active';
+    ioInstance?.to(room).emit('presence:state', { userId: socket.userId, state: 'active' });
+  }
+}
+
+/**
  * Handles presence leave — removes socket from room tracking and broadcasts
  * leave event if the user has no other sockets in the room.
  */
 function handlePresenceLeave(socket: SocketWithUser, room: string): void {
+  // Clear any TTL timers for this socket+room.
+  const tKey = timerKey(socket.id, room);
+  const t = typingTimers.get(tKey);
+  if (t) { clearTimeout(t); typingTimers.delete(tKey); }
+  const c = composingTimers.get(tKey);
+  if (c) { clearTimeout(c); composingTimers.delete(tKey); }
+
   const members = roomPresence.get(room);
   if (!members) return;
 

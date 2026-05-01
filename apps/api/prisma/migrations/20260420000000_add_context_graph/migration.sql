@@ -186,10 +186,11 @@ ALTER TABLE "org_principles" ADD CONSTRAINT "org_principles_org_id_fkey" FOREIGN
 ALTER TABLE "org_principle_evidence" ADD CONSTRAINT "org_principle_evidence_principle_id_fkey" FOREIGN KEY ("principle_id") REFERENCES "org_principles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "org_principle_evidence" ADD CONSTRAINT "org_principle_evidence_pattern_id_fkey" FOREIGN KEY ("pattern_id") REFERENCES "decision_patterns"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Vector indexes (IVFFlat for cosine similarity)
-CREATE INDEX idx_decision_embedding ON "decisions" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX idx_pattern_embedding ON "decision_patterns" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50);
-CREATE INDEX idx_principle_embedding ON "org_principles" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50);
+-- Vector indexes deferred: embedding columns use untyped vector for flexible dimensions.
+-- Add HNSW indexes after embedding dimension is configured:
+--   CREATE INDEX idx_decision_embedding ON "decisions" USING hnsw (embedding vector_cosine_ops);
+--   CREATE INDEX idx_pattern_embedding ON "decision_patterns" USING hnsw (embedding vector_cosine_ops);
+--   CREATE INDEX idx_principle_embedding ON "org_principles" USING hnsw (embedding vector_cosine_ops);
 
 -- Full-text search GIN index on decisions
 CREATE INDEX idx_decision_fts ON "decisions" USING gin (to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '') || ' ' || coalesce(reasoning, '')));

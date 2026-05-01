@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Artifact, ArtifactVersion } from '@/hooks/use-artifacts';
 import { ArtifactContent } from './artifact-content';
+import { api } from '@/lib/api-client';
 
 // ── Type config ──────────────────────────────────────────────────────────
 
@@ -49,8 +50,27 @@ export function ArtifactPanel({
   const [editContent, setEditContent] = useState('');
   const [revisionInput, setRevisionInput] = useState('');
   const [showRevisionInput, setShowRevisionInput] = useState(false);
+  const [promoting, setPromoting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
+
+  const handlePromoteToTask = useCallback(
+    async (targetStatus: 'backlog' | 'planning') => {
+      setPromoting(true);
+      try {
+        await api.post(`/chat/artifacts/${artifact.id}/promote-to-task`, {
+          targetStatus,
+        });
+        // Server emits task:created_from_chat → toast appears in chat.
+        setActionsOpen(false);
+      } catch {
+        // best-effort — server-side errors will be visible elsewhere
+      } finally {
+        setPromoting(false);
+      }
+    },
+    [artifact.id],
+  );
 
   // Escape key exits fullscreen
   useEffect(() => {
@@ -102,7 +122,7 @@ export function ArtifactPanel({
   const typeCfg = TYPE_CONFIG[artifact.type] ?? TYPE_CONFIG.code;
 
   return (
-    <div className={`flex flex-col bg-hearth-bg ${isFullscreen ? 'fixed inset-0 z-50' : 'h-full min-w-0 flex-1 border-l border-hearth-border'}`}>
+    <div className={`flex flex-col bg-hearth-bg animate-fade-in ${isFullscreen ? 'fixed inset-0 z-50' : 'h-full min-w-0 flex-1 border-l border-hearth-border'}`}>
       {/* ── Header bar (dark) ─────────────────────────────────── */}
       <div className="flex items-center justify-between bg-gray-900 px-4 py-2.5">
         {/* Left: type icon + title + switcher */}
@@ -241,6 +261,31 @@ export function ArtifactPanel({
                     <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
                   </svg>
                   Download
+                </button>
+                <div className="mx-3 my-1 border-t border-gray-700" />
+                <button
+                  type="button"
+                  onClick={() => void handlePromoteToTask('backlog')}
+                  disabled={promoting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-hearth-text-faint hover:bg-gray-700 hover:text-white disabled:opacity-50"
+                  title="Save this artifact as a task in your backlog"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M3.5 4A2.5 2.5 0 0 1 6 1.5h8A2.5 2.5 0 0 1 16.5 4v12A2.5 2.5 0 0 1 14 18.5H6A2.5 2.5 0 0 1 3.5 16V4Zm3 1.75A.75.75 0 0 1 7.25 5h5.5a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1-.75-.75ZM7.25 9a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5ZM6.5 13.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Z" />
+                  </svg>
+                  {promoting ? 'Creating…' : 'Save as task'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handlePromoteToTask('planning')}
+                  disabled={promoting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-hearth-text-faint hover:bg-gray-700 hover:text-white disabled:opacity-50"
+                  title="Promote to task and start the agent now"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.89a1.5 1.5 0 0 0 0-2.54L6.3 2.84Z" />
+                  </svg>
+                  Ship now (run agent)
                 </button>
                 <div className="mx-3 my-1 border-t border-gray-700" />
                 <div className="px-3 py-1.5 text-xs text-hearth-text-muted">

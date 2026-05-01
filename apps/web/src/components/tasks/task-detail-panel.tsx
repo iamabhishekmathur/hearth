@@ -44,7 +44,7 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
 
   if (loading || !task) {
     return (
-      <div className="fixed inset-y-0 right-0 z-50 w-[460px] max-w-[90vw] border-l border-hearth-border bg-hearth-card shadow-hearth-4">
+      <div className="fixed inset-y-0 right-0 z-50 w-[460px] max-w-[90vw] border-l border-hearth-border bg-hearth-card shadow-hearth-4 animate-fade-in">
         <div className="flex items-center justify-center h-full">
           <p className="text-sm text-hearth-text-faint">Loading...</p>
         </div>
@@ -55,7 +55,7 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
   const editable = EDITABLE_STATUSES.has(task.status as TaskStatus);
 
   return (
-    <div role="dialog" aria-label={`Task detail: ${task.title}`} className="fixed inset-y-0 right-0 z-50 flex w-[460px] max-w-[90vw] flex-col border-l border-hearth-border bg-hearth-card shadow-hearth-4">
+    <div role="dialog" aria-label={`Task detail: ${task.title}`} className="fixed inset-y-0 right-0 z-50 flex w-[460px] max-w-[90vw] flex-col border-l border-hearth-border bg-hearth-card shadow-hearth-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-hearth-border px-4 py-3">
         <div className="min-w-0 flex-1">
@@ -78,6 +78,25 @@ export function TaskDetailPanel({ taskId, onClose }: TaskDetailPanelProps) {
           </svg>
         </button>
       </div>
+
+      {/* From conversation back-link */}
+      {task.sourceSessionId && (
+        <a
+          href={
+            task.sourceMessageId
+              ? `#/chat?sessionId=${task.sourceSessionId}&messageId=${task.sourceMessageId}`
+              : `#/chat?sessionId=${task.sourceSessionId}`
+          }
+          className="flex items-center gap-2 border-b border-hearth-border px-4 py-2 text-[12px] text-hearth-text-muted transition-colors hover:bg-hearth-bg"
+          title="Open the chat that produced this task"
+        >
+          <span aria-hidden>↩</span>
+          <span className="text-hearth-text-faint">From conversation:</span>
+          <span className="truncate font-medium text-hearth-text">
+            {task.sourceSession?.title ?? 'Untitled chat'}
+          </span>
+        </a>
+      )}
 
       {/* Tabs */}
       <div

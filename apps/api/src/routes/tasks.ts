@@ -70,7 +70,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const validSources: TaskSource[] = ['email', 'slack', 'meeting', 'manual', 'agent_proposed', 'sub_agent'];
+    const validSources: TaskSource[] = ['email', 'slack', 'meeting', 'manual', 'agent_proposed', 'sub_agent', 'chat_user'];
     if (!validSources.includes(source)) {
       res.status(400).json({ error: 'Invalid source' });
       return;

@@ -130,7 +130,7 @@ export function SessionHistory({ openSessionIds, onSelect, onDelete }: SessionHi
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-4">
+        <div className="absolute left-0 top-full z-50 mt-1 w-80 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-4 animate-scale-in">
           {/* Search input */}
           <div className="border-b border-hearth-border p-2">
             <div className="flex items-center gap-2 rounded-md border border-hearth-border bg-hearth-bg px-2.5 py-1.5">

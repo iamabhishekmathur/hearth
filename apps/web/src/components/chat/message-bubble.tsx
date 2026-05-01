@@ -3,10 +3,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { ChatMessage, ChatAttachment } from '@hearth/shared';
+import type { ChatMessage, ChatAttachment, MessageAuthor } from '@hearth/shared';
 import type { Artifact } from '@/hooks/use-artifacts';
 import { ArtifactBadge } from './artifact-badge';
 import { HAvatar } from '@/components/ui/primitives';
+import { authorColor, authorInitials } from '@/lib/author-color';
 
 function ensureClosedCodeFences(content: string): string {
   const fenceCount = (content.match(/```/g) || []).length;
@@ -27,6 +28,9 @@ interface MessageBubbleProps {
   message: ChatMessage;
   artifacts?: Artifact[];
   onOpenArtifact?: (id: string) => void;
+  author?: MessageAuthor;
+  showAuthor?: boolean;
+  respondingToAuthor?: MessageAuthor;
 }
 
 function renderWithCitations(text: string, sources?: CitationSource[]): React.ReactNode {
@@ -52,27 +56,49 @@ function renderWithCitations(text: string, sources?: CitationSource[]): React.Re
   });
 }
 
-export function MessageBubble({ message, artifacts, onOpenArtifact }: MessageBubbleProps) {
+export function MessageBubble({ message, artifacts, onOpenArtifact, author, showAuthor, respondingToAuthor }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const messageArtifacts = artifacts?.filter((a) => a.parentMessageId === message.id) ?? [];
   const attachments = message.attachments ?? [];
   const messageSources = (message.metadata as Record<string, unknown>)?.sources as CitationSource[] | undefined;
 
   if (isUser) {
+    const color = author ? authorColor(author.id) : null;
+    const initials = author ? authorInitials(author.name) : null;
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[70%]">
-          <div
-            className="rounded-2xl rounded-br-[4px] px-4 py-3 text-[14px] leading-[1.55] font-[450]"
-            style={{ background: 'var(--hearth-text)', color: 'var(--hearth-text-inverse)' }}
-          >
-            <p className="whitespace-pre-wrap">{message.content}</p>
+      <div className="flex flex-col items-end animate-fade-in">
+        {showAuthor && author && (
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] text-hearth-text-muted">
+            <span>{author.name}</span>
           </div>
-          {attachments.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
-              {attachments.map((att) => (
-                <AttachmentDisplay key={att.id} attachment={att} />
-              ))}
+        )}
+        <div className="flex max-w-[70%] items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <div
+              className="rounded-2xl rounded-br-[4px] px-4 py-3 text-[14px] leading-[1.55] font-[450]"
+              style={
+                color
+                  ? { background: color.fill, color: color.text }
+                  : { background: 'var(--hearth-text)', color: 'var(--hearth-text-inverse)' }
+              }
+            >
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            </div>
+            {attachments.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
+                {attachments.map((att) => (
+                  <AttachmentDisplay key={att.id} attachment={att} />
+                ))}
+              </div>
+            )}
+          </div>
+          {showAuthor && color && initials && (
+            <div
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold"
+              style={{ background: color.fill, color: color.text }}
+              title={author?.name}
+            >
+              {initials}
             </div>
           )}
         </div>
@@ -81,9 +107,14 @@ export function MessageBubble({ message, artifacts, onOpenArtifact }: MessageBub
   }
 
   return (
-    <div className="flex gap-3 items-start">
+    <div className="flex gap-3 items-start animate-fade-in">
       <HAvatar kind="agent" />
       <div className="flex-1 min-w-0">
+        {respondingToAuthor && (
+          <p className="mb-1 text-[11px] text-hearth-text-faint">
+            <span aria-hidden>↳ </span>replying to <span className="font-medium text-hearth-text-muted">{respondingToAuthor.name}</span>
+          </p>
+        )}
         <div className="prose prose-sm max-w-none text-[14.5px] leading-[1.6] text-hearth-text prose-p:my-1 prose-pre:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1 prose-headings:font-semibold prose-strong:text-hearth-text prose-code:text-hearth-accent prose-code:bg-hearth-chip prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[12.5px] prose-code:font-mono prose-code:font-normal">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}

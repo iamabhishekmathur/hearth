@@ -161,8 +161,8 @@ describe('extractCognitivePatterns', () => {
 
     // Only 1 user message (below threshold of 3)
     vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([
-      { id: 'm1', sessionId: 'sess-1', role: 'user', content: 'hello', metadata: {}, createdBy: null, createdAt: new Date() },
-      { id: 'm2', sessionId: 'sess-1', role: 'assistant', content: 'hi there', metadata: {}, createdBy: null, createdAt: new Date() },
+      { id: 'm1', sessionId: 'sess-1', role: 'user', content: 'hello', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm2', sessionId: 'sess-1', role: 'assistant', content: 'hi there', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
     ]);
 
     await extractCognitivePatterns({
@@ -181,11 +181,11 @@ describe('extractCognitivePatterns', () => {
     vi.mocked(prisma.cognitiveProfile.findUnique).mockResolvedValue(null);
 
     vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([
-      { id: 'm1', sessionId: 'sess-1', role: 'user', content: 'I prefer React over Vue', metadata: {}, createdBy: null, createdAt: new Date() },
-      { id: 'm2', sessionId: 'sess-1', role: 'assistant', content: 'Interesting choice', metadata: {}, createdBy: null, createdAt: new Date() },
-      { id: 'm3', sessionId: 'sess-1', role: 'user', content: 'Hooks are just better', metadata: {}, createdBy: null, createdAt: new Date() },
-      { id: 'm4', sessionId: 'sess-1', role: 'assistant', content: 'Makes sense', metadata: {}, createdBy: null, createdAt: new Date() },
-      { id: 'm5', sessionId: 'sess-1', role: 'user', content: 'Always choose simplicity', metadata: {}, createdBy: null, createdAt: new Date() },
+      { id: 'm1', sessionId: 'sess-1', role: 'user', content: 'I prefer React over Vue', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm2', sessionId: 'sess-1', role: 'assistant', content: 'Interesting choice', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm3', sessionId: 'sess-1', role: 'user', content: 'Hooks are just better', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm4', sessionId: 'sess-1', role: 'assistant', content: 'Makes sense', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm5', sessionId: 'sess-1', role: 'user', content: 'Always choose simplicity', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
     ]);
 
     const extractionResult = JSON.stringify({

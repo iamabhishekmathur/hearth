@@ -131,6 +131,7 @@ export function MemoryPage() {
           </div>
           <HButton
             variant="accent"
+            icon="plus"
             onClick={() => {
               setShowCreate(true);
               setEditingEntry(null);
@@ -189,7 +190,7 @@ export function MemoryPage() {
 
       {/* Create / Edit form */}
       {(showCreate || editingEntry) && (
-        <div className="border-b border-hearth-border bg-hearth-card-alt px-6 py-4">
+        <div className="border-b border-hearth-border bg-hearth-card-alt px-6 py-4 animate-fade-in">
           <h3 className="mb-3 text-sm font-semibold text-hearth-text">
             {editingEntry ? 'Edit Entry' : 'New Memory Entry'}
           </h3>

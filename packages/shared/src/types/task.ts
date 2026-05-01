@@ -14,7 +14,8 @@ export type TaskSource =
   | 'meeting'
   | 'manual'
   | 'agent_proposed'
-  | 'sub_agent';
+  | 'sub_agent'
+  | 'chat_user';
 
 export type TaskStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'paused';
 
@@ -26,7 +27,7 @@ export type ReviewDecision = 'approved' | 'changes_requested';
 
 // ── Rich Task Context ──
 
-export type TaskContextItemType = 'note' | 'link' | 'file' | 'image' | 'text_block' | 'mcp_reference';
+export type TaskContextItemType = 'note' | 'link' | 'file' | 'image' | 'text_block' | 'mcp_reference' | 'chat_excerpt';
 export type ExtractionStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
 
 export interface TaskContextItem {
@@ -46,6 +47,7 @@ export interface TaskContextItem {
   mcpResourceType: string | null;
   mcpResourceId: string | null;
   visionAnalysis: string | null;
+  deepLink: string | null;
   sortOrder: number;
   createdBy: string;
   createdAt: string;
@@ -74,6 +76,9 @@ export interface Task {
   status: TaskStatus;
   source: TaskSource;
   sourceRef: Record<string, unknown> | null;
+  sourceSessionId?: string | null;
+  sourceMessageId?: string | null;
+  sourceSession?: { id: string; title: string | null } | null;
   context: Record<string, unknown>;
   parentTaskId: string | null;
   agentOutput: Record<string, unknown> | null;

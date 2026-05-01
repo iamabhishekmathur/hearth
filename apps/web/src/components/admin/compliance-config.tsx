@@ -62,7 +62,7 @@ function PackCard({
   return (
     <div
       className={`rounded-lg border p-4 transition-colors ${
-        enabled ? 'border-hearth-200 bg-hearth-50/50' : 'border-hearth-border bg-hearth-card'
+        enabled ? 'border-hearth-accent bg-hearth-accent-soft' : 'border-hearth-border bg-hearth-card'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -80,15 +80,19 @@ function PackCard({
           </div>
           <p className="mt-1 text-xs text-hearth-text-muted">{pack.description}</p>
         </div>
-        <label className="relative inline-flex cursor-pointer items-center">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => onToggle(pack.id, e.target.checked)}
-            className="peer sr-only"
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          onClick={() => onToggle(pack.id, !enabled)}
+          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-fast"
+          style={{ background: enabled ? 'var(--hearth-accent)' : 'var(--hearth-border-strong)' }}
+        >
+          <span
+            className="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-fast"
+            style={{ transform: enabled ? 'translate(18px, 2px)' : 'translate(2px, 2px)' }}
           />
-          <div className="peer h-5 w-9 rounded-full bg-hearth-chip after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-hearth-border-strong after:bg-hearth-card after:transition-all after:content-[''] peer-checked:bg-hearth-600 peer-checked:after:translate-x-full peer-checked:after:border-white" />
-        </label>
+        </button>
       </div>
 
       {enabled && (
@@ -96,7 +100,7 @@ function PackCard({
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="text-xs font-medium text-hearth-600 hover:text-hearth-700"
+            className="text-xs font-medium text-hearth-accent hover:text-hearth-text"
           >
             {expanded ? 'Hide detectors' : `Show ${pack.detectorCount} detectors`}
           </button>
@@ -112,15 +116,19 @@ function PackCard({
                       <span className="text-xs font-medium text-hearth-text">{d.name}</span>
                       <span className="ml-2 text-xs text-hearth-text-faint">{d.entityType}</span>
                     </div>
-                    <label className="relative inline-flex cursor-pointer items-center">
-                      <input
-                        type="checkbox"
-                        checked={detectorEnabled}
-                        onChange={(e) => onDetectorToggle(d.id, e.target.checked)}
-                        className="peer sr-only"
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={detectorEnabled}
+                      onClick={() => onDetectorToggle(d.id, !detectorEnabled)}
+                      className="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-fast"
+                      style={{ background: detectorEnabled ? 'var(--hearth-accent)' : 'var(--hearth-border-strong)' }}
+                    >
+                      <span
+                        className="pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-fast"
+                        style={{ transform: detectorEnabled ? 'translate(12px, 2px)' : 'translate(2px, 2px)' }}
                       />
-                      <div className="peer h-4 w-7 rounded-full bg-hearth-chip after:absolute after:left-[2px] after:top-[2px] after:h-3 after:w-3 after:rounded-full after:bg-hearth-card after:transition-all after:content-[''] peer-checked:bg-hearth-500 peer-checked:after:translate-x-full" />
-                    </label>
+                    </button>
                   </div>
                 );
               })}
@@ -171,7 +179,7 @@ function TestPanel({ enabledPacks }: { enabledPacks: string[] }) {
         type="button"
         onClick={handleTest}
         disabled={!text.trim() || enabledPacks.length === 0 || testing}
-        className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
+        className="rounded-lg bg-hearth-text px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
       >
         {testing ? 'Testing...' : 'Test Detection'}
       </button>
@@ -197,7 +205,7 @@ function TestPanel({ enabledPacks }: { enabledPacks: string[] }) {
                       <span className="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-700">{e.type}</span>
                       <span className="text-hearth-text-muted">&quot;{e.original}&quot;</span>
                       <span className="text-hearth-text-faint">&rarr;</span>
-                      <span className="font-mono text-hearth-600">{e.placeholder}</span>
+                      <span className="font-mono text-hearth-accent">{e.placeholder}</span>
                     </div>
                   ))}
                 </div>
@@ -227,15 +235,15 @@ function StatsPanel({ stats }: { stats: ComplianceStats | null }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg bg-hearth-50 p-3">
-          <p className="text-2xl font-bold text-hearth-700">{stats.totalScrubs}</p>
-          <p className="text-xs text-hearth-600">Total scrub operations</p>
+        <div className="rounded-lg bg-hearth-card-alt p-3">
+          <p className="text-2xl font-bold text-hearth-text">{stats.totalScrubs}</p>
+          <p className="text-xs text-hearth-accent">Total scrub operations</p>
         </div>
-        <div className="rounded-lg bg-hearth-50 p-3">
-          <p className="text-2xl font-bold text-hearth-700">
+        <div className="rounded-lg bg-hearth-card-alt p-3">
+          <p className="text-2xl font-bold text-hearth-text">
             {Object.values(stats.entityCounts).reduce((a, b) => a + b, 0)}
           </p>
-          <p className="text-xs text-hearth-600">Total entities scrubbed</p>
+          <p className="text-xs text-hearth-accent">Total entities scrubbed</p>
         </div>
       </div>
 
@@ -403,17 +411,19 @@ export function ComplianceConfig() {
                 {'Let users bypass scrubbing for specific content using <safe> tags.'}
               </p>
             </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                checked={config.allowUserOverride}
-                onChange={(e) =>
-                  setConfig({ ...config, allowUserOverride: e.target.checked })
-                }
-                className="peer sr-only"
+            <button
+              type="button"
+              role="switch"
+              aria-checked={config.allowUserOverride}
+              onClick={() => setConfig({ ...config, allowUserOverride: !config.allowUserOverride })}
+              className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-fast"
+              style={{ background: config.allowUserOverride ? 'var(--hearth-accent)' : 'var(--hearth-border-strong)' }}
+            >
+              <span
+                className="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-fast"
+                style={{ transform: config.allowUserOverride ? 'translate(18px, 2px)' : 'translate(2px, 2px)' }}
               />
-              <div className="peer h-5 w-9 rounded-full bg-hearth-chip after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-hearth-border-strong after:bg-hearth-card after:transition-all after:content-[''] peer-checked:bg-hearth-600 peer-checked:after:translate-x-full peer-checked:after:border-white" />
-            </label>
+            </button>
           </div>
         </div>
       </div>
@@ -424,7 +434,7 @@ export function ComplianceConfig() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="rounded-lg bg-hearth-600 px-4 py-2 text-sm font-medium text-white hover:bg-hearth-700 disabled:opacity-50"
+          className="rounded-lg bg-hearth-text px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Configuration'}
         </button>

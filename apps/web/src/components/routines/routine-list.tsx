@@ -98,7 +98,7 @@ export function RoutineList({ routines, selectedId, onSelect, onToggle, onRunNow
           <div
             key={routine.id}
             role="listitem"
-            className={`group flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
+            className={`group flex items-center justify-between rounded-lg border px-4 py-3 transition-colors animate-fade-in ${
               isSelected
                 ? 'border-hearth-200 bg-hearth-50'
                 : 'border-transparent hover:border-hearth-border hover:bg-hearth-bg'

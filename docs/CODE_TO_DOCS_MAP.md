@@ -10,7 +10,9 @@ When modifying source files, update the mapped doc page to keep documentation in
 | `apps/web/src/pages/chat.tsx`, `apps/web/src/components/chat/*`, `apps/web/src/hooks/use-chat.ts` | `docs/guide/chat.md` |
 | `apps/web/src/hooks/use-artifacts.ts`, `apps/web/src/components/chat/artifact-*` | `docs/guide/chat-artifacts.md` |
 | `apps/web/src/components/chat/share-dialog.tsx`, `apps/api/src/routes/sharing.ts` | `docs/guide/chat-sharing.md` |
-| `apps/web/src/pages/workspace.tsx`, `apps/web/src/components/workspace/*` | `docs/guide/workspace.md` |
+| `apps/web/src/components/notifications/*`, `apps/api/src/services/notification-service.ts`, `apps/api/src/routes/notifications.ts` | `docs/guide/index.md` (Notifications under Sharing & Collaboration) |
+| `apps/web/src/components/chat/task-composer.tsx`, `apps/web/src/components/chat/task-chip.tsx`, `apps/web/src/components/chat/task-suggestion-card.tsx`, `apps/web/src/components/chat/task-toast.tsx`, `apps/api/src/routes/task-suggestions.ts` | `docs/guide/index.md` (Promoting chat into tasks) |
+| `apps/web/src/pages/tasks.tsx`, `apps/web/src/components/tasks/*` | `docs/guide/tasks.md` |
 | `apps/api/src/jobs/work-intake-scheduler.ts`, `apps/api/src/services/task-detector.ts` | `docs/guide/work-intake.md` |
 | `apps/api/src/services/approval-service.ts`, `apps/api/src/routes/approvals.ts` (if exists) | `docs/guide/approvals.md` |
 | `apps/api/src/services/task-executor.ts`, `apps/api/src/services/task-planner.ts` | `docs/guide/task-execution.md` |

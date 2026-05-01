@@ -41,8 +41,8 @@ export function DecisionCaptureForm({ onClose, onSaved }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-lg rounded-xl bg-hearth-card p-6 shadow-hearth-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in">
+      <div className="mx-4 w-full max-w-lg rounded-xl bg-hearth-card p-6 shadow-hearth-4 animate-scale-in">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-hearth-text">Capture Decision</h2>
           <button type="button" onClick={onClose} className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip">

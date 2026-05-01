@@ -11,7 +11,7 @@ const ChatPage = lazy(() => import('@/pages/chat').then((m) => ({ default: m.Cha
 const SettingsPage = lazy(() => import('@/pages/settings').then((m) => ({ default: m.SettingsPage })));
 const SkillsPage = lazy(() => import('@/pages/skills').then((m) => ({ default: m.SkillsPage })));
 const MemoryPage = lazy(() => import('@/pages/memory').then((m) => ({ default: m.MemoryPage })));
-const WorkspacePage = lazy(() => import('@/pages/workspace').then((m) => ({ default: m.WorkspacePage })));
+const TasksPage = lazy(() => import('@/pages/tasks').then((m) => ({ default: m.TasksPage })));
 const SharedSessionPage = lazy(() => import('@/pages/shared-session').then((m) => ({ default: m.SharedSessionPage })));
 const RoutinesPage = lazy(() => import('@/pages/routines').then((m) => ({ default: m.RoutinesPage })));
 const ActivityPage = lazy(() => import('@/pages/activity').then((m) => ({ default: m.ActivityPage })));
@@ -121,19 +121,25 @@ function Router() {
     return null;
   }
 
+  // Top-level segment drives entrance animation — deep-link changes within
+  // /chat/:id or /settings/:tab should NOT re-trigger the page fade.
+  const routeKey = '/' + (route.split('/')[1] || '');
+
   // Authenticated — show app shell with lazy-loaded pages
   return (
     <AppShell currentRoute={route} onNavigate={navigate}>
       <PageErrorBoundary>
         <Suspense fallback={<PageFallback />}>
-          {route.startsWith('/chat') && <ChatPage />}
-          {route === '/workspace' && <WorkspacePage />}
-          {route === '/memory' && <MemoryPage />}
-          {route === '/skills' && <SkillsPage />}
-          {route === '/routines' && <RoutinesPage />}
-          {route === '/activity' && <ActivityPage />}
-          {route === '/decisions' && <DecisionsPage />}
-          {route.startsWith('/settings') && <SettingsPage initialTab={route.split('/')[2]} />}
+          <div key={routeKey} className="h-full animate-fade-in">
+            {route.startsWith('/chat') && <ChatPage />}
+            {route === '/tasks' && <TasksPage />}
+            {route === '/memory' && <MemoryPage />}
+            {route === '/skills' && <SkillsPage />}
+            {route === '/routines' && <RoutinesPage />}
+            {route === '/activity' && <ActivityPage />}
+            {route === '/decisions' && <DecisionsPage />}
+            {route.startsWith('/settings') && <SettingsPage initialTab={route.split('/')[2]} />}
+          </div>
         </Suspense>
       </PageErrorBoundary>
     </AppShell>

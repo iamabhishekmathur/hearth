@@ -5,6 +5,7 @@ import { connectSocket, onCollaboratorAdded } from '@/lib/socket-client';
 import type { CollaboratorAddedEvent } from '@hearth/shared';
 import { HButton } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 
 interface AppShellProps {
   currentRoute: string;
@@ -43,8 +44,15 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps) 
         onNavigate={onNavigate}
         onLogout={logout}
       />
-      <main className="flex flex-1 flex-col overflow-hidden min-w-0">
-        {/* Collaborator added notification */}
+      <main className="relative flex flex-1 flex-col overflow-hidden min-w-0">
+        {/* Notification bell — persistent, top-right */}
+        <div className="pointer-events-none absolute right-3 top-2 z-20">
+          <div className="pointer-events-auto">
+            <NotificationBell onOpenSession={() => onNavigate('/chat')} />
+          </div>
+        </div>
+
+        {/* Collaborator added toast (transient — kept for the immediate-action flow) */}
         {notification && (
           <div className="flex items-center justify-between border-b border-hearth-border px-5 py-2" style={{ background: 'var(--hearth-accent-soft)' }}>
             <p className="text-sm text-hearth-text">

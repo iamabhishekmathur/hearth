@@ -11,16 +11,18 @@ interface SessionTabsProps {
   onClose: (id: string) => void;
   onRename: (id: string, title: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  unreadCounts?: Record<string, { unreadCount: number }>;
 }
 
 function Tab({
-  session, isActive, onSelect, onRename, onClose,
+  session, isActive, onSelect, onRename, onClose, unreadCount,
 }: {
   session: ChatSession;
   isActive: boolean;
   onSelect: () => void;
   onRename: (title: string) => Promise<void>;
   onClose: () => void;
+  unreadCount?: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -44,7 +46,7 @@ function Tab({
 
   return (
     <div
-      className={`group relative flex min-w-0 max-w-[200px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-hearth-border px-3 py-2 text-xs transition-colors duration-fast ${
+      className={`group relative flex min-w-0 max-w-[200px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-hearth-border px-3 py-2 text-xs transition-colors duration-fast animate-fade-in ${
         isActive
           ? 'bg-hearth-card text-hearth-text font-semibold'
           : 'bg-hearth-bg text-hearth-text-muted hover:bg-hearth-card hover:text-hearth-text'
@@ -68,6 +70,16 @@ function Tab({
         </span>
       )}
 
+      {!editing && !isActive && unreadCount && unreadCount > 0 ? (
+        <span
+          className="ml-1 inline-flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none"
+          style={{ background: 'var(--hearth-accent)', color: 'var(--hearth-text-inverse)' }}
+          title={`${unreadCount} unread`}
+        >
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </span>
+      ) : null}
+
       {!editing && (
         <button
           type="button"
@@ -86,7 +98,7 @@ function Tab({
   );
 }
 
-export function SessionTabs({ sessions, activeSessionId, onSelect, onNew, onClose, onRename, onDelete }: SessionTabsProps) {
+export function SessionTabs({ sessions, activeSessionId, onSelect, onNew, onClose, onRename, onDelete, unreadCounts }: SessionTabsProps) {
   const openSessionIds = useMemo(() => new Set(sessions.map((s) => s.id)), [sessions]);
 
   return (
@@ -102,6 +114,7 @@ export function SessionTabs({ sessions, activeSessionId, onSelect, onNew, onClos
             onSelect={() => onSelect(session.id)}
             onRename={(title) => onRename(session.id, title)}
             onClose={() => onClose(session.id)}
+            unreadCount={unreadCounts?.[session.id]?.unreadCount}
           />
         ))}
         <button

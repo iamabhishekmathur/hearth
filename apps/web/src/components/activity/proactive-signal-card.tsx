@@ -24,7 +24,7 @@ export function ProactiveSignalCard({ signal, onDismiss }: ProactiveSignalCardPr
   const colorClass = SIGNAL_COLORS[signal.type] ?? 'border-hearth-border bg-hearth-bg';
 
   return (
-    <div className={`flex items-center gap-3 rounded-lg border p-3 ${colorClass}`}>
+    <div className={`flex items-center gap-3 rounded-lg border p-3 animate-fade-in ${colorClass}`}>
       <span className="text-lg" role="img" aria-label={signal.type}>
         {icon}
       </span>

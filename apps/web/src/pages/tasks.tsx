@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Task, TaskStatus } from '@hearth/shared';
 import { VALID_STATUS_TRANSITIONS } from '@hearth/shared';
 import { useTasks } from '@/hooks/use-tasks';
-import { KanbanColumn } from '@/components/workspace/kanban-column';
-import { TaskDetailPanel } from '@/components/workspace/task-detail-panel';
+import { KanbanColumn } from '@/components/tasks/kanban-column';
+import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { HButton, HCard, HEyebrow, HPill } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
 
@@ -18,7 +18,7 @@ const KANBAN_COLUMNS: TaskStatus[] = [
 
 type FilterTab = 'all' | 'mine' | 'auto';
 
-export function WorkspacePage() {
+export function TasksPage() {
   const { tasks, loading, fetchTasks, createTask, updateTask, addContext } = useTasks();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -102,17 +102,11 @@ export function WorkspacePage() {
   return (
     <div className="flex h-full flex-col bg-hearth-bg">
       {/* ---- Header ---- */}
-      <div
-        className="flex items-center justify-between border-b border-hearth-border px-6"
-        style={{ paddingTop: 'var(--hearth-space-5)', paddingBottom: 'var(--hearth-space-5)' }}
-      >
-        <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
+        <div>
           <HEyebrow>Board</HEyebrow>
-          <h1
-            className="font-display font-semibold text-hearth-text"
-            style={{ fontSize: 38, letterSpacing: -1, lineHeight: 1.05 }}
-          >
-            Workspace<span style={{ color: 'var(--hearth-accent)' }}>.</span>
+          <h1 className="mt-1 font-display text-[22px] font-medium" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+            Tasks<span style={{ color: 'var(--hearth-accent)' }}>.</span>
           </h1>
         </div>
 
@@ -137,7 +131,7 @@ export function WorkspacePage() {
       {/* ---- Create form ---- */}
       {showCreateForm && (
         <div
-          className="border-b border-hearth-border"
+          className="border-b border-hearth-border animate-fade-in"
           style={{ padding: 'var(--hearth-space-3) var(--hearth-space-6)' }}
         >
           <HCard variant="alt" padding="p-3">
@@ -193,7 +187,10 @@ export function WorkspacePage() {
               No tasks yet<span style={{ color: 'var(--hearth-accent)' }}>.</span>
             </h2>
             <p className="mt-2 max-w-sm text-sm text-hearth-text-muted">
-              Create your first task to get started. Tasks can be created manually or detected automatically from your integrations.
+              Tasks are for work you want to <span className="font-medium text-hearth-text">delegate</span> — multi-step jobs the agent runs in the background while you do something else.
+            </p>
+            <p className="mt-3 max-w-sm text-[12.5px] text-hearth-text-faint">
+              For one-shot iteration with the AI, stay in <a href="#/chat" className="text-hearth-accent hover:underline">Chat</a>. Promote a chat exchange here when you're ready to step away.
             </p>
             <div className="mt-5">
               <HButton

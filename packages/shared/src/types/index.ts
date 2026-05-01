@@ -27,6 +27,20 @@ export interface ChatMessage {
   createdBy?: string | null;
   createdAt: string;
   attachments?: ChatAttachment[];
+  respondingToMessageId?: string | null;
+  reactions?: ReactionSummary[];
+  producedTaskIds?: string[];
+}
+
+export interface MessageAuthor {
+  id: string;
+  name: string;
+}
+
+export interface SessionWithMessages extends ChatSession {
+  messages: ChatMessage[];
+  messageAuthors: Record<string, MessageAuthor>;
+  lastReadMessageId?: string | null;
 }
 
 export type SessionVisibility = 'private' | 'org';
@@ -56,9 +70,18 @@ export interface SharedSessionInfo extends ChatSession {
   collaboratorCount?: number;
 }
 
+export type PresenceState = 'active' | 'viewing' | 'idle';
+
 export interface PresenceUser {
   userId: string;
   name: string;
+  state?: PresenceState;
+}
+
+export interface ComposingUser {
+  userId: string;
+  name: string;
+  charCount: number;
 }
 
 export interface CollaboratorAddedEvent {
@@ -68,11 +91,59 @@ export interface CollaboratorAddedEvent {
   role: CollaboratorRole;
 }
 
+export type NotificationType =
+  | 'collaborator_added'
+  | 'mention'
+  | 'handoff'
+  | 'governance_block'
+  | 'comment_on_your_message'
+  | 'reaction_on_your_message';
+
+export interface NotificationItem {
+  id: string;
+  type: NotificationType | string;
+  title: string;
+  body: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  sessionId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface TaskCreatedFromChatEvent {
+  taskId: string;
+  title: string;
+  status: string;
+  sessionId: string;
+  originatingMessageId: string | null;
+  messageCount: number;
+  existing: boolean;
+}
+
+export interface TaskSuggestionEvent {
+  id: string;
+  sessionId: string;
+  messageId: string;
+  proposedTitle: string;
+  proposedDescription: string | null;
+  suggestedContextMessageIds: string[];
+  confidence: number;
+  createdAt: string;
+}
+
+export interface TaskSuggestionResolvedEvent {
+  suggestionId: string;
+  status: 'accepted' | 'dismissed' | 'expired';
+  acceptedTaskId?: string;
+}
+
 export type AgentEvent =
   | { type: 'thinking'; content: string }
   | { type: 'text_delta'; content: string }
   | { type: 'tool_call_start'; tool: string; input: Record<string, unknown> }
   | { type: 'tool_call_result'; tool: string; output: Record<string, unknown> }
+  | { type: 'side_effect'; toolName: string; provider: string }
   | { type: 'file_created'; path: string; mime_type: string }
   | { type: 'error'; message: string }
   | { type: 'done'; usage: { input_tokens: number; output_tokens: number } }

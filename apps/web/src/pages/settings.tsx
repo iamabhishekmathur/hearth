@@ -214,7 +214,7 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-hearth-border px-6 py-4">
-        <h1 className="font-display text-2xl font-medium text-hearth-text" style={{ letterSpacing: '-0.5px' }}>
+        <h1 className="font-display text-[22px] font-medium text-hearth-text" style={{ letterSpacing: '-0.4px', lineHeight: 1.2 }}>
           {isAdmin ? 'Admin Dashboard' : 'Settings'}<span style={{ color: 'var(--hearth-accent)' }}>.</span>
         </h1>
         <p className="mt-0.5 text-sm text-hearth-text-muted">
@@ -242,7 +242,7 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div key={activeTab} className="flex-1 overflow-y-auto p-6 animate-fade-in">
         {activeTab === 'profile' && (
           <div className="mx-auto max-w-2xl space-y-4">
             <HCard padding="p-6">

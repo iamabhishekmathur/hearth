@@ -14,7 +14,7 @@ interface StarterPromptsProps {
 
 export function StarterPrompts({ onSelect }: StarterPromptsProps) {
   return (
-    <div className="flex flex-1 items-center justify-center px-4">
+    <div className="flex flex-1 items-center justify-center px-4 animate-fade-in">
       <div className="flex flex-col items-center gap-7 text-center" style={{ maxWidth: 720 }}>
         {/* Logo */}
         <div

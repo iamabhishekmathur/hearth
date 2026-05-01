@@ -28,7 +28,7 @@ features:
   - icon: "📋"
     title: Task Board
     details: Kanban board with tasks proactively generated from meetings, email, and Slack. Auto-decomposition into subtasks. The AI executes with approval gates — you review, approve, done.
-    link: /guide/#workspace
+    link: /guide/#tasks
     linkText: Learn more
   - icon: "🔄"
     title: Routines

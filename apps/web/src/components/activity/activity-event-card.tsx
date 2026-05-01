@@ -26,7 +26,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 const ENTITY_ROUTE_MAP: Record<string, string> = {
   session: '/#/chat',
-  task: '/#/workspace',
+  task: '/#/tasks',
   skill: '/#/skills',
   routine: '/#/routines',
 };
@@ -122,7 +122,7 @@ export function ActivityEventCard({ event }: ActivityEventCardProps) {
   }, [event.id]);
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-hearth-border bg-hearth-card p-3">
+    <div className="flex items-start gap-3 rounded-lg border border-hearth-border bg-hearth-card p-3 animate-fade-in">
       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hearth-chip text-sm font-medium text-hearth-text">
         {event.userName?.charAt(0).toUpperCase() ?? '?'}
       </div>

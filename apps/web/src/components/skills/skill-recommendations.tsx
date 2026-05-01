@@ -28,7 +28,7 @@ export function SkillRecommendations({ onInstall }: SkillRecommendationsProps) {
   if (loading || recommendations.length === 0) return null;
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 animate-fade-in">
       <h2 className="mb-3 text-sm font-semibold text-hearth-text">Recommended for you</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {recommendations.slice(0, 6).map((rec) => (

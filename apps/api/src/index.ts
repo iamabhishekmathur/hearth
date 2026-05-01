@@ -46,6 +46,9 @@ import activityRouter from './routes/activity.js';
 import uploadsRouter from './routes/uploads.js';
 import decisionsRouter from './routes/decisions.js';
 import meetingsRouter from './routes/meetings.js';
+import notificationsRouter from './routes/notifications.js';
+import taskSuggestionsRouter from './routes/task-suggestions.js';
+import recurrenceRouter from './routes/recurrence.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { setupSocketManager } from './ws/socket-manager.js';
 import { loadProviders } from './llm/provider-loader.js';
@@ -148,6 +151,9 @@ app.use('/api/v1/activity', activityRouter);
 app.use('/api/v1/uploads', uploadsRouter);
 app.use('/api/v1/decisions', decisionsRouter);
 app.use('/api/v1/meetings', meetingsRouter);
+app.use('/api/v1/notifications', notificationsRouter);
+app.use('/api/v1/task-suggestions', taskSuggestionsRouter);
+app.use('/api/v1/recurrence', recurrenceRouter);
 
 // Error handling
 app.use(errorHandler);

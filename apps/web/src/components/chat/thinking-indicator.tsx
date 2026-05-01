@@ -6,7 +6,7 @@ interface ThinkingIndicatorProps {
 
 export function ThinkingIndicator({ content }: ThinkingIndicatorProps) {
   return (
-    <div className="flex gap-3 items-start">
+    <div className="flex gap-3 items-start animate-fade-in">
       <HAvatar kind="agent" />
       <div className="py-2">
         {content ? (

@@ -168,12 +168,12 @@ export function ShareDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="share-dialog-title"
     >
-      <div className="w-full max-w-md rounded-xl bg-hearth-card shadow-hearth-4">
+      <div className="w-full max-w-md rounded-xl bg-hearth-card shadow-hearth-4 animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-hearth-border px-6 py-4">
           <h2 id="share-dialog-title" className="text-lg font-semibold text-hearth-text">

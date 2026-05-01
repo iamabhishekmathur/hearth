@@ -135,6 +135,23 @@ export function createTaskExecutionWorker() {
         await taskService.updateTask(taskId, userId, { status: 'review' });
         emitToTask(taskId, { type: 'task:updated', status: 'review' });
 
+        // If this task originated from a chat session, post a milestone.
+        try {
+          const fullTask = await taskService.getTask(taskId, userId);
+          if (fullTask?.sourceSessionId) {
+            const chatService = await import('./chat-service.js');
+            await chatService.postTaskProgress({
+              sessionId: fullTask.sourceSessionId,
+              taskId,
+              milestone: 'review',
+              taskTitle: fullTask.title,
+              taskStatus: 'review',
+            });
+          }
+        } catch (progressErr) {
+          logger.warn({ err: progressErr, taskId }, 'postTaskProgress(review) failed');
+        }
+
         // Enqueue skill proposal evaluation
         const user = await prisma.user.findUnique({
           where: { id: userId },

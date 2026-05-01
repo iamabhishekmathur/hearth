@@ -22,10 +22,16 @@ export async function createContextItem(
     mcpIntegrationId?: string;
     mcpResourceType?: string;
     mcpResourceId?: string;
+    extractedText?: string;
+    extractedTitle?: string;
+    deepLink?: string;
   },
 ) {
-  // Determine initial extraction status
-  const skipExtraction = data.type === 'note' || data.type === 'text_block';
+  // Types that don't require background extraction.
+  const skipExtraction =
+    data.type === 'note' ||
+    data.type === 'text_block' ||
+    data.type === 'chat_excerpt';
 
   // Get next sort order
   const lastItem = await prisma.taskContextItem.findFirst({
@@ -43,8 +49,10 @@ export async function createContextItem(
       mimeType: data.mimeType ?? null,
       sizeBytes: data.sizeBytes ?? null,
       storagePath: data.storagePath ?? null,
+      deepLink: data.deepLink ?? null,
       extractionStatus: skipExtraction ? 'completed' : 'pending',
-      extractedText: skipExtraction ? data.rawValue : null,
+      extractedText: skipExtraction ? data.extractedText ?? data.rawValue : null,
+      extractedTitle: data.extractedTitle ?? null,
       mcpIntegrationId: data.mcpIntegrationId ?? null,
       mcpResourceType: data.mcpResourceType ?? null,
       mcpResourceId: data.mcpResourceId ?? null,
@@ -53,14 +61,121 @@ export async function createContextItem(
     },
   });
 
-  // For passthrough types, generate embedding immediately
-  if (skipExtraction && data.rawValue) {
-    generateEmbeddingForItem(item.id, data.rawValue).catch((err) => {
+  // For passthrough types, generate embedding immediately from the
+  // extracted text (which is rawValue for note/text_block, or the serialized
+  // excerpt for chat_excerpt).
+  if (skipExtraction && item.extractedText) {
+    generateEmbeddingForItem(item.id, item.extractedText).catch((err) => {
       logger.warn({ err, itemId: item.id }, 'Failed to generate embedding for context item');
     });
   }
 
   return item;
+}
+
+/**
+ * Builds a chat_excerpt context item from a slice of chat messages.
+ * Idempotent across (taskId, messageIds) — if an item with the same
+ * deepLink anchor already exists for the task, returns it instead of
+ * creating a duplicate.
+ *
+ * messageIds may be empty, in which case the function pulls the most
+ * recent `recentN` non-tool messages from the session.
+ */
+export async function attachChatExcerpt(
+  taskId: string,
+  createdBy: string,
+  data: {
+    sessionId: string;
+    anchorMessageId: string;
+    messageIds?: string[];
+    recentN?: number;
+  },
+): Promise<{ itemId: string; messageCount: number }> {
+  const { sessionId, anchorMessageId } = data;
+  const recentN = data.recentN ?? 4;
+  const explicitIds = data.messageIds ?? [];
+
+  // Resolve the message slice
+  let messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    createdAt: Date;
+    createdBy: string | null;
+    author: { name: string } | null;
+  }>;
+  if (explicitIds.length > 0) {
+    messages = await prisma.chatMessage.findMany({
+      where: { id: { in: explicitIds }, sessionId },
+      orderBy: { createdAt: 'asc' },
+      include: { author: { select: { name: true } } },
+    });
+  } else {
+    // Anchor + the recentN messages immediately preceding it (inclusive).
+    const anchor = await prisma.chatMessage.findFirst({
+      where: { id: anchorMessageId, sessionId },
+      select: { createdAt: true },
+    });
+    if (!anchor) {
+      throw new Error('Anchor message not found in session');
+    }
+    const tail = await prisma.chatMessage.findMany({
+      where: {
+        sessionId,
+        createdAt: { lte: anchor.createdAt },
+        role: { in: ['user', 'assistant'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: recentN,
+      include: { author: { select: { name: true } } },
+    });
+    messages = tail.reverse();
+  }
+
+  if (messages.length === 0) {
+    throw new Error('No messages to attach');
+  }
+
+  const deepLink = `/chat/${sessionId}?messageId=${anchorMessageId}`;
+
+  // Idempotency: if an item with the same deepLink exists for the task, return it.
+  const existing = await prisma.taskContextItem.findFirst({
+    where: { taskId, type: 'chat_excerpt', deepLink },
+    select: { id: true },
+  });
+  if (existing) {
+    return { itemId: existing.id, messageCount: messages.length };
+  }
+
+  const serialized = messages
+    .map((m) => {
+      const who =
+        m.role === 'assistant' ? 'Assistant' : m.author?.name ?? 'User';
+      const ts = m.createdAt.toISOString();
+      return `[${ts}] ${who}: ${m.content}`;
+    })
+    .join('\n\n');
+
+  const titleSeed =
+    messages.find((m) => m.role === 'user')?.content ??
+    messages[0].content;
+  const extractedTitle = titleSeed.slice(0, 80).replace(/\s+/g, ' ').trim();
+
+  const item = await createContextItem(taskId, createdBy, {
+    type: 'chat_excerpt',
+    rawValue: JSON.stringify({
+      sessionId,
+      anchorMessageId,
+      messageIds: messages.map((m) => m.id),
+    }),
+    label: 'From chat',
+    extractedText: serialized,
+    extractedTitle,
+    deepLink,
+  });
+
+  return { itemId: item.id, messageCount: messages.length };
 }
 
 export async function listContextItems(taskId: string) {

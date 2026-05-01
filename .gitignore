@@ -18,6 +18,9 @@ coverage/
 test-results/
 playwright-report/
 
+# VitePress build cache
+docs/.vitepress/cache/
+
 # Logs
 *.log
 

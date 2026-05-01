@@ -10,6 +10,7 @@ import { emitToSession, emitToUser, emitToSessionEvent } from '../ws/socket-mana
 import { logger } from '../lib/logger.js';
 import { evaluateMessage, getGovernanceSettings, hasBlockPolicies } from '../services/governance-service.js';
 import { reflectOnSession } from '../services/experience-service.js';
+import { notify } from '../services/notification-service.js';
 import { enqueueCognitiveExtraction } from '../jobs/cognitive-extraction-scheduler.js';
 import {
   isCognitiveEnabledForOrg,
@@ -62,6 +63,18 @@ router.get('/sessions/shared', requireAuth, async (req, res, next) => {
 });
 
 /**
+ * GET /sessions/unread-counts — per-session unread count for the current user
+ */
+router.get('/sessions/unread-counts', requireAuth, async (req, res, next) => {
+  try {
+    const counts = await chatService.getUnreadCounts(req.user!.id);
+    res.json({ data: counts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /sessions/:id — get session with messages (verify ownership, collab, or org-visible)
  */
 router.get('/sessions/:id', requireAuth, async (req, res, next) => {
@@ -73,11 +86,15 @@ router.get('/sessions/:id', requireAuth, async (req, res, next) => {
       return;
     }
     // Transform attachment storagePath -> url for the API response
+    const reactionMap = await chatService.getReactionsForMessages(session.messages.map((m) => m.id));
     const messages = session.messages.map((msg) => ({
       ...msg,
       attachments: (msg.attachments ?? []).map(chatService.toAttachmentResponse),
+      reactions: reactionMap[msg.id] ?? [],
     }));
-    res.json({ data: { ...session, messages } });
+    const messageAuthors = await chatService.getMessageAuthors(messages);
+    const lastReadMessageId = await chatService.getSessionRead(id, req.user!.id);
+    res.json({ data: { ...session, messages, messageAuthors, lastReadMessageId } });
   } catch (err) {
     next(err);
   }
@@ -237,9 +254,87 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     res.status(202).json({ data: { messageId: userMessage.id } });
 
     // Build agent context and run the agent loop asynchronously.
-    runAgent(sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone).catch((err) => {
+    runAgent(sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
       logger.error({ err, sessionId }, 'Agent loop unhandled error');
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/read — mark a message as read for the current user
+ */
+router.post('/sessions/:id/read', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const { lastMessageId } = req.body as { lastMessageId?: string };
+    if (!lastMessageId) {
+      res.status(400).json({ error: 'lastMessageId is required' });
+      return;
+    }
+    const result = await chatService.markSessionRead(sessionId, req.user!.id, lastMessageId);
+    if (!result) {
+      res.status(404).json({ error: 'Session or message not found' });
+      return;
+    }
+    res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/messages/:messageId/reactions — add a reaction
+ */
+router.post('/sessions/:id/messages/:messageId/reactions', requireAuth, async (req, res, next) => {
+  try {
+    const { emoji } = req.body as { emoji?: string };
+    if (!emoji || !chatService.isAllowedReactionEmoji(emoji)) {
+      res.status(400).json({ error: 'emoji must be one of the allowed reactions' });
+      return;
+    }
+    const sessionId = req.params.id as string;
+    const messageId = req.params.messageId as string;
+    const result = await chatService.addMessageReaction(sessionId, messageId, req.user!.id, emoji);
+    if (!result) {
+      res.status(404).json({ error: 'Message not found' });
+      return;
+    }
+    emitToSessionEvent(sessionId, 'message:reaction', {
+      messageId,
+      userId: req.user!.id,
+      emoji,
+      op: 'add',
+    });
+    res.status(201).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /sessions/:id/messages/:messageId/reactions/:emoji — remove a reaction
+ */
+router.delete('/sessions/:id/messages/:messageId/reactions/:emoji', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const messageId = req.params.messageId as string;
+    const emoji = decodeURIComponent(req.params.emoji as string);
+    const result = await chatService.removeMessageReaction(sessionId, messageId, req.user!.id, emoji);
+    if (result === null) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    if (result) {
+      emitToSessionEvent(sessionId, 'message:reaction', {
+        messageId,
+        userId: req.user!.id,
+        emoji,
+        op: 'remove',
+      });
+    }
+    res.json({ data: { messageId, emoji, removed: result } });
   } catch (err) {
     next(err);
   }
@@ -327,13 +422,23 @@ router.post('/sessions/:id/collaborators', requireAuth, async (req, res, next) =
       return;
     }
 
-    // Notify the added user via WebSocket
+    // Notify the added user via WebSocket (legacy ephemeral event for any
+    // existing client listeners) and persist via the notification spine.
     const session = await chatService.getSession(sessionId, req.user!.id);
     emitToUser(userId, 'collaborator:added', {
       sessionId,
       sessionTitle: session?.title ?? null,
       addedByName: req.user!.name ?? 'Someone',
       role: validRole,
+    });
+    void notify({
+      userId,
+      type: 'collaborator_added',
+      title: `${req.user!.name ?? 'Someone'} added you to a chat`,
+      body: session?.title ?? 'Untitled chat',
+      sessionId,
+      entityType: 'chat_session',
+      entityId: sessionId,
     });
 
     res.status(201).json({ data: result });
@@ -357,6 +462,146 @@ router.delete('/sessions/:id/collaborators/:userId', requireAuth, async (req, re
       return;
     }
     res.json({ message: 'Collaborator removed' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:sessionId/messages/:messageId/promote-to-task
+ * — explicit user-initiated chat→task creation. Idempotent on (messageId, user).
+ */
+router.post('/sessions/:sessionId/messages/:messageId/promote-to-task', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.sessionId as string;
+    const messageId = req.params.messageId as string;
+    const {
+      title,
+      description,
+      attachMessageIds,
+      attachRecentN,
+      targetStatus,
+      priority,
+      provenance,
+    } = req.body as {
+      title?: string;
+      description?: string;
+      attachMessageIds?: string[];
+      attachRecentN?: number;
+      targetStatus?: 'backlog' | 'planning';
+      priority?: number;
+      provenance?: 'chat_button' | 'chat_slash' | 'agent_create' | 'agent_propose_accepted';
+    };
+
+    // Permission: caller must have read access to the session.
+    const session = await chatService.getSession(sessionId, req.user!.id);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    // Validate the message belongs to this session.
+    const { prisma } = await import('../lib/prisma.js');
+    const message = await prisma.chatMessage.findFirst({
+      where: { id: messageId, sessionId },
+      select: { id: true, content: true },
+    });
+    if (!message) {
+      res.status(404).json({ error: 'Message not found in session' });
+      return;
+    }
+
+    // Synthesise title/description if omitted (best-effort; falls back to content).
+    let finalTitle = title?.trim();
+    let finalDescription = description?.trim();
+    if (!finalTitle) {
+      finalTitle = message.content.slice(0, 80).replace(/\s+/g, ' ').trim() || 'New task';
+    }
+    if (!finalDescription) {
+      finalDescription = message.content.length > 80 ? message.content : undefined;
+    }
+
+    const result = await chatService.promoteMessageToTask({
+      sessionId,
+      messageId,
+      userId: req.user!.id,
+      title: finalTitle,
+      description: finalDescription,
+      attachMessageIds,
+      attachRecentN: attachRecentN ?? 4,
+      targetStatus: targetStatus === 'planning' ? 'planning' : 'backlog',
+      priority,
+      provenance: provenance ?? 'chat_button',
+    });
+
+    // If targetStatus = 'planning', enqueue the planner so it auto-progresses.
+    if (!result.existing && targetStatus === 'planning') {
+      const { enqueuePlanning } = await import('../services/task-planner.js');
+      enqueuePlanning(result.task.id, req.user!.id).catch((err) => {
+        logger.error({ err, taskId: result.task.id }, 'Failed to enqueue planning for promoted task');
+      });
+    }
+
+    // Notify the creator's chat UI (so the chip can render under the message).
+    emitToUser(req.user!.id, 'task:created_from_chat', {
+      taskId: result.task.id,
+      title: result.task.title,
+      status: result.task.status,
+      sessionId,
+      originatingMessageId: messageId,
+      messageCount: result.messageCount,
+      existing: result.existing,
+    });
+
+    res.status(result.existing ? 200 : 201).json({
+      data: {
+        ...result.task,
+        existing: result.existing,
+        messageCount: result.messageCount,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /sessions/:sessionId/active-tasks
+ * — count of in-flight tasks (planning + executing) promoted from this session.
+ */
+router.get('/sessions/:sessionId/active-tasks', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.sessionId as string;
+    const session = await chatService.getSession(sessionId, req.user!.id);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    const summary = await chatService.countActiveTasksFromSession(sessionId, req.user!.id);
+    res.json({ data: summary });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:sessionId/messages/:messageId/tasks/:taskId/unlink
+ * — undo a chat→task promotion: archives the task and de-links it from
+ * the message. Caller must own the task.
+ */
+router.post('/sessions/:sessionId/messages/:messageId/tasks/:taskId/unlink', requireAuth, async (req, res, next) => {
+  try {
+    const ok = await chatService.unlinkPromotedTask({
+      sessionId: req.params.sessionId as string,
+      messageId: req.params.messageId as string,
+      taskId: req.params.taskId as string,
+      userId: req.user!.id,
+    });
+    if (!ok) {
+      res.status(404).json({ error: 'Task not found or not owned by you' });
+      return;
+    }
+    res.json({ data: { ok: true } });
   } catch (err) {
     next(err);
   }
@@ -464,6 +709,7 @@ async function runAgent(
   activeArtifactId?: string,
   cognitiveQuerySubjectId?: string,
   timezone?: string,
+  respondingToMessageId?: string,
 ): Promise<void> {
   let assistantContent = '';
   let errorMessage: string | null = null;
@@ -496,7 +742,15 @@ async function runAgent(
     // them without matching tool_use_id linkage from the original call).
     const dbMessages = await chatService.getMessages(sessionId);
     const messages: LLMMessage[] = dbMessages
-      .filter((m) => m.role !== 'tool')
+      .filter((m) => {
+        if (m.role === 'tool') return false;
+        // Skip task-progress system messages — they're UI-only.
+        if (m.role === 'system') {
+          const meta = (m.metadata as Record<string, unknown> | null) ?? {};
+          if (meta.kind === 'task_progress') return false;
+        }
+        return true;
+      })
       .map((m) => {
         // Check for image attachments on this message
         const imageAttachments = (m.attachments ?? []).filter(
@@ -539,7 +793,15 @@ async function runAgent(
 
     // Rolling summary: if conversation is long, summarize older messages
     const rawForSummary = dbMessages
-      .filter((m) => m.role !== 'tool')
+      .filter((m) => {
+        if (m.role === 'tool') return false;
+        // Skip task-progress system messages — they're UI-only.
+        if (m.role === 'system') {
+          const meta = (m.metadata as Record<string, unknown> | null) ?? {};
+          if (meta.kind === 'task_progress') return false;
+        }
+        return true;
+      })
       .map((m) => ({ role: m.role, content: m.content }));
     const rollingSummary = await chatService.summarizeEarlierMessages(rawForSummary);
 
@@ -585,11 +847,18 @@ async function runAgent(
             : `_[Error: ${errorMessage}]_`
           : assistantContent;
 
-        await chatService.addMessage(sessionId, 'assistant', finalContent, {
-          error: errorMessage ?? undefined,
-          errorSource: sawErrorEvent ? 'llm' : errorMessage ? 'runtime' : undefined,
-          sources: contextSources.length > 0 ? contextSources : undefined,
-        });
+        await chatService.addMessage(
+          sessionId,
+          'assistant',
+          finalContent,
+          {
+            error: errorMessage ?? undefined,
+            errorSource: sawErrorEvent ? 'llm' : errorMessage ? 'runtime' : undefined,
+            sources: contextSources.length > 0 ? contextSources : undefined,
+          },
+          undefined,
+          respondingToMessageId,
+        );
       }
     } catch (persistErr) {
       logger.error({ err: persistErr, sessionId }, 'Failed to persist assistant message');

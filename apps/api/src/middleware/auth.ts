@@ -32,7 +32,8 @@ declare global {
  */
 export const attachUser: RequestHandler = async (req, _res, next) => {
   try {
-    const userId = req.session?.userId;
+    const passportUserId = (req.session as { passport?: { user?: string } } | undefined)?.passport?.user;
+    const userId = req.session?.userId ?? passportUserId;
     if (!userId) {
       return next();
     }
@@ -43,6 +44,7 @@ export const attachUser: RequestHandler = async (req, _res, next) => {
     });
 
     if (user) {
+      req.session.userId = user.id;
       req.user = {
         id: user.id,
         email: user.email,
@@ -51,6 +53,9 @@ export const attachUser: RequestHandler = async (req, _res, next) => {
         teamId: user.teamId,
         orgId: user.team?.orgId ?? null,
       };
+    } else if (userId) {
+      delete req.session.userId;
+      delete req.user;
     }
   } catch {
     // If session lookup fails, continue unauthenticated

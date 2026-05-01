@@ -37,6 +37,7 @@ export function HIcon({ name, size = 16, color = 'currentColor', strokeWidth = 1
     case 'filter':   return <svg {...p}><path d="M2.5 4h11l-4 5v4l-3-1V9z"/></svg>;
     case 'share':    return <svg {...p}><circle cx="4" cy="8" r="1.5"/><circle cx="12" cy="4" r="1.5"/><circle cx="12" cy="12" r="1.5"/><path d="M5.3 7.3l5.4-2.6M5.3 8.7l5.4 2.6"/></svg>;
     case 'copy':     return <svg {...p}><rect x="5" y="5" width="8" height="8" rx="1.5"/><path d="M3 10V4a1 1 0 011-1h6"/></svg>;
+    case 'fork':     return <svg {...p}><circle cx="4.5" cy="3" r="1.5"/><circle cx="4.5" cy="13" r="1.5"/><circle cx="11.5" cy="6" r="1.5"/><path d="M4.5 4.5v7"/><path d="M11.5 7.5c0 2.5-3.13 2.5-7 2.5"/></svg>;
     case 'check':    return <svg {...p}><path d="M3 8.5l3 3 7-7"/></svg>;
     case 'x':        return <svg {...p}><path d="M4 4l8 8M12 4l-8 8"/></svg>;
     case 'chevron-right': return <svg {...p}><path d="M6 3l5 5-5 5"/></svg>;

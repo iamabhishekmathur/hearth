@@ -103,7 +103,7 @@ export function TaskCard({ task, onClick, onUpdate, onAddContext }: TaskCardProp
           onClick();
         }
       }}
-      className="cursor-pointer rounded-lg bg-hearth-card p-3 shadow-hearth-1 ring-1 ring-hearth-border transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-hearth-accent"
+      className="cursor-pointer rounded-lg bg-hearth-card p-3 shadow-hearth-1 ring-1 ring-hearth-border transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-hearth-accent animate-fade-in"
     >
       {/* Title — editable in auto_detected/backlog, read-only otherwise */}
       {editing === 'title' ? (

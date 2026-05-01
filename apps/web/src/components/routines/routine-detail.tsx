@@ -758,7 +758,7 @@ export function RoutineDetail({
   const triggerType = getTriggerType(routine);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col animate-fade-in">
       {/* Panel header */}
       <div className="flex items-center justify-between border-b border-hearth-border px-5 py-4">
         <div className="min-w-0 flex-1">

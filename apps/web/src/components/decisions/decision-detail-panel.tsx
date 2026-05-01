@@ -22,7 +22,7 @@ export function DecisionDetailPanel({ decision, onClose }: Props) {
   };
 
   return (
-    <div className="w-2/5 overflow-y-auto border-l border-hearth-border bg-hearth-card p-6">
+    <div className="w-2/5 overflow-y-auto border-l border-hearth-border bg-hearth-card p-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-hearth-text">{decision.title}</h2>
         <button type="button" onClick={onClose} className="rounded p-1 text-hearth-text-faint hover:bg-hearth-chip hover:text-hearth-text-muted">

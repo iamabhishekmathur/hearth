@@ -46,5 +46,6 @@ export type ChatEvent =
   | { type: 'tool_call_delta'; id: string; input: string }
   | { type: 'tool_call_end'; id: string }
   | { type: 'tool_progress'; toolCallId: string; toolName: string; status: 'started' | 'completed' | 'failed'; durationMs?: number }
+  | { type: 'side_effect'; toolName: string; provider: string }
   | { type: 'error'; message: string }
   | { type: 'done'; usage: { inputTokens: number; outputTokens: number } };

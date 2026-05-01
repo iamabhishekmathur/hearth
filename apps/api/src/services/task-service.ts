@@ -15,8 +15,12 @@ export async function createTask(
     title: string;
     description?: string;
     source: TaskSource;
+    status?: TaskStatus;
     priority?: number;
     parentTaskId?: string;
+    sourceSessionId?: string;
+    sourceMessageId?: string;
+    sourceRef?: Record<string, unknown>;
   },
 ) {
   return prisma.task.create({
@@ -25,8 +29,12 @@ export async function createTask(
       title: data.title,
       description: data.description ?? null,
       source: data.source,
+      status: data.status ?? 'auto_detected',
       priority: data.priority ?? 0,
       parentTaskId: data.parentTaskId ?? null,
+      sourceSessionId: data.sourceSessionId ?? null,
+      sourceMessageId: data.sourceMessageId ?? null,
+      ...(data.sourceRef !== undefined ? { sourceRef: data.sourceRef as Prisma.InputJsonValue } : {}),
       context: {},
     },
     include: { subTasks: true, comments: true },
@@ -86,6 +94,7 @@ export async function getTask(id: string, userId: string) {
         include: { reviewer: { select: { id: true, name: true } } },
       },
       contextItems: { orderBy: { sortOrder: 'asc' } },
+      sourceSession: { select: { id: true, title: true } },
     },
   });
 }

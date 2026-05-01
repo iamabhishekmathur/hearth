@@ -632,25 +632,25 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
   });
 
   // ── Tasks: create ──
+  // Use this when the user has clearly asked you to create a task.
+  // For uncertain or speculative cases, use `propose_task` instead.
   tools.set('create_task', {
     name: 'create_task',
     description:
-      "Create a task in the user's Kanban board. Use when the user wants to track something as a to-do, action item, or work item.",
+      "Create a task in the user's Kanban board immediately. Use when the user clearly asks to track work (e.g. 'add a task', 'remind me to', 'put this in my backlog'). The current chat session is auto-linked. For ambiguous cases where you're inferring intent, use `propose_task` instead so the user can confirm.",
     inputSchema: {
       type: 'object',
       properties: {
-        title: {
+        title: { type: 'string', description: 'Title of the task' },
+        description: { type: 'string', description: 'Optional longer description' },
+        target_status: {
           type: 'string',
-          description: 'Title of the task',
+          enum: ['backlog', 'planning'],
+          description: '`backlog` (default) just stashes the task. `planning` kicks off the planning agent which auto-progresses to executing. Never set this without explicit user direction (e.g. "run it now").',
         },
-        description: {
-          type: 'string',
-          description: 'Optional longer description of the task',
-        },
-        status: {
-          type: 'string',
-          enum: ['auto_detected', 'backlog', 'planning', 'executing', 'review', 'done', 'failed', 'archived'],
-          description: 'Task status (default: backlog)',
+        attach_recent_n: {
+          type: 'number',
+          description: 'How many recent chat messages to attach as context. Default 4. Set 1 for "just this exchange," set 0 to attach nothing.',
         },
         priority: {
           type: 'number',
@@ -662,23 +662,147 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
     handler: async (input) => {
       const title = input.title as string;
       const description = input.description as string | undefined;
-      const status = (input.status as string | undefined) ?? 'backlog';
+      const targetStatus = ((input.target_status as string | undefined) ?? 'backlog') as 'backlog' | 'planning';
+      const attachRecentN = (input.attach_recent_n as number | undefined) ?? 4;
       const priority = (input.priority as number | undefined) ?? 0;
 
-      const task = await prisma.task.create({
-        data: {
-          userId: ctx.userId,
-          title,
-          description,
-          status: status as never,
-          source: 'agent_proposed',
-          priority: Math.min(3, Math.max(0, priority)),
-          context: {},
-        },
+      // Anchor on the latest user message in the session — that's the
+      // request the agent is acting on. Falls back to the latest message
+      // of any role.
+      const anchor = await prisma.chatMessage.findFirst({
+        where: { sessionId: ctx.sessionId, role: 'user' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      }) ?? await prisma.chatMessage.findFirst({
+        where: { sessionId: ctx.sessionId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+
+      const chatService = await import('../services/chat-service.js');
+      const result = await chatService.promoteMessageToTask({
+        sessionId: ctx.sessionId,
+        messageId: anchor?.id ?? '',
+        userId: ctx.userId,
+        title,
+        description,
+        attachRecentN,
+        targetStatus,
+        priority: Math.min(3, Math.max(0, priority)),
+        provenance: 'agent_create',
+      });
+
+      // If planning was requested, kick off the planner.
+      if (!result.existing && targetStatus === 'planning') {
+        const { enqueuePlanning } = await import('../services/task-planner.js');
+        enqueuePlanning(result.task.id, ctx.userId).catch(() => { /* best-effort */ });
+      }
+
+      const { emitToUser } = await import('../ws/socket-manager.js');
+      emitToUser(ctx.userId, 'task:created_from_chat', {
+        taskId: result.task.id,
+        title: result.task.title,
+        status: result.task.status,
+        sessionId: ctx.sessionId,
+        originatingMessageId: anchor?.id ?? null,
+        messageCount: result.messageCount,
+        existing: result.existing,
       });
 
       return {
-        output: { taskId: task.id, title: task.title, status: task.status },
+        output: {
+          taskId: result.task.id,
+          title: result.task.title,
+          status: result.task.status,
+          contextItemCount: result.messageCount > 0 ? 1 : 0,
+          deepLink: `/tasks?taskId=${result.task.id}`,
+        },
+      };
+    },
+  });
+
+  // ── Tasks: propose ──
+  // Use when the user hasn't explicitly asked for a task but you think
+  // one would be useful. Creates a TaskSuggestion the user can accept.
+  tools.set('propose_task', {
+    name: 'propose_task',
+    description:
+      "Propose a task for the user to accept or dismiss, instead of creating it directly. Use when you've inferred a task-shaped intent from the conversation but the user hasn't given an explicit instruction — especially when YOUR OWN reply describes multi-step delegated work (e.g., 'I'll need to pull X, then synthesize Y, then publish Z'). If your response shape is itself a plan with three or more steps, you should usually call this. The user sees an inline card under your message and can accept/edit/dismiss. Prefer this over `create_task` for any speculative or AI-initiated suggestion.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Proposed task title' },
+        description: { type: 'string', description: 'Optional longer description' },
+        confidence: {
+          type: 'number',
+          description: 'Your confidence the user actually wants this task, 0.0–1.0. Below 0.5, consider not proposing at all.',
+        },
+        attach_recent_n: {
+          type: 'number',
+          description: 'How many recent messages to suggest attaching. Default 4.',
+        },
+      },
+      required: ['title'],
+    },
+    handler: async (input) => {
+      const title = input.title as string;
+      const description = input.description as string | undefined;
+      const confidence = Math.min(1, Math.max(0, (input.confidence as number | undefined) ?? 0.6));
+      const attachRecentN = (input.attach_recent_n as number | undefined) ?? 4;
+
+      const anchor = await prisma.chatMessage.findFirst({
+        where: { sessionId: ctx.sessionId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, createdAt: true },
+      });
+      if (!anchor) {
+        return { output: { error: 'No messages in session to anchor suggestion to' } };
+      }
+
+      // Pre-compute the suggested message slice so the UI can preview it.
+      const slice = await prisma.chatMessage.findMany({
+        where: {
+          sessionId: ctx.sessionId,
+          createdAt: { lte: anchor.createdAt },
+          role: { in: ['user', 'assistant'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: attachRecentN,
+        select: { id: true },
+      });
+      const suggestedIds = slice.map((m) => m.id).reverse();
+
+      const suggestion = await prisma.taskSuggestion.create({
+        data: {
+          sessionId: ctx.sessionId,
+          messageId: anchor.id,
+          userId: ctx.userId,
+          proposedTitle: title,
+          proposedDescription: description ?? null,
+          suggestedContextMessageIds: suggestedIds,
+          confidence,
+          status: 'pending',
+        },
+      });
+
+      const { emitToUser } = await import('../ws/socket-manager.js');
+      emitToUser(ctx.userId, 'task:suggested', {
+        id: suggestion.id,
+        sessionId: ctx.sessionId,
+        messageId: anchor.id,
+        proposedTitle: title,
+        proposedDescription: description ?? null,
+        suggestedContextMessageIds: suggestedIds,
+        confidence,
+        createdAt: suggestion.createdAt.toISOString(),
+      });
+
+      return {
+        output: {
+          suggestionId: suggestion.id,
+          proposedTitle: title,
+          messageCount: suggestedIds.length,
+        },
       };
     },
   });

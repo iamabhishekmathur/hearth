@@ -52,7 +52,7 @@ export function SkillProposalBanner({ taskId }: SkillProposalBannerProps) {
   };
 
   return (
-    <div role="alert" aria-label="Skill proposal" className="mb-4 rounded-lg border border-hearth-200 bg-hearth-50 p-3">
+    <div role="alert" aria-label="Skill proposal" className="mb-4 rounded-lg border border-hearth-200 bg-hearth-50 p-3 animate-fade-in">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-hearth-100">
           <svg className="h-4 w-4 text-hearth-600" viewBox="0 0 20 20" fill="currentColor">

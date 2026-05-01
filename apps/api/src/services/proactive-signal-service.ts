@@ -85,7 +85,7 @@ async function findIdleTasks(userId: string): Promise<ProactiveSignal[]> {
     entityType: 'task',
     entityId: t.id,
     actionLabel: 'View Task',
-    actionUrl: `/#/workspace?taskId=${t.id}`,
+    actionUrl: `/#/tasks?taskId=${t.id}`,
   }));
 }
 
