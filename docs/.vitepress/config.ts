@@ -102,7 +102,7 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Released under the MIT License.',
+      message: 'Released under the AGPL v3 License.',
       copyright: 'Copyright 2026 Hearth Contributors',
     },
   },

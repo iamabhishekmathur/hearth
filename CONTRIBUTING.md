@@ -66,4 +66,24 @@ Check the [Issues](https://github.com/iamabhishekmathur/hearth/issues) tab for o
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+Hearth is licensed under [AGPL v3](LICENSE). By contributing, you agree that your contributions will be licensed under the same terms.
+
+## Developer Certificate of Origin (DCO)
+
+Every commit must be signed off to certify that you authored the contribution and have the right to submit it under the project license. We follow the [Developer Certificate of Origin v1.1](https://developercertificate.org/).
+
+**To sign off automatically, append `-s` to your commit:**
+
+```bash
+git commit -s -m "feat: my change"
+```
+
+This adds a `Signed-off-by: Your Name <your@email>` trailer to your commit message. By including it, you certify that:
+
+> The contribution was created in whole or in part by you and you have the right to submit it under the open source license indicated in the file, or you have permission from the copyright holder to do so.
+
+PRs without DCO sign-off on every commit will be asked to amend. No CLA is required — DCO sign-off is sufficient.
+
+## Commercial license
+
+A separate commercial license is available for organizations that cannot accept the AGPL's network-use clause. Contact [abhishek.mathur@tellius.com](mailto:abhishek.mathur@tellius.com) to discuss.

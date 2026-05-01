@@ -35,7 +35,7 @@ With hosted AI tools, your organization's knowledge lives on someone else's serv
 
 ### Built to stay open
 
-We know the big labs are moving fast. Anthropic, OpenAI, and others will likely ship their own versions of team memory, shared skills, and collaborative AI features — and they'll do it well. Hearth exists because organizations shouldn't have to wait for that, and shouldn't have to depend on a single provider when it arrives. This is the open alternative. MIT licensed, self-hosted, provider-agnostic.
+We know the big labs are moving fast. Anthropic, OpenAI, and others will likely ship their own versions of team memory, shared skills, and collaborative AI features — and they'll do it well. Hearth exists because organizations shouldn't have to wait for that, and shouldn't have to depend on a single provider when it arrives. This is the open alternative. AGPL v3 licensed, self-hosted, provider-agnostic.
 
 ---
 
@@ -326,4 +326,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. The short version: PRs we
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+Hearth is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL v3).
+
+In short: you can use, modify, and self-host Hearth freely, including for commercial purposes. If you modify Hearth and offer it as a network service, you must release your modifications under the same license.
+
+A **commercial license** is available for organizations that need to embed Hearth in proprietary products or cannot accept the AGPL's network-use clause. Contact [abhishek.mathur@tellius.com](mailto:abhishek.mathur@tellius.com) to discuss.
