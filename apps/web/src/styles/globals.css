@@ -31,3 +31,59 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
 }
+
+/* ----------------------------------------------------------------------------
+   Entrance motion — premium fade-ins.
+   Mount-only. Use on key={...} elements or first-render lists; never on
+   re-renders. Respect prefers-reduced-motion via the global override below.
+   ---------------------------------------------------------------------------- */
+@keyframes hearth-fade {
+  from { opacity: 0; transform: translateY(var(--hearth-motion-rise-sm)); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hearth-fade-rise {
+  from { opacity: 0; transform: translateY(var(--hearth-motion-rise)); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hearth-scale-in {
+  from { opacity: 0; transform: scale(var(--hearth-motion-scale-in)); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Single source of truth for reduced-motion. Neutralizes every animation
+   and transition globally — no per-component checks required. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* Brief highlight when a chat message is anchored via deep link */
+.chat-msg-highlight {
+  animation: chatMsgHighlight 2s ease-out;
+}
+@keyframes chatMsgHighlight {
+  0%   { background-color: color-mix(in srgb, var(--hearth-accent) 20%, transparent); }
+  100% { background-color: transparent; }
+}
+
+/* Task chip + toast slide-ins — share the design system entrance tokens
+   so toast/chip motion matches route + modal motion across the app. */
+.task-chip-slide-in {
+  animation: taskChipSlideIn var(--hearth-dur-entrance) var(--hearth-ease-out) both;
+}
+@keyframes taskChipSlideIn {
+  from { opacity: 0; transform: translateY(calc(-1 * var(--hearth-motion-rise-sm))) scale(var(--hearth-motion-scale-in)); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.task-toast-slide-in {
+  animation: taskToastSlideIn var(--hearth-dur-entrance) var(--hearth-ease-out) both;
+}
+@keyframes taskToastSlideIn {
+  from { opacity: 0; transform: translate(-50%, calc(-1 * var(--hearth-motion-rise))); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

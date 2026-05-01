@@ -69,6 +69,11 @@ const config: Config = {
         'hearth-out': 'var(--hearth-ease-out)',
         'hearth-in': 'var(--hearth-ease-in)',
       },
+      animation: {
+        'fade-in':   'hearth-fade var(--hearth-dur-entrance) var(--hearth-ease-out) both',
+        'fade-rise': 'hearth-fade-rise var(--hearth-dur-entrance) var(--hearth-ease-out) both',
+        'scale-in':  'hearth-scale-in var(--hearth-dur-entrance) var(--hearth-ease-out) both',
+      },
     },
   },
   plugins: [require('@tailwindcss/typography')],

@@ -113,6 +113,15 @@
   --hearth-dur-base:      220ms;
   --hearth-dur-slow:      380ms;
 
+  /* Entrance motion — quiet by default. Opacity-only fades for surfaces you
+     load repeatedly (routes, panes); fade-rise + scale-in are reserved for
+     moments where motion has meaning (modals, toasts, command palette). */
+  --hearth-dur-entrance:    560ms;
+  --hearth-motion-rise:     8px;
+  --hearth-motion-rise-sm:  4px;
+  --hearth-motion-scale-in: 0.96;
+  --hearth-stagger-step:    40ms;
+
   /* ---- LAYOUT ------------------------------------------------------------ */
   --hearth-rail-w:        56px;
   --hearth-aside-w:       340px;
