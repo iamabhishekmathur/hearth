@@ -1,6 +1,8 @@
 # How to Contribute
 
-Welcome to Hearth! We are glad you are interested in contributing. Hearth is an open-source AI productivity platform for teams, released under the MIT license. Contributions of all sizes are valued -- from fixing a typo to implementing a major feature.
+Welcome to Hearth! We are glad you are interested in contributing. Hearth is an open-source AI productivity platform for teams, released under the [AGPL v3](https://www.gnu.org/licenses/agpl-3.0.html) license. Contributions of all sizes are valued -- from fixing a typo to implementing a major feature.
+
+All contributions require a [Developer Certificate of Origin](https://developercertificate.org/) sign-off — see the [DCO section in CONTRIBUTING.md](https://github.com/iamabhishekmathur/hearth/blob/main/CONTRIBUTING.md#developer-certificate-of-origin-dco) for details. In short: append `-s` to every `git commit`.
 
 ## Ways to Contribute
 

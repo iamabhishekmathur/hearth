@@ -72,7 +72,7 @@ features:
     linkText: Self-Hosting Guide
   - icon: "🏠"
     title: Self-Hosted
-    details: Deploy in your cloud or on-prem. Your data never touches our servers. Docker Compose for dev, Kubernetes + Helm for production. MIT licensed.
+    details: Deploy in your cloud or on-prem. Your data never touches our servers. Docker Compose for dev, Kubernetes + Helm for production. AGPL v3 licensed.
     link: /self-hosting/
     linkText: Self-Hosting Guide
   - icon: "🛡️"
