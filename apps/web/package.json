@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/main.tsx",
     "./main": "./src/main.tsx",
-    "./extensions/register": "./src/extensions/register.ts"
+    "./extensions/register": "./src/extensions/register.ts",
+    "./lib/api-client": "./src/lib/api-client.ts",
+    "./components/ui/primitives": "./src/components/ui/primitives.tsx"
   },
   "scripts": {
     "dev": "vite",
