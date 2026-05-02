@@ -117,14 +117,23 @@ export async function withTenantTx<T>(
  * Bypass-RLS variant — runs `fn` with RLS disabled for this transaction.
  * Use ONLY for trusted system operations (migrations, cross-tenant analytics,
  * admin tools). Every call site should have a code comment explaining why.
+ *
+ * Updates the AsyncLocalStorage tenant context to `bypass: true` so any
+ * nested Prisma calls (which auto-wrap themselves via the tenant extension)
+ * also see the bypass — otherwise they'd re-set the regular org_id GUC.
  */
 export async function withRlsBypass<T>(
   fn: (tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]) => Promise<T>,
 ): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(`SET LOCAL app.bypass_rls = 'on'`);
-    return fn(tx);
-  });
+  const inner = getTenant();
+  return runWithTenant(
+    { orgId: inner?.orgId ?? null, userId: inner?.userId ?? null, bypass: true },
+    () =>
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL app.bypass_rls = 'on'`);
+        return fn(tx);
+      }),
+  );
 }
 
 /**
