@@ -55,6 +55,7 @@ import { loadProviders } from './llm/provider-loader.js';
 import { bootstrapIntegrations } from './mcp/bootstrap.js';
 import { requestContextMiddleware } from './middleware/request-context.js';
 import { bootstrapCompliance } from './compliance/bootstrap.js';
+import { applyApiExtensions } from './extensions/register.js';
 
 const app: Express = express();
 const httpServer = createServer(app);
@@ -154,6 +155,10 @@ app.use('/api/v1/meetings', meetingsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/task-suggestions', taskSuggestionsRouter);
 app.use('/api/v1/recurrence', recurrenceRouter);
+
+// Apply extension routes (cloud and any other downstream registers them
+// via registerApiExtension before this point). No-op for OSS-only builds.
+await applyApiExtensions(app);
 
 // Error handling
 app.use(errorHandler);

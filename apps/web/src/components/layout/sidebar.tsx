@@ -1,5 +1,6 @@
 import type { SessionUser } from '@hearth/shared';
 import { HRailItem, HAvatar } from '@/components/ui/primitives';
+import { getExtensionNavItems } from '@/extensions/register';
 
 interface SidebarProps {
   user: SessionUser;
@@ -11,6 +12,12 @@ interface SidebarProps {
 export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarProps) {
   const active = (route: string) => currentRoute.startsWith(route);
   const initials = user.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
+  // Cloud / downstream consumers can register extra nav items via the
+  // extension hook. Filtered by required role if specified.
+  const extensionItems = getExtensionNavItems().filter((item) => {
+    if (!item.requiredRoles || item.requiredRoles.length === 0) return true;
+    return item.requiredRoles.includes(user.role as 'admin' | 'team_lead' | 'member' | 'viewer');
+  });
 
   return (
     <aside
@@ -42,6 +49,15 @@ export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarPro
       <div className="mt-auto mb-4 flex flex-col items-center gap-1">
         <HRailItem icon="activity" label="Activity" active={active('/activity')} dot onClick={() => onNavigate('/activity')} />
         <HRailItem icon="decisions" label="Decisions" active={active('/decisions')} onClick={() => onNavigate('/decisions')} />
+        {extensionItems.map((item) => (
+          <HRailItem
+            key={item.route}
+            icon={item.icon ?? 'settings'}
+            label={item.label}
+            active={active(item.route)}
+            onClick={() => onNavigate(item.route)}
+          />
+        ))}
         <HRailItem icon="settings" label="Settings" active={active('/settings')} onClick={() => onNavigate('/settings')} />
         <button
           type="button"
