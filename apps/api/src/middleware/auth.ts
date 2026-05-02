@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express';
 import type { UserRole } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
+import { enterTenant } from '../lib/tenant-context.js';
 
 // Extend express-session to include userId
 declare module 'express-session' {
@@ -60,6 +61,15 @@ export const attachUser: RequestHandler = async (req, _res, next) => {
   } catch {
     // If session lookup fails, continue unauthenticated
   }
+
+  // Enter the tenant context for the rest of this request. RLS-aware Prisma
+  // calls (via withTenantTx) will scope queries to this org. If the user is
+  // unauthenticated or has no org, the context is entered with null orgId —
+  // withTenantTx will throw if a tenant query is attempted without bypass.
+  enterTenant({
+    orgId: req.user?.orgId ?? null,
+    userId: req.user?.id ?? null,
+  });
 
   next();
 };
