@@ -12,6 +12,7 @@ import { enqueueExecution } from '../services/task-executor.js';
 import { enqueuePlanning } from '../services/task-planner.js';
 import { emitToTask } from '../ws/socket-manager.js';
 import { logger } from '../lib/logger.js';
+import { tenantUploadDir } from '../lib/storage-paths.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -486,9 +487,12 @@ const UPLOADS_ROOT = path.resolve('uploads');
 
 const contextUpload = multer({
   storage: multer.diskStorage({
-    destination(_req, _file, cb) {
-      const now = new Date();
-      const dir = path.join(UPLOADS_ROOT, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+    destination(req, _file, cb) {
+      const orgId = (req as { user?: { orgId?: string | null } }).user?.orgId;
+      if (!orgId) {
+        return cb(new Error('Upload requires an authenticated org context'), '');
+      }
+      const dir = path.join(UPLOADS_ROOT, tenantUploadDir(orgId));
       fs.mkdirSync(dir, { recursive: true });
       cb(null, dir);
     },
@@ -507,7 +511,7 @@ const contextUpload = multer({
   },
 });
 
-router.post('/:id/context-items/upload', requireAuth, contextUpload.single('file'), async (req, res, next) => {
+router.post('/:id/context-items/upload', requireAuth, requireOrg, contextUpload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {
