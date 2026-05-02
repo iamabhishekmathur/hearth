@@ -84,7 +84,7 @@ beforeEach(() => {
 describe('isCognitiveEnabledForOrg', () => {
   it('returns false when org has no cognitive settings', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
-      id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     expect(await isCognitiveEnabledForOrg('org-1')).toBe(false);
   });
@@ -92,7 +92,7 @@ describe('isCognitiveEnabledForOrg', () => {
   it('returns false when cognitive profiles are explicitly disabled', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: { cognitiveProfiles: { enabled: false } },
-      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     expect(await isCognitiveEnabledForOrg('org-1')).toBe(false);
   });
@@ -100,7 +100,7 @@ describe('isCognitiveEnabledForOrg', () => {
   it('returns true when cognitive profiles are enabled', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: { cognitiveProfiles: { enabled: true } },
-      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     expect(await isCognitiveEnabledForOrg('org-1')).toBe(true);
   });
@@ -109,7 +109,7 @@ describe('isCognitiveEnabledForOrg', () => {
 describe('isCognitiveEnabledForUser', () => {
   it('returns false when org feature is disabled', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
-      id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     expect(await isCognitiveEnabledForUser('org-1', 'user-1')).toBe(false);
   });
@@ -117,7 +117,7 @@ describe('isCognitiveEnabledForUser', () => {
   it('returns true when org enabled and no user profile record (default opt-in)', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: { cognitiveProfiles: { enabled: true } },
-      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     vi.mocked(prisma.cognitiveProfile.findUnique).mockResolvedValue(null);
     expect(await isCognitiveEnabledForUser('org-1', 'user-1')).toBe(true);
@@ -126,7 +126,7 @@ describe('isCognitiveEnabledForUser', () => {
   it('returns false when user has opted out', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: { cognitiveProfiles: { enabled: true } },
-      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     vi.mocked(prisma.cognitiveProfile.findUnique).mockResolvedValue({
       id: 'cp-1', orgId: 'org-1', userId: 'user-1', profile: {},
@@ -141,7 +141,7 @@ describe('isCognitiveEnabledForUser', () => {
 describe('extractCognitivePatterns', () => {
   it('skips extraction when feature is disabled', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
-      id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
 
     await extractCognitivePatterns({
@@ -155,7 +155,7 @@ describe('extractCognitivePatterns', () => {
   it('skips extraction when session is too short', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: { cognitiveProfiles: { enabled: true } },
-      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     vi.mocked(prisma.cognitiveProfile.findUnique).mockResolvedValue(null);
 
@@ -176,7 +176,7 @@ describe('extractCognitivePatterns', () => {
   it('extracts patterns from qualifying session', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: { cognitiveProfiles: { enabled: true } },
-      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, createdAt: new Date(),
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
     vi.mocked(prisma.cognitiveProfile.findUnique).mockResolvedValue(null);
 
