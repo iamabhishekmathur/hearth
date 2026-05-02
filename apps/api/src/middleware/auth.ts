@@ -3,10 +3,23 @@ import type { UserRole } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
 import { enterTenant } from '../lib/tenant-context.js';
 
-// Extend express-session to include userId
+/**
+ * Set on the session by cloud's impersonate-as-user route while a Hearth
+ * Cloud operator is taking over a customer user's session. Lets downstream
+ * code (audit log enrichment, IP allowlist bypass, UI banners) know that
+ * the active session is an operator session, not a regular customer one.
+ */
+export interface ImpersonationContext {
+  operatorUserId: string;
+  operatorEmail: string;
+  startedAt: string;
+}
+
+// Extend express-session to include userId + impersonationContext
 declare module 'express-session' {
   interface SessionData {
     userId?: string;
+    impersonationContext?: ImpersonationContext;
   }
 }
 
@@ -23,6 +36,13 @@ export interface AuthenticatedUser {
    * `active`. `null` when the user has no org yet.
    */
   orgStatus: 'active' | 'pending_deletion' | 'suspended' | null;
+  /**
+   * Present only when the request is being made by a Hearth Cloud operator
+   * impersonating this user. Set from the session by `attachUser`. Cloud
+   * features (e.g. IP allowlist, audit-log enrichment) read this; OSS
+   * itself does not populate it.
+   */
+  impersonationContext?: ImpersonationContext;
 }
 
 declare global {
@@ -60,6 +80,9 @@ export const attachUser: RequestHandler = async (req, _res, next) => {
         teamId: user.teamId,
         orgId: user.team?.orgId ?? null,
         orgStatus: (user.team?.org.status as 'active' | 'pending_deletion' | 'suspended' | null) ?? null,
+        ...(req.session.impersonationContext
+          ? { impersonationContext: req.session.impersonationContext }
+          : {}),
       };
     } else if (userId) {
       delete req.session.userId;
