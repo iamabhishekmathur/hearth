@@ -5,6 +5,7 @@ import { LoginPage } from '@/pages/login';
 import { RegisterPage } from '@/pages/register';
 import { SetupWizard } from '@/pages/setup-wizard';
 import { api } from '@/lib/api-client';
+import { findExtensionRoute } from '@/extensions/register';
 
 // Lazy-load heavy pages for code-splitting
 const ChatPage = lazy(() => import('@/pages/chat').then((m) => ({ default: m.ChatPage })));
@@ -125,20 +126,32 @@ function Router() {
   // /chat/:id or /settings/:tab should NOT re-trigger the page fade.
   const routeKey = '/' + (route.split('/')[1] || '');
 
+  // Cloud (or any other downstream) can register routes via the extension
+  // hook. Check that registry first; if a registered route matches, render
+  // it instead of an OSS page. Lets cloud add /admin, /billing, etc.
+  // without modifying this file.
+  const extensionRoute = findExtensionRoute(route);
+
   // Authenticated — show app shell with lazy-loaded pages
   return (
     <AppShell currentRoute={route} onNavigate={navigate}>
       <PageErrorBoundary>
         <Suspense fallback={<PageFallback />}>
           <div key={routeKey} className="h-full animate-fade-in">
-            {route.startsWith('/chat') && <ChatPage />}
-            {route === '/tasks' && <TasksPage />}
-            {route === '/memory' && <MemoryPage />}
-            {route === '/skills' && <SkillsPage />}
-            {route === '/routines' && <RoutinesPage />}
-            {route === '/activity' && <ActivityPage />}
-            {route === '/decisions' && <DecisionsPage />}
-            {route.startsWith('/settings') && <SettingsPage initialTab={route.split('/')[2]} />}
+            {extensionRoute ? (
+              extensionRoute.render()
+            ) : (
+              <>
+                {route.startsWith('/chat') && <ChatPage />}
+                {route === '/tasks' && <TasksPage />}
+                {route === '/memory' && <MemoryPage />}
+                {route === '/skills' && <SkillsPage />}
+                {route === '/routines' && <RoutinesPage />}
+                {route === '/activity' && <ActivityPage />}
+                {route === '/decisions' && <DecisionsPage />}
+                {route.startsWith('/settings') && <SettingsPage initialTab={route.split('/')[2]} />}
+              </>
+            )}
           </div>
         </Suspense>
       </PageErrorBoundary>
