@@ -272,6 +272,13 @@ enum OrgStatus {
   suspended
 }
 
+enum Plan {
+  free
+  team
+  business
+  enterprise
+}
+
 // ──────────────────────────────────────────────
 // Core Models
 // ──────────────────────────────────────────────
@@ -284,6 +291,15 @@ model Org {
   ssoConfig             Json?     @map("sso_config")
   status                OrgStatus @default(active)
   deletionScheduledAt   DateTime? @map("deletion_scheduled_at")
+
+  // Billing — set by cloud, ignored by self-hosters (default plan='free').
+  // Stripe IDs and timestamps populate during Phase 4 wiring.
+  plan                  Plan      @default(free)
+  stripeCustomerId      String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?   @unique @map("stripe_subscription_id")
+  trialEndsAt           DateTime? @map("trial_ends_at")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+
   createdAt             DateTime  @default(now()) @map("created_at")
 
   teams              Team[]
