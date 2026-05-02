@@ -33,6 +33,13 @@ export interface TenantContext {
   orgId: string | null;
   userId: string | null;
   bypass?: boolean;
+  /**
+   * Internal flag — set true by withTenantTx/withRlsBypass while their
+   * explicit transaction is running. The Prisma tenant extension reads
+   * this and skips its auto-wrap, so nested queries run inside the
+   * existing tx and roll back together on error.
+   */
+  inExplicitTx?: boolean;
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();
@@ -92,25 +99,24 @@ export async function withTenantTx<T>(
     );
   }
 
-  return prisma.$transaction(async (tx) => {
-    if (ctx.bypass) {
-      // System/admin path: bypass RLS for cross-tenant operations.
-      // Bypass is logged via callers; nothing we can do at this layer.
-      await tx.$executeRawUnsafe(`SET LOCAL app.bypass_rls = 'on'`);
-    } else if (ctx.orgId) {
-      // Regular tenant path: scope all queries to this org.
-      // SET LOCAL is transaction-scoped and reverts on commit/rollback.
-      await tx.$executeRawUnsafe(`SET LOCAL app.org_id = '${escapeOrgId(ctx.orgId)}'`);
-    } else {
-      // No orgId and no bypass — queries will return zero rows because
-      // the GUC is unset. Fail loud so we don't silently lose data.
-      throw new Error(
-        'Tenant context has no orgId and no bypass flag. ' +
-          'This usually means a route handler missed requireOrg middleware.',
-      );
-    }
-    return fn(tx);
-  });
+  // Mark the context so the Prisma extension knows we're in an explicit
+  // transaction and skips its auto-wrap (which would create a *separate*
+  // transaction that commits independently of this one).
+  return runWithTenant({ ...ctx, inExplicitTx: true }, () =>
+    prisma.$transaction(async (tx) => {
+      if (ctx.bypass) {
+        await tx.$executeRawUnsafe(`SET LOCAL app.bypass_rls = 'on'`);
+      } else if (ctx.orgId) {
+        await tx.$executeRawUnsafe(`SET LOCAL app.org_id = '${escapeOrgId(ctx.orgId)}'`);
+      } else {
+        throw new Error(
+          'Tenant context has no orgId and no bypass flag. ' +
+            'This usually means a route handler missed requireOrg middleware.',
+        );
+      }
+      return fn(tx);
+    }),
+  );
 }
 
 /**
@@ -127,7 +133,12 @@ export async function withRlsBypass<T>(
 ): Promise<T> {
   const inner = getTenant();
   return runWithTenant(
-    { orgId: inner?.orgId ?? null, userId: inner?.userId ?? null, bypass: true },
+    {
+      orgId: inner?.orgId ?? null,
+      userId: inner?.userId ?? null,
+      bypass: true,
+      inExplicitTx: true,
+    },
     () =>
       prisma.$transaction(async (tx) => {
         await tx.$executeRawUnsafe(`SET LOCAL app.bypass_rls = 'on'`);
