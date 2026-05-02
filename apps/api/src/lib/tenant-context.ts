@@ -3,6 +3,24 @@ import type { PrismaClient } from '@prisma/client';
 import { prisma } from './prisma.js';
 
 /**
+ * IMPORTANT — deployment requirement for RLS to actually enforce:
+ *
+ * DATABASE_URL must use a Postgres role that is NOT a superuser and does
+ * NOT have the BYPASSRLS attribute. Otherwise RLS policies are silently
+ * bypassed and tenants can read each other's data.
+ *
+ *   CREATE ROLE hearth_app NOSUPERUSER NOBYPASSRLS LOGIN PASSWORD '...';
+ *   GRANT USAGE ON SCHEMA public TO hearth_app;
+ *   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hearth_app;
+ *   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO hearth_app;
+ *   ALTER DEFAULT PRIVILEGES IN SCHEMA public
+ *     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO hearth_app;
+ *
+ * Migrations still run as the privileged role (they need to create tables
+ * and policies). Only the runtime app role must be constrained.
+ */
+
+/**
  * Tenant context — propagated through async calls so every Prisma query
  * knows which org it's operating on. Set once per request (in auth
  * middleware) or per background job, then consumed by withTenantTx().
