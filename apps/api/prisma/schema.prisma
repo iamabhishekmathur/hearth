@@ -266,17 +266,25 @@ enum MeetingProvider {
   manual
 }
 
+enum OrgStatus {
+  active
+  pending_deletion
+  suspended
+}
+
 // ──────────────────────────────────────────────
 // Core Models
 // ──────────────────────────────────────────────
 
 model Org {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  settings  Json     @default("{}")
-  ssoConfig Json?    @map("sso_config")
-  createdAt DateTime @default(now()) @map("created_at")
+  id                    String    @id @default(uuid())
+  name                  String
+  slug                  String    @unique
+  settings              Json      @default("{}")
+  ssoConfig             Json?     @map("sso_config")
+  status                OrgStatus @default(active)
+  deletionScheduledAt   DateTime? @map("deletion_scheduled_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
   teams              Team[]
   memoryEntries      MemoryEntry[]

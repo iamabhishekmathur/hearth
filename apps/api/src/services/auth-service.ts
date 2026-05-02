@@ -103,6 +103,21 @@ export async function findOrCreateOAuthUser(profile: OAuthProfile): Promise<User
     return existing;
   }
 
+  // Cloud (or any downstream consumer) can register an OAuthProvisioner
+  // to take over new-user creation — used to auto-provision a new org per
+  // signup. If the provisioner returns a User, use it. If it returns null
+  // or no provisioner is registered, fall back to OSS default behavior.
+  const { getOAuthProvisioner } = await import('../extensions/oauth-provisioner.js');
+  const provisioner = getOAuthProvisioner();
+  if (provisioner) {
+    const user = await provisioner({
+      provider: profile.provider as 'google' | 'github',
+      email: profile.email,
+      name: profile.name,
+    });
+    if (user) return user;
+  }
+
   const userCount = await prisma.user.count();
   const isFirstUser = userCount === 0;
 

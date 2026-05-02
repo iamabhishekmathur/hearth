@@ -17,6 +17,12 @@ export interface AuthenticatedUser {
   role: UserRole;
   teamId: string | null;
   orgId: string | null;
+  /**
+   * Status of the user's org. Cloud uses this to gate access during
+   * grace-period deletion or billing suspension. Self-hosters always see
+   * `active`. `null` when the user has no org yet.
+   */
+  orgStatus: 'active' | 'pending_deletion' | 'suspended' | null;
 }
 
 declare global {
@@ -41,7 +47,7 @@ export const attachUser: RequestHandler = async (req, _res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { team: { select: { orgId: true } } },
+      include: { team: { select: { orgId: true, org: { select: { status: true } } } } },
     });
 
     if (user) {
@@ -53,6 +59,7 @@ export const attachUser: RequestHandler = async (req, _res, next) => {
         role: user.role as UserRole,
         teamId: user.teamId,
         orgId: user.team?.orgId ?? null,
+        orgStatus: (user.team?.org.status as 'active' | 'pending_deletion' | 'suspended' | null) ?? null,
       };
     } else if (userId) {
       delete req.session.userId;
@@ -86,11 +93,18 @@ export const requireAuth: RequestHandler = (req, res, next) => {
 };
 
 /**
- * Requires the authenticated user to be a member of an org (i.e. have a team).
+ * Requires the authenticated user to be a member of an active org.
+ *
  * Use this on routes that create or read tenant-owned data — guarantees
- * req.user.orgId is non-null for downstream handlers and services.
+ * req.user.orgId is non-null AND the org is in 'active' status (not
+ * pending deletion or suspended).
  *
  * Must be used after requireAuth.
+ *
+ * Returns:
+ *   - 400 if user has no org
+ *   - 410 if org is pending_deletion (Gone, with deletion_scheduled info)
+ *   - 402 if org is suspended (Payment Required, billing-driven)
  */
 export const requireOrg: RequestHandler = (req, res, next) => {
   if (!req.user) {
@@ -101,6 +115,20 @@ export const requireOrg: RequestHandler = (req, res, next) => {
     res.status(400).json({
       error: 'No organization',
       message: 'Your account is not associated with an organization. Ask an admin to add you to a team.',
+    });
+    return;
+  }
+  if (req.user.orgStatus === 'pending_deletion') {
+    res.status(410).json({
+      error: 'Organization scheduled for deletion',
+      message: 'This organization is scheduled for deletion. An admin can cancel via /api/v1/provisioning/orgs/me/cancel-deletion.',
+    });
+    return;
+  }
+  if (req.user.orgStatus === 'suspended') {
+    res.status(402).json({
+      error: 'Organization suspended',
+      message: 'This organization is suspended. Contact support or update billing to restore access.',
     });
     return;
   }
