@@ -1,6 +1,15 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { prisma } from './prisma.js';
+
+/**
+ * Prisma transaction client — what `withTenantTx` and `withRlsBypass`
+ * callbacks receive. Using `Prisma.TransactionClient` (vs the
+ * `Parameters<PrismaClient['$transaction']>[0]>[0]` extraction) makes
+ * the type narrow cleanly when downstream packages consume these
+ * helpers — extension casts can otherwise erase the inference.
+ */
+export type TenantTx = Prisma.TransactionClient;
 
 /**
  * IMPORTANT — deployment requirement for RLS to actually enforce:
@@ -89,7 +98,7 @@ export function getTenant(): TenantContext | null {
  *   });
  */
 export async function withTenantTx<T>(
-  fn: (tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]) => Promise<T>,
+  fn: (tx: TenantTx) => Promise<T>,
 ): Promise<T> {
   const ctx = getTenant();
   if (!ctx) {
@@ -129,7 +138,7 @@ export async function withTenantTx<T>(
  * also see the bypass — otherwise they'd re-set the regular org_id GUC.
  */
 export async function withRlsBypass<T>(
-  fn: (tx: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]) => Promise<T>,
+  fn: (tx: TenantTx) => Promise<T>,
 ): Promise<T> {
   const inner = getTenant();
   return runWithTenant(
