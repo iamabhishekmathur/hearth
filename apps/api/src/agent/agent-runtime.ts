@@ -2,6 +2,8 @@ import type { ChatEvent, LLMMessage, ToolDefinition } from '@hearth/shared';
 import { providerRegistry } from '../llm/provider-registry.js';
 import { executeTool } from './tool-router.js';
 import type { AgentContext } from './types.js';
+import { getUsageRecorder } from '../extensions/usage-metering.js';
+import { logger } from '../lib/logger.js';
 
 const MAX_ITERATIONS = 25;
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -123,6 +125,7 @@ export async function* agentLoop(
           content: fullTextContent,
         });
       }
+      recordAgentRunUsage(context.orgId);
       yield { type: 'done', usage: lastUsage };
       return;
     }
@@ -210,7 +213,22 @@ export async function* agentLoop(
     if (event.type === 'done') finalUsage = event.usage;
   }
 
+  recordAgentRunUsage(context.orgId);
   yield { type: 'done', usage: finalUsage };
+}
+
+/**
+ * Fire-and-forget usage metering. No-op when no recorder is registered
+ * (i.e. OSS self-hosting). Errors are logged but never propagated — a
+ * metering glitch must never break an agent run.
+ */
+function recordAgentRunUsage(orgId: string): void {
+  const recorder = getUsageRecorder();
+  if (recorder) {
+    recorder(orgId, 'agent_runs', 1).catch((err) => {
+      logger.warn({ err, orgId }, 'usage metering failed');
+    });
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────

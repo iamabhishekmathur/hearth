@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./extensions/register": "./src/extensions/register.ts",
     "./extensions/oauth-provisioner": "./src/extensions/oauth-provisioner.ts",
+    "./extensions/usage-metering": "./src/extensions/usage-metering.ts",
     "./middleware/auth": "./src/middleware/auth.ts",
     "./lib/prisma": "./src/lib/prisma.ts",
     "./lib/tenant-context": "./src/lib/tenant-context.ts",
