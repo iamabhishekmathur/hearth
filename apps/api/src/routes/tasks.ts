@@ -4,7 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import type { TaskStatus, TaskSource, TaskContextItemType, ReviewDecision } from '@hearth/shared';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireOrg } from '../middleware/auth.js';
 import * as taskService from '../services/task-service.js';
 import * as contextService from '../services/task-context-service.js';
 import { enqueueExtraction } from '../jobs/task-context-extraction-job.js';
@@ -12,6 +12,7 @@ import { enqueueExecution } from '../services/task-executor.js';
 import { enqueuePlanning } from '../services/task-planner.js';
 import { emitToTask } from '../ws/socket-manager.js';
 import { logger } from '../lib/logger.js';
+import { tenantUploadDir } from '../lib/storage-paths.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -55,7 +56,7 @@ router.get('/:id', requireAuth, async (req, res, next) => {
 /**
  * POST /tasks — create a task
  */
-router.post('/', requireAuth, async (req, res, next) => {
+router.post('/', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const { title, description, source, priority, parentTaskId } = req.body as {
       title?: string;
@@ -76,7 +77,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const task = await taskService.createTask(req.user!.id, {
+    const task = await taskService.createTask(req.user!.orgId!, req.user!.id, {
       title,
       description,
       source,
@@ -486,9 +487,12 @@ const UPLOADS_ROOT = path.resolve('uploads');
 
 const contextUpload = multer({
   storage: multer.diskStorage({
-    destination(_req, _file, cb) {
-      const now = new Date();
-      const dir = path.join(UPLOADS_ROOT, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+    destination(req, _file, cb) {
+      const orgId = (req as { user?: { orgId?: string | null } }).user?.orgId;
+      if (!orgId) {
+        return cb(new Error('Upload requires an authenticated org context'), '');
+      }
+      const dir = path.join(UPLOADS_ROOT, tenantUploadDir(orgId));
       fs.mkdirSync(dir, { recursive: true });
       cb(null, dir);
     },
@@ -507,7 +511,7 @@ const contextUpload = multer({
   },
 });
 
-router.post('/:id/context-items/upload', requireAuth, contextUpload.single('file'), async (req, res, next) => {
+router.post('/:id/context-items/upload', requireAuth, requireOrg, contextUpload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {

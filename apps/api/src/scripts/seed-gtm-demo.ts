@@ -66,6 +66,7 @@ async function main() {
     },
   });
   console.log(`✓ Org: ${org.name} (${org.id})`);
+  const orgId = org.id;
 
   // ── Step 2: Clean old demo data ────────────────────────────────────
 
@@ -184,6 +185,7 @@ async function main() {
 
   const session = await prisma.chatSession.create({
     data: {
+      orgId,
       userId: admin.id,
       title: 'Enterprise Beta Launch Review',
       status: 'active',
@@ -193,7 +195,7 @@ async function main() {
 
   for (const u of [priya, marcus, dana, alex, jordan]) {
     await prisma.sessionCollaborator.create({
-      data: { sessionId: session.id, userId: u.id, role: 'contributor', addedBy: admin.id },
+      data: { orgId, sessionId: session.id, userId: u.id, role: 'contributor', addedBy: admin.id },
     });
   }
 
@@ -298,7 +300,7 @@ I've also set up a "Monday Launch Risk Digest" routine that will summarize block
 
   for (const m of msgs) {
     await prisma.chatMessage.create({
-      data: { sessionId: session.id, role: m.role, content: m.content, createdBy: m.by ?? null, createdAt: minutesAgo(m.minutesAgo), metadata: {} },
+      data: { orgId, sessionId: session.id, role: m.role, content: m.content, createdBy: m.by ?? null, createdAt: minutesAgo(m.minutesAgo), metadata: {} },
     });
   }
   console.log(`✓ Chat: ${msgs.length} messages`);
@@ -320,7 +322,7 @@ I've also set up a "Monday Launch Risk Digest" routine that will summarize block
 
   for (const a of artifactDefs) {
     await prisma.artifact.create({
-      data: { sessionId: session.id, type: a.type, title: a.title, content: a.content, language: null, createdBy: admin.id, createdAt: minutesAgo(42) },
+      data: { orgId, sessionId: session.id, type: a.type, title: a.title, content: a.content, language: null, createdBy: admin.id, createdAt: minutesAgo(42) },
     });
   }
   console.log(`✓ Artifacts: ${artifactDefs.length} documents`);
@@ -395,17 +397,17 @@ I've also set up a "Monday Launch Risk Digest" routine that will summarize block
 
   for (const t of taskDefs) {
     const task = await prisma.task.create({
-      data: { userId: admin.id, title: t.title, description: t.desc, status: t.status as any, source: t.source as any, priority: t.priority, context: {}, createdAt: ago(1, 2) },
+      data: { orgId, userId: admin.id, title: t.title, description: t.desc, status: t.status as any, source: t.source as any, priority: t.priority, context: {}, createdAt: ago(1, 2) },
     });
     if (t.comments) {
       for (const c of t.comments) {
-        await prisma.taskComment.create({ data: { taskId: task.id, userId: c.userId ?? null, isAgent: c.isAgent ?? false, content: c.content } });
+        await prisma.taskComment.create({ data: { orgId, taskId: task.id, userId: c.userId ?? null, isAgent: c.isAgent ?? false, content: c.content } });
       }
     }
     if (t.steps) {
       for (let i = 0; i < t.steps.length; i++) {
         const s = t.steps[i];
-        await prisma.taskExecutionStep.create({ data: { taskId: task.id, stepNumber: i + 1, description: s.desc, status: s.status as any, phase: 'execution', toolUsed: s.tool ?? null } });
+        await prisma.taskExecutionStep.create({ data: { orgId, taskId: task.id, stepNumber: i + 1, description: s.desc, status: s.status as any, phase: 'execution', toolUsed: s.tool ?? null } });
       }
     }
   }
@@ -531,13 +533,13 @@ I've also set up a "Monday Launch Risk Digest" routine that will summarize block
 
   // Install skills for users
   for (const u of [admin, priya, marcus, alex, jordan]) {
-    await prisma.userSkill.create({ data: { userId: u.id, skillId: skillLaunch.id } });
+    await prisma.userSkill.create({ data: { orgId, userId: u.id, skillId: skillLaunch.id } });
   }
   for (const u of [admin, alex, dana]) {
-    await prisma.userSkill.create({ data: { userId: u.id, skillId: skillFAQ.id } });
+    await prisma.userSkill.create({ data: { orgId, userId: u.id, skillId: skillFAQ.id } });
   }
   for (const u of [admin, priya]) {
-    await prisma.userSkill.create({ data: { userId: u.id, skillId: skillMemo.id } });
+    await prisma.userSkill.create({ data: { orgId, userId: u.id, skillId: skillMemo.id } });
   }
   console.log('✓ Skills: 3 (Enterprise Launch Review, Security FAQ Builder, Launch Decision Memo)');
 

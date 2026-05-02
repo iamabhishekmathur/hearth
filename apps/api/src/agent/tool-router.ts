@@ -774,6 +774,7 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
 
       const suggestion = await prisma.taskSuggestion.create({
         data: {
+          orgId: ctx.orgId,
           sessionId: ctx.sessionId,
           messageId: anchor.id,
           userId: ctx.userId,

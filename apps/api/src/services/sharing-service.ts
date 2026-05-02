@@ -30,6 +30,7 @@ export async function createShare(
 
   return prisma.sessionShare.create({
     data: {
+      orgId: session.orgId,
       sessionId,
       shareType: FILTER_TO_SHARE_TYPE[contentFilter],
       createdBy: userId,
@@ -163,9 +164,12 @@ export async function duplicateSession(
     }
   }
 
-  // Create the duplicated session
+  // Create the duplicated session in the same org as the original (the access
+  // check above already verified the duplicating user has access through the
+  // same org or a collaborator/share grant).
   const duplicated = await prisma.chatSession.create({
     data: {
+      orgId: original.orgId,
       userId,
       title: original.title ? `Copy of: ${original.title}` : 'Duplicated session',
       status: 'active',
@@ -176,6 +180,7 @@ export async function duplicateSession(
   if (messagesToCopy.length > 0) {
     await prisma.chatMessage.createMany({
       data: messagesToCopy.map((m) => ({
+        orgId: duplicated.orgId,
         sessionId: duplicated.id,
         role: m.role,
         content: m.content,

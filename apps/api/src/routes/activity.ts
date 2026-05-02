@@ -5,6 +5,7 @@ import * as reactionService from '../services/activity-reaction-service.js';
 import * as signalService from '../services/proactive-signal-service.js';
 import { REACTION_EMOJIS } from '@hearth/shared';
 import { redis } from '../lib/redis.js';
+import { tenantKeyFor } from '../lib/redis-keys.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -61,7 +62,7 @@ router.get('/signals', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const cacheKey = `signals:${req.user!.id}`;
+    const cacheKey = tenantKeyFor(req.user!.orgId, 'signals', req.user!.id);
 
     // Try cache first
     if (redis) {

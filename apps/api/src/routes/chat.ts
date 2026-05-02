@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ContentPart, LLMMessage, SessionVisibility } from '@hearth/shared';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireOrg } from '../middleware/auth.js';
 import * as chatService from '../services/chat-service.js';
 import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
@@ -23,10 +23,10 @@ const router: ReturnType<typeof Router> = Router();
 /**
  * POST /sessions — create a new chat session
  */
-router.post('/sessions', requireAuth, async (req, res, next) => {
+router.post('/sessions', requireAuth, requireOrg, async (req, res, next) => {
   try {
     const { title } = req.body as { title?: string };
-    const session = await chatService.createSession(req.user!.id, title);
+    const session = await chatService.createSession(req.user!.orgId!, req.user!.id, title);
     res.status(201).json({ data: session });
   } catch (err) {
     next(err);
@@ -199,7 +199,7 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     }
 
     // Save the user message with attribution
-    const userMessage = await chatService.addMessage(sessionId, 'user', content, undefined, userId);
+    const userMessage = await chatService.addMessage(session.orgId, sessionId, 'user', content, undefined, userId);
 
     // Link uploaded attachments to this message
     if (attachmentIds && attachmentIds.length > 0) {
@@ -254,7 +254,7 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     res.status(202).json({ data: { messageId: userMessage.id } });
 
     // Build agent context and run the agent loop asynchronously.
-    runAgent(sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
+    runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
       logger.error({ err, sessionId }, 'Agent loop unhandled error');
     });
   } catch (err) {
@@ -431,15 +431,18 @@ router.post('/sessions/:id/collaborators', requireAuth, async (req, res, next) =
       addedByName: req.user!.name ?? 'Someone',
       role: validRole,
     });
-    void notify({
-      userId,
-      type: 'collaborator_added',
-      title: `${req.user!.name ?? 'Someone'} added you to a chat`,
-      body: session?.title ?? 'Untitled chat',
-      sessionId,
-      entityType: 'chat_session',
-      entityId: sessionId,
-    });
+    if (session) {
+      void notify({
+        orgId: session.orgId,
+        userId,
+        type: 'collaborator_added',
+        title: `${req.user!.name ?? 'Someone'} added you to a chat`,
+        body: session.title ?? 'Untitled chat',
+        sessionId,
+        entityType: 'chat_session',
+        entityId: sessionId,
+      });
+    }
 
     res.status(201).json({ data: result });
   } catch (err) {
@@ -701,6 +704,7 @@ function deriveSessionTitle(content: string): string {
  * assistant message describing the failure and emits an error event.
  */
 async function runAgent(
+  orgId: string,
   sessionId: string,
   ownerUserId: string,
   model?: string,
@@ -848,6 +852,7 @@ async function runAgent(
           : assistantContent;
 
         await chatService.addMessage(
+          orgId,
           sessionId,
           'assistant',
           finalContent,

@@ -296,6 +296,27 @@ model Org {
   decisionPatterns   DecisionPattern[]
   orgPrinciples      OrgPrinciple[]
 
+  // Denormalized tenant scoping — back-relations for tables that now carry org_id directly
+  // (added in 20260501000000_denormalize_org_id to support Row-Level Security).
+  tasks                Task[]
+  chatSessions         ChatSession[]
+  chatMessages         ChatMessage[]
+  messageReactions     MessageReaction[]
+  sessionReads         SessionRead[]
+  sessionShares        SessionShare[]
+  sessionCollaborators SessionCollaborator[]
+  chatAttachments      ChatAttachment[]
+  artifacts            Artifact[]
+  artifactVersions     ArtifactVersion[]
+  taskComments         TaskComment[]
+  taskContextItems     TaskContextItem[]
+  taskExecutionSteps   TaskExecutionStep[]
+  taskReviews          TaskReview[]
+  taskSuggestions      TaskSuggestion[]
+  userSkills           UserSkill[]
+  notifications        Notification[]
+  pipelineRuns         PipelineRun[]
+
   @@map("orgs")
 }
 
@@ -369,6 +390,7 @@ model User {
 
 model ChatSession {
   id         String            @id @default(uuid())
+  orgId      String            @map("org_id")
   userId     String            @map("user_id")
   title      String?
   status     ChatSessionStatus @default(active)
@@ -376,6 +398,7 @@ model ChatSession {
   createdAt  DateTime          @default(now()) @map("created_at")
   updatedAt  DateTime          @updatedAt @map("updated_at")
 
+  org               Org                   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user              User                  @relation(fields: [userId], references: [id])
   messages          ChatMessage[]
   shares            SessionShare[]
@@ -388,11 +411,13 @@ model ChatSession {
   promotedTasks     Task[]                @relation("TaskFromSession")
   taskSuggestions   TaskSuggestion[]
 
+  @@index([orgId])
   @@map("chat_sessions")
 }
 
 model SessionShare {
   id        String    @id @default(uuid())
+  orgId     String    @map("org_id")
   sessionId String    @map("session_id")
   shareType String    @map("share_type") // full, results_only, template
   token     String    @unique @default(uuid())
@@ -400,13 +425,16 @@ model SessionShare {
   expiresAt DateTime? @map("expires_at")
   createdAt DateTime  @default(now()) @map("created_at")
 
+  org     Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
   session ChatSession @relation(fields: [sessionId], references: [id])
 
+  @@index([orgId])
   @@map("session_shares")
 }
 
 model ChatMessage {
   id                    String          @id @default(uuid())
+  orgId                 String          @map("org_id")
   sessionId             String          @map("session_id")
   role                  ChatMessageRole
   content               String
@@ -416,6 +444,7 @@ model ChatMessage {
   producedTaskIds       String[]        @default([]) @map("produced_task_ids")
   createdAt             DateTime        @default(now()) @map("created_at")
 
+  org             Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
   session         ChatSession       @relation(fields: [sessionId], references: [id])
   author          User?             @relation("MessageAuthor", fields: [createdBy], references: [id])
   attachments     ChatAttachment[]
@@ -426,42 +455,50 @@ model ChatMessage {
   producedTasks   Task[]            @relation("TaskFromMessage")
   taskSuggestions TaskSuggestion[]
 
+  @@index([orgId])
   @@index([respondingToMessageId])
   @@map("chat_messages")
 }
 
 model MessageReaction {
   id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
   messageId String   @map("message_id")
   userId    String   @map("user_id")
   emoji     String
   createdAt DateTime @default(now()) @map("created_at")
 
+  org     Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
   message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user    User        @relation(fields: [userId], references: [id])
 
   @@unique([messageId, userId, emoji])
+  @@index([orgId])
   @@index([messageId])
   @@map("message_reactions")
 }
 
 model SessionRead {
+  orgId             String   @map("org_id")
   sessionId         String   @map("session_id")
   userId            String   @map("user_id")
   lastReadMessageId String?  @map("last_read_message_id")
   lastReadAt        DateTime @default(now()) @map("last_read_at")
 
+  org         Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   session     ChatSession  @relation(fields: [sessionId], references: [id])
   user        User         @relation(fields: [userId], references: [id])
   lastMessage ChatMessage? @relation(fields: [lastReadMessageId], references: [id])
 
   @@id([sessionId, userId])
+  @@index([orgId])
   @@index([userId])
   @@map("session_reads")
 }
 
 model ChatAttachment {
   id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
   messageId   String?  @map("message_id")
   filename    String
   mimeType    String   @map("mime_type")
@@ -471,28 +508,34 @@ model ChatAttachment {
   height      Int?
   createdAt   DateTime @default(now()) @map("created_at")
 
+  org     Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   message ChatMessage? @relation(fields: [messageId], references: [id])
 
+  @@index([orgId])
   @@map("chat_attachments")
 }
 
 model SessionCollaborator {
   id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
   sessionId String   @map("session_id")
   userId    String   @map("user_id")
   role      String   @default("viewer") // viewer | contributor
   addedBy   String   @map("added_by")
   createdAt DateTime @default(now()) @map("created_at")
 
+  org     Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
   session ChatSession @relation(fields: [sessionId], references: [id])
   user    User        @relation(fields: [userId], references: [id])
 
   @@unique([sessionId, userId])
+  @@index([orgId])
   @@map("session_collaborators")
 }
 
 model Artifact {
   id              String       @id @default(uuid())
+  orgId           String       @map("org_id")
   sessionId       String       @map("session_id")
   type            ArtifactType
   title           String
@@ -504,10 +547,12 @@ model Artifact {
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
+  org      Org              @relation(fields: [orgId], references: [id], onDelete: Cascade)
   session  ChatSession      @relation(fields: [sessionId], references: [id])
   author   User             @relation("ArtifactAuthor", fields: [createdBy], references: [id])
   versions ArtifactVersion[]
 
+  @@index([orgId])
   @@index([sessionId])
   @@index([createdBy])
   @@map("artifacts")
@@ -515,6 +560,7 @@ model Artifact {
 
 model ArtifactVersion {
   id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
   artifactId String   @map("artifact_id")
   version    Int
   title      String
@@ -522,9 +568,11 @@ model ArtifactVersion {
   editedBy   String   @map("edited_by")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  org      Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   artifact Artifact @relation(fields: [artifactId], references: [id])
   editor   User     @relation("ArtifactVersionEditor", fields: [editedBy], references: [id])
 
+  @@index([orgId])
   @@index([artifactId])
   @@map("artifact_versions")
 }
@@ -535,6 +583,7 @@ model ArtifactVersion {
 
 model Task {
   id              String     @id @default(uuid())
+  orgId           String     @map("org_id")
   userId          String     @map("user_id")
   title           String
   description     String?
@@ -550,6 +599,7 @@ model Task {
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
+  org            Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user           User                @relation(fields: [userId], references: [id])
   parentTask     Task?               @relation("SubTasks", fields: [parentTaskId], references: [id])
   subTasks       Task[]              @relation("SubTasks")
@@ -562,6 +612,7 @@ model Task {
   sourceMessage  ChatMessage?        @relation("TaskFromMessage", fields: [sourceMessageId], references: [id])
   suggestion     TaskSuggestion?
 
+  @@index([orgId])
   @@index([sourceSessionId])
   @@index([sourceMessageId])
   @@map("tasks")
@@ -569,6 +620,7 @@ model Task {
 
 model TaskContextItem {
   id               String              @id @default(uuid())
+  orgId            String              @map("org_id")
   taskId           String              @map("task_id")
   type             TaskContextItemType
   label            String?
@@ -604,15 +656,18 @@ model TaskContextItem {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user User @relation(fields: [createdBy], references: [id])
 
+  @@index([orgId])
   @@index([taskId, sortOrder])
   @@map("task_context_items")
 }
 
 model TaskSuggestion {
   id                          String   @id @default(uuid())
+  orgId                       String   @map("org_id")
   sessionId                   String   @map("session_id")
   messageId                   String   @map("message_id")
   userId                      String   @map("user_id")
@@ -625,11 +680,13 @@ model TaskSuggestion {
   createdAt                   DateTime @default(now()) @map("created_at")
   resolvedAt                  DateTime? @map("resolved_at")
 
+  org           Org          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   session       ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   message       ChatMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user          User         @relation(fields: [userId], references: [id])
   acceptedTask  Task?        @relation(fields: [acceptedTaskId], references: [id], onDelete: SetNull)
 
+  @@index([orgId])
   @@index([userId, status, createdAt(sort: Desc)])
   @@index([sessionId, status])
   @@map("task_suggestions")
@@ -637,20 +694,24 @@ model TaskSuggestion {
 
 model TaskComment {
   id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
   taskId    String   @map("task_id")
   userId    String?  @map("user_id")
   isAgent   Boolean  @default(false) @map("is_agent")
   content   String
   createdAt DateTime @default(now()) @map("created_at")
 
+  org  Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   task Task  @relation(fields: [taskId], references: [id])
   user User? @relation(fields: [userId], references: [id])
 
+  @@index([orgId])
   @@map("task_comments")
 }
 
 model TaskExecutionStep {
   id          String         @id @default(uuid())
+  orgId       String         @map("org_id")
   taskId      String         @map("task_id")
   stepNumber  Int            @map("step_number")
   description String
@@ -662,22 +723,27 @@ model TaskExecutionStep {
   durationMs  Int?           @map("duration_ms")
   createdAt   DateTime       @default(now()) @map("created_at")
 
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id])
 
+  @@index([orgId])
   @@map("task_execution_steps")
 }
 
 model TaskReview {
   id         String         @id @default(uuid())
+  orgId      String         @map("org_id")
   taskId     String         @map("task_id")
   reviewerId String         @map("reviewer_id")
   decision   ReviewDecision
   feedback   String?
   createdAt  DateTime       @default(now()) @map("created_at")
 
+  org      Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   task     Task @relation(fields: [taskId], references: [id])
   reviewer User @relation(fields: [reviewerId], references: [id])
 
+  @@index([orgId])
   @@map("task_reviews")
 }
 
@@ -765,14 +831,17 @@ model Skill {
 }
 
 model UserSkill {
+  orgId       String   @map("org_id")
   userId      String   @map("user_id")
   skillId     String   @map("skill_id")
   installedAt DateTime @default(now()) @map("installed_at")
 
+  org   Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id])
   skill Skill @relation(fields: [skillId], references: [id])
 
   @@id([userId, skillId])
+  @@index([orgId])
   @@map("user_skills")
 }
 
@@ -962,12 +1031,16 @@ model RoutineChain {
 
 model PipelineRun {
   id          String    @id @default(uuid())
+  orgId       String    @map("org_id")
   rootRunId   String    @map("root_run_id")
   status      String    @default("running") // running | completed | failed | partial
   runIds      String[]
   startedAt   DateTime  @default(now()) @map("started_at")
   completedAt DateTime? @map("completed_at")
 
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
   @@map("pipeline_runs")
 }
 
@@ -1409,6 +1482,7 @@ model MeetingIngestion {
 
 model Notification {
   id         String    @id @default(uuid())
+  orgId      String    @map("org_id")
   userId     String    @map("user_id")
   type       String
   title      String
@@ -1420,8 +1494,10 @@ model Notification {
   emailedAt  DateTime? @map("emailed_at")
   createdAt  DateTime  @default(now()) @map("created_at")
 
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([orgId])
   @@index([userId, readAt, createdAt(sort: Desc)])
   @@map("notifications")
 }

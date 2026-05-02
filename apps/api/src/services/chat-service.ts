@@ -30,9 +30,10 @@ export function toAttachmentResponse(a: {
 /**
  * Creates a new chat session for a user.
  */
-export async function createSession(userId: string, title?: string) {
+export async function createSession(orgId: string, userId: string, title?: string) {
   return prisma.chatSession.create({
     data: {
+      orgId,
       userId,
       title: title ?? null,
       status: 'active',
@@ -124,6 +125,7 @@ export async function archiveSession(sessionId: string, userId: string) {
  * and linking it to a prior user message it is responding to.
  */
 export async function addMessage(
+  orgId: string,
   sessionId: string,
   role: ChatMessageRole,
   content: string,
@@ -133,6 +135,7 @@ export async function addMessage(
 ) {
   return prisma.chatMessage.create({
     data: {
+      orgId,
       sessionId,
       role,
       content,
@@ -281,6 +284,7 @@ export async function addCollaborator(
     },
     update: { role },
     create: {
+      orgId: session.orgId,
       sessionId,
       userId: targetUserId,
       role,
@@ -348,6 +352,7 @@ export async function joinSession(sessionId: string, userId: string) {
     },
     update: {},
     create: {
+      orgId: sessionOrgId,
       sessionId,
       userId,
       role: 'contributor',
@@ -375,7 +380,7 @@ export async function markSessionRead(
   await prisma.sessionRead.upsert({
     where: { sessionId_userId: { sessionId, userId } },
     update: { lastReadMessageId, lastReadAt: new Date() },
-    create: { sessionId, userId, lastReadMessageId, lastReadAt: new Date() },
+    create: { orgId: accessible.orgId, sessionId, userId, lastReadMessageId, lastReadAt: new Date() },
   });
   return { sessionId, userId, lastReadMessageId };
 }
@@ -496,7 +501,7 @@ export async function addMessageReaction(
   await prisma.messageReaction.upsert({
     where: { messageId_userId_emoji: { messageId, userId, emoji } },
     update: {},
-    create: { messageId, userId, emoji },
+    create: { orgId: accessible.orgId, messageId, userId, emoji },
   });
   return { messageId, userId, emoji };
 }
@@ -591,6 +596,13 @@ export async function promoteMessageToTask(input: {
   const taskService = await import('./task-service.js');
   const contextService = await import('./task-context-service.js');
 
+  // Resolve the session's org (the new task lives in the same org).
+  const session = await prisma.chatSession.findUnique({
+    where: { id: input.sessionId },
+    select: { orgId: true },
+  });
+  if (!session) throw new Error(`Session ${input.sessionId} not found`);
+
   // Idempotency: check whether this user already has a task linked to this message.
   const existing = await prisma.task.findFirst({
     where: {
@@ -607,7 +619,7 @@ export async function promoteMessageToTask(input: {
     };
   }
 
-  const task = await taskService.createTask(input.userId, {
+  const task = await taskService.createTask(session.orgId, input.userId, {
     title: input.title,
     description: input.description,
     source: input.provenance.startsWith('agent') ? 'agent_proposed' : 'chat_user',
@@ -674,6 +686,13 @@ export async function postTaskProgress(input: {
   taskTitle: string;
   taskStatus: string;
 }): Promise<void> {
+  // Resolve session for orgId (also implicit existence check).
+  const session = await prisma.chatSession.findUnique({
+    where: { id: input.sessionId },
+    select: { orgId: true },
+  });
+  if (!session) return;
+
   // Idempotency: check whether we've already posted this milestone.
   const existing = await prisma.chatMessage.findFirst({
     where: {
@@ -718,6 +737,7 @@ export async function postTaskProgress(input: {
 
   await prisma.chatMessage.create({
     data: {
+      orgId: session.orgId,
       sessionId: input.sessionId,
       role: 'system',
       content,

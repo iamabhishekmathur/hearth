@@ -16,8 +16,16 @@ export async function createArtifact(params: {
   const { sessionId, type, title, content, language, createdBy, parentMessageId } = params;
 
   return prisma.$transaction(async (tx) => {
+    // Resolve the session's org so the artifact (and its v1 snapshot) inherit it.
+    const session = await tx.chatSession.findUnique({
+      where: { id: sessionId },
+      select: { orgId: true },
+    });
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
     const artifact = await tx.artifact.create({
       data: {
+        orgId: session.orgId,
         sessionId,
         type,
         title,
@@ -34,6 +42,7 @@ export async function createArtifact(params: {
 
     await tx.artifactVersion.create({
       data: {
+        orgId: session.orgId,
         artifactId: artifact.id,
         version: 1,
         title,
@@ -84,6 +93,7 @@ export async function updateArtifact(params: {
 
     await tx.artifactVersion.create({
       data: {
+        orgId: current.orgId,
         artifactId,
         version: nextVersion,
         title: updatedTitle,

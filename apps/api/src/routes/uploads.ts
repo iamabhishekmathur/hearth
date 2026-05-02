@@ -3,8 +3,9 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireOrg } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
+import { tenantUploadDir } from '../lib/storage-paths.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -21,21 +22,17 @@ function isAllowedMime(mimeType: string): boolean {
   return ALLOWED_MIME_PATTERNS.some((pattern) => pattern.test(mimeType));
 }
 
-/**
- * Build the upload sub-directory: {yyyy-mm}/
- */
-function getUploadSubDir(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  return `${yyyy}-${mm}`;
-}
-
 const UPLOADS_ROOT = path.resolve('uploads');
 
 const storage = multer.diskStorage({
-  destination(_req, _file, cb) {
-    const dir = path.join(UPLOADS_ROOT, getUploadSubDir());
+  destination(req, _file, cb) {
+    // requireOrg middleware guarantees orgId is non-null by the time
+    // multer's destination callback runs.
+    const orgId = (req as { user?: { orgId?: string | null } }).user?.orgId;
+    if (!orgId) {
+      return cb(new Error('Upload destination requires an authenticated org context'), '');
+    }
+    const dir = path.join(UPLOADS_ROOT, tenantUploadDir(orgId));
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -64,7 +61,7 @@ const upload = multer({
  * Creates a ChatAttachment record with no message link (messageId = null).
  * The attachment is linked when the chat message is sent with attachmentIds.
  */
-router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
+router.post('/', requireAuth, requireOrg, upload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {
@@ -77,6 +74,8 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
 
     const attachment = await prisma.chatAttachment.create({
       data: {
+        // requireOrg guarantees orgId is non-null
+        orgId: req.user!.orgId!,
         filename: file.originalname,
         mimeType: file.mimetype,
         sizeBytes: file.size,
@@ -100,6 +99,12 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
 
 /**
  * GET /uploads/:filePath(*) — serve uploaded files
+ *
+ * The path layout is `org/{orgId}/{yyyy-mm}/{uuid}-{filename}`. Access is
+ * granted only when the requesting user belongs to the org encoded in the
+ * path. Legacy paths that predate the per-tenant layout (no `org/` prefix)
+ * are served only to authenticated users without further checks — they
+ * existed before tenant isolation and exist only on existing deployments.
  */
 router.get('/:filePath(*)', requireAuth, (req, res, next) => {
   try {
@@ -110,6 +115,18 @@ router.get('/:filePath(*)', requireAuth, (req, res, next) => {
     if (!fullPath.startsWith(UPLOADS_ROOT + path.sep) && fullPath !== UPLOADS_ROOT) {
       res.status(403).json({ error: 'Access denied' });
       return;
+    }
+
+    // If the path is under the per-tenant prefix, enforce that the requester
+    // belongs to the same org. (Legacy paths without the prefix bypass this
+    // check — see comment above.)
+    const tenantPrefixMatch = filePath.match(/^org\/([^/]+)\//);
+    if (tenantPrefixMatch) {
+      const pathOrgId = tenantPrefixMatch[1];
+      if (req.user?.orgId !== pathOrgId) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
     }
 
     if (!fs.existsSync(fullPath)) {

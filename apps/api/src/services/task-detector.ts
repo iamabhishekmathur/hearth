@@ -14,6 +14,7 @@ interface DetectedMessage {
   channel?: string;
   snippet?: string;
   userId: string;
+  orgId: string;
 }
 
 // ── Fast pre-filter (skip obvious non-actionable messages) ──────────────
@@ -167,7 +168,7 @@ export async function detectAndCreateTask(
   }
 
   try {
-    const task = await taskService.createTask(message.userId, {
+    const task = await taskService.createTask(message.orgId, message.userId, {
       title: classification.title,
       description: classification.description || message.text,
       source: message.source,

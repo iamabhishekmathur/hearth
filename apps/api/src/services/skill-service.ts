@@ -132,11 +132,12 @@ export async function installSkill(userId: string, skillId: string) {
     throw new Error('Skill not found');
   }
 
-  // Upsert to handle idempotent installs
+  // Upsert to handle idempotent installs. Use the skill's orgId — a user can
+  // only install skills available in their org (Skills are org-scoped).
   const [userSkill] = await prisma.$transaction([
     prisma.userSkill.upsert({
       where: { userId_skillId: { userId, skillId } },
-      create: { userId, skillId },
+      create: { orgId: skill.orgId, userId, skillId },
       update: {},
     }),
     prisma.skill.update({

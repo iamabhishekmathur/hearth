@@ -15,12 +15,16 @@ async function main() {
 
   const user = await prisma.user.findFirst({
     where: { email: targetEmail },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, team: { select: { orgId: true } } },
   });
   if (!user) {
     throw new Error(`No user found with email ${targetEmail}. Pass an existing email as the first argument.`);
   }
-  console.log(`Seeding for user ${user.name} <${user.email}> (${user.id})`);
+  if (!user.team?.orgId) {
+    throw new Error(`User ${user.email} has no team/org — cannot seed tenant data`);
+  }
+  const orgId: string = user.team.orgId;
+  console.log(`Seeding for user ${user.name} <${user.email}> (${user.id}) in org ${orgId}`);
 
   // Idempotency: archive any prior demo session with the same title for this user.
   const priorTitle = 'Demo · Task chip preview';
@@ -35,6 +39,7 @@ async function main() {
   // Fresh session
   const session = await prisma.chatSession.create({
     data: {
+      orgId,
       userId: user.id,
       title: priorTitle,
       status: 'active',
@@ -46,7 +51,7 @@ async function main() {
   // by sleeping 5ms between inserts to guarantee ordering by createdAt.
   async function addMessage(role: 'user' | 'assistant', content: string, createdBy: string | null) {
     const msg = await prisma.chatMessage.create({
-      data: { sessionId: session.id, role, content, createdBy },
+      data: { orgId, sessionId: session.id, role, content, createdBy },
     });
     await new Promise((r) => setTimeout(r, 5));
     return msg;
