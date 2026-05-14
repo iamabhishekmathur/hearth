@@ -158,5 +158,5 @@ End-to-end tests live in the `e2e/` directory and use Playwright. See the README
 ## Further Reading
 
 - [Architecture documentation](/developers/architecture/) -- deep dive into system design, data models, and component interactions.
-- [First Run / Setup Wizard](/getting-started/#setup-wizard-details) -- what to expect when you launch Hearth for the first time.
+- [Start Self-Hosted](/getting-started/self-hosted) -- what to expect when you launch Hearth locally for the first time.
 - [How to Contribute](./) -- PR process, issue guidelines, and other ways to help.

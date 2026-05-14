@@ -23,47 +23,47 @@ features:
   - icon: "💬"
     title: Multiplayer AI Chat
     details: The only AI chat with real-time multiplayer. Multiple people in one session. Shared artifacts everyone can see and edit. Web search, code execution, and memory recall built in.
-    link: /guide/#chat
+    link: /guide/chat
     linkText: Learn more
   - icon: "📋"
     title: Task Board
     details: Kanban board with tasks proactively generated from meetings, email, and Slack. Auto-decomposition into subtasks. The AI executes with approval gates — you review, approve, done.
-    link: /guide/#tasks
+    link: /guide/tasks
     linkText: Learn more
   - icon: "🔄"
     title: Routines
     details: Cron-scheduled and webhook-triggered AI workflows. Standup summaries, metric digests, alert triage, report generation. Set up once, runs forever. Delivers to Slack, email, Jira.
-    link: /guide/#routines
+    link: /guide/routines
     linkText: Learn more
   - icon: "🧩"
     title: Skills
     details: Reusable AI workflows anyone can create and share. One person discovers a pattern, saves it as a skill, whole team benefits. The AI proposes new skills from experience.
-    link: /guide/#skills
+    link: /guide/skills
     linkText: Learn more
   - icon: "🧠"
     title: Memory
     details: "Three layers — personal, team, org — with semantic search. Daily synthesis extracts insights from conversations and integrations. The AI gets smarter for your org over time."
-    link: /guide/#memory
+    link: /guide/memory
     linkText: Learn more
   - icon: "🕸️"
     title: Decisions & Context Graph
     details: "Auto-captured from chat and meetings. Timeline view, graph view, pattern detection. The AI surfaces relevant past decisions when you're making new ones."
-    link: /guide/#decisions
+    link: /guide/decisions
     linkText: Learn more
   - icon: "🤝"
     title: Cognitive Profiles
     details: "The AI learns how each person thinks. @mention a teammate: \"How would Sarah approach this?\" Responses grounded in observed patterns with cited evidence."
-    link: /guide/#cognitive-profiles
+    link: /admin/cognitive-profiles
     linkText: Learn more
   - icon: "📊"
     title: Activity Feed
     details: Real-time stream of what's happening across your org. React to decisions, discover workflows, and let the AI surface patterns and anomalies.
-    link: /guide/#activity-feed
+    link: /guide/activity
     linkText: Learn more
   - icon: "🔌"
     title: Integrations
     details: "Slack, email, calendar, Jira, MCP connectors, and webhooks. Bi-directional: tasks from Slack, results to Slack, routines triggered by any event."
-    link: /guide/#integrations
+    link: /admin/integrations
     linkText: Learn more
   - icon: "🔑"
     title: BYO LLM
@@ -78,7 +78,7 @@ features:
   - icon: "🛡️"
     title: Enterprise-Ready
     details: "6 compliance packs, governance policies with monitor/warn/block, full audit trail, approval workflows, SSO + RBAC, and a violation dashboard."
-    link: /platform/
+    link: /admin/
     linkText: Learn more
 ---
 

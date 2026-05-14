@@ -8,14 +8,15 @@ Purpose: Turn the Hearth positioning into launch-ready assets, product proof, di
 
 Positioning comes first. Every asset should reinforce the same story:
 
-> Make your AI power users' breakthroughs your team's starting point.
+> An AI workspace that finds, plans, and finishes your team's work.
 
 The product should then prove the story with one simple loop:
 
-1. A teammate does useful work with AI.
-2. Hearth captures the workflow, context, decision, or follow-up.
-3. The team can reuse it.
-4. IT/CTO can govern and own the memory layer.
+1. Hearth detects follow-up, repeated work, or a useful workflow from team activity.
+2. Hearth turns it into owner-assigned tasks, subtasks, routines, or reusable workflows.
+3. AI does the allowed work under human approval.
+4. Teammates discover what worked and add it to their own workflow.
+5. IT/CTO can govern and own the institutional memory layer.
 
 ## P0: Positioning And Proof
 
@@ -23,7 +24,7 @@ The product should then prove the story with one simple loop:
 - [x] Define first user, mass user, and admin/gatekeeper audiences.
 - [x] Add shadow AI / AI lockdown as a major supporting narrative.
 - [x] Add organization-owned AI memory as a major pillar.
-- [x] Finalize homepage H1: "Make your AI power users' breakthroughs your team's starting point."
+- [x] Finalize homepage H1: "An AI workspace that finds, plans, and finishes your team's work."
 - [x] Finalize category label for website: open-source AI workspace for teams.
 - [ ] Choose the first "wow" workflow.
 - [ ] Decide which claims are ready for launch and which need qualification.
@@ -77,8 +78,9 @@ Tasks:
 Current state: live v1 is deployed at https://hearth-app.xyz. The page now carries the core positioning, product loop, memory ownership story, governance story, audience segmentation, and CTAs. Remaining work is mostly proof, media, and conversion refinement.
 
 - [x] Rewrite hero around the positioning bible.
-- [x] Add primary H1: "Make your AI power users' breakthroughs your team's starting point."
-- [x] Add subhead around reusable workflows, context, decisions, and governance.
+- [x] Add primary H1: "An AI workspace that finds, plans, and finishes your team's work."
+- [x] Add subhead around detected work, owner-assigned tasks, proactive routines, reusable workflows, and team discovery.
+- [x] Create holistic website IA plan in `docs/marketing/WEBSITE_IA.md`.
 - [x] Add section: "When one teammate finds a better way to work with AI, everyone should benefit."
 - [x] Add product loop section: capture, workflow, reuse, govern.
 - [x] Add memory ownership section: "Your company's AI memory should not live inside OpenAI or Anthropic."
@@ -90,6 +92,12 @@ Current state: live v1 is deployed at https://hearth-app.xyz. The page now carri
 - [x] Deploy live v1 to production.
 - [x] Fix live v1 layout issue in problem/loop section.
 - [ ] Choose whether the hero product visual stays as an illustrative mock or becomes a real product screenshot.
+- [ ] Rewrite sections under the hero around the proactive work loop: detect, plan, execute, approve, reuse, remember.
+- [ ] Update `/product` to explain the six product surfaces: Chat, Tasks, Routines, Skills, Discovery Feed, Institutional Memory.
+- [ ] Add `/use-cases` page or homepage section for Sales, Product, Engineering, Marketing, Ops, and Support workflows.
+- [ ] Add `/blog` content hub with launch-ready categories and first post placeholders.
+- [ ] Update nav and footer for Blog, Use Cases, Resources, GitHub, X, LinkedIn, Docs, and future Product Hunt.
+- [ ] Add resources/media kit surface once product video, product images, one-pager, and founder story exist.
 - [ ] Add screenshots or product images for each major value pillar.
 - [ ] Add demo video embed.
 - [ ] Add a tighter "watch the workflow" section once video exists.
@@ -405,13 +413,13 @@ GTM:
 
 ## Immediate Next 10
 
-1. Finalize homepage H1 and subhead.
+1. Rewrite homepage sections under the hero around proactive work completion.
 2. Pick first "wow" workflow.
 3. Build proof matrix for current product readiness.
 4. Fix the deployment/onboarding gaps behind "under 5 minutes to value."
-5. Rewrite landing page hero and first sections.
+5. Update `/product` around six product surfaces and the work loop.
 6. Rewrite README first screen.
-7. Create product video script.
+7. Add blog/content hub and footer social/resource links.
 8. Capture first product screenshots.
 9. Create logo/icon direction.
 10. Create X and LinkedIn profile copy.

@@ -1,24 +1,144 @@
 import { defineConfig } from 'vitepress';
 
-const commonSidebar = [
+const startSidebar = [
   {
-    text: 'Get started',
+    text: 'Start here',
     collapsed: false,
     items: [
       { text: 'Overview', link: '/' },
-      { text: 'Getting Started', link: '/getting-started/' },
-      { text: 'User Guide', link: '/guide/' },
-      { text: 'Admin Guide', link: '/platform/' },
+      { text: 'Choose Your Path', link: '/getting-started/' },
+      { text: 'Start with Hearth Cloud', link: '/getting-started/cloud' },
+      { text: 'Start Self-Hosted', link: '/getting-started/self-hosted' },
+      { text: 'Cloud vs Self-Hosted', link: '/getting-started/comparison' },
+    ],
+  },
+  {
+    text: 'Next steps',
+    collapsed: false,
+    items: [
+      { text: 'Product Guide', link: '/guide/' },
+      { text: 'Admin Guide', link: '/admin/' },
+      { text: 'Hearth Cloud', link: '/cloud/' },
       { text: 'Self-Hosting', link: '/self-hosting/' },
     ],
   },
+];
+
+const guideSidebar = [
+  {
+    text: 'Product guide',
+    collapsed: false,
+    items: [
+      { text: 'Overview', link: '/guide/' },
+      { text: 'Chat', link: '/guide/chat' },
+      { text: 'Artifacts', link: '/guide/artifacts' },
+      { text: 'Tasks', link: '/guide/tasks' },
+      { text: 'Memory', link: '/guide/memory' },
+      { text: 'Routines', link: '/guide/routines' },
+      { text: 'Skills', link: '/guide/skills' },
+      { text: 'Activity Feed', link: '/guide/activity' },
+      { text: 'Decision Graph', link: '/guide/decisions' },
+    ],
+  },
+  {
+    text: 'Setup',
+    collapsed: true,
+    items: [
+      { text: 'Start with Hearth Cloud', link: '/getting-started/cloud' },
+      { text: 'Start Self-Hosted', link: '/getting-started/self-hosted' },
+      { text: 'Cloud vs Self-Hosted', link: '/getting-started/comparison' },
+    ],
+  },
+];
+
+const adminSidebar = [
+  {
+    text: 'Admin guide',
+    collapsed: false,
+    items: [
+      { text: 'Overview', link: '/admin/' },
+      { text: 'Users and Teams', link: '/admin/users-and-teams' },
+      { text: 'Integrations', link: '/admin/integrations' },
+      { text: 'LLM Providers', link: '/admin/llm-providers' },
+      { text: 'Soul and Identity', link: '/admin/soul-and-identity' },
+      { text: 'SSO', link: '/admin/sso' },
+      { text: 'Skill Governance', link: '/admin/skill-governance' },
+      { text: 'Governance', link: '/admin/governance' },
+      { text: 'Compliance', link: '/admin/compliance' },
+      { text: 'Audit Logs', link: '/admin/audit-logs' },
+      { text: 'Analytics', link: '/admin/analytics' },
+      { text: 'Cognitive Profiles', link: '/admin/cognitive-profiles' },
+      { text: 'Decision Graph', link: '/admin/decision-graph' },
+    ],
+  },
+  {
+    text: 'Editions',
+    collapsed: true,
+    items: [
+      { text: 'Cloud Admin Setup', link: '/cloud/workspace-setup' },
+      { text: 'Self-Hosted Operations', link: '/self-hosting/' },
+    ],
+  },
+];
+
+const cloudSidebar = [
+  {
+    text: 'Hearth Cloud',
+    collapsed: false,
+    items: [
+      { text: 'Overview', link: '/cloud/' },
+      { text: 'Workspace Setup', link: '/cloud/workspace-setup' },
+      { text: 'Security and Data', link: '/cloud/security-and-data' },
+      { text: 'Integrations', link: '/cloud/integrations' },
+      { text: 'Limits and Billing', link: '/cloud/limits-and-billing' },
+      { text: 'Support', link: '/cloud/support' },
+    ],
+  },
+  {
+    text: 'Shared product docs',
+    collapsed: true,
+    items: [
+      { text: 'Product Guide', link: '/guide/' },
+      { text: 'Admin Guide', link: '/admin/' },
+      { text: 'Cloud vs Self-Hosted', link: '/getting-started/comparison' },
+    ],
+  },
+];
+
+const selfHostingSidebar = [
+  {
+    text: 'Self-hosting',
+    collapsed: false,
+    items: [
+      { text: 'Overview', link: '/self-hosting/' },
+      { text: 'Docker Compose', link: '/self-hosting/docker' },
+      { text: 'Kubernetes and Helm', link: '/self-hosting/kubernetes' },
+      { text: 'Configuration', link: '/self-hosting/configuration' },
+      { text: 'Secrets', link: '/self-hosting/secrets' },
+      { text: 'Backups and Upgrades', link: '/self-hosting/backups-and-upgrades' },
+      { text: 'Monitoring', link: '/self-hosting/monitoring' },
+      { text: 'Troubleshooting', link: '/self-hosting/troubleshooting' },
+    ],
+  },
+  {
+    text: 'Shared product docs',
+    collapsed: true,
+    items: [
+      { text: 'Product Guide', link: '/guide/' },
+      { text: 'Admin Guide', link: '/admin/' },
+      { text: 'Cloud vs Self-Hosted', link: '/getting-started/comparison' },
+    ],
+  },
+];
+
+const developerSidebar = [
   {
     text: 'Developers',
     collapsed: false,
     items: [
       { text: 'Developer Overview', link: '/developers/' },
       { text: 'API Reference', link: '/developers/api/' },
-      { text: 'Chat & Sessions', link: '/developers/api/chat' },
+      { text: 'Chat and Sessions', link: '/developers/api/chat' },
       { text: 'Tasks', link: '/developers/api/tasks' },
       { text: 'Memory', link: '/developers/api/memory' },
       { text: 'Skills', link: '/developers/api/skills' },
@@ -28,7 +148,7 @@ const commonSidebar = [
       { text: 'Approvals', link: '/developers/api/approvals' },
       { text: 'Decisions', link: '/developers/api/decisions' },
       { text: 'Admin', link: '/developers/api/admin' },
-      { text: 'Webhooks & Uploads', link: '/developers/api/webhooks' },
+      { text: 'Webhooks and Uploads', link: '/developers/api/webhooks' },
       { text: 'WebSocket Events', link: '/developers/websocket-events' },
     ],
   },
@@ -71,19 +191,22 @@ export default defineConfig({
     logo: '/logo.svg',
 
     nav: [
-      { text: 'Getting Started', link: '/getting-started/' },
-      { text: 'User Guide', link: '/guide/' },
-      { text: 'Admin Guide', link: '/platform/' },
-      { text: 'Developers', link: '/developers/' },
+      { text: 'Start', link: '/getting-started/' },
+      { text: 'Product', link: '/guide/' },
+      { text: 'Admin', link: '/admin/' },
+      { text: 'Cloud', link: '/cloud/' },
       { text: 'Self-Hosting', link: '/self-hosting/' },
+      { text: 'Developers', link: '/developers/' },
     ],
 
     sidebar: {
-      '/getting-started/': commonSidebar,
-      '/guide/': commonSidebar,
-      '/platform/': commonSidebar,
-      '/self-hosting/': commonSidebar,
-      '/developers/': commonSidebar,
+      '/getting-started/': startSidebar,
+      '/guide/': guideSidebar,
+      '/admin/': adminSidebar,
+      '/platform/': adminSidebar,
+      '/cloud/': cloudSidebar,
+      '/self-hosting/': selfHostingSidebar,
+      '/developers/': developerSidebar,
     },
 
     socialLinks: [{ icon: 'github', link: 'https://github.com/iamabhishekmathur/hearth' }],
