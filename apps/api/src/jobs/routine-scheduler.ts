@@ -300,19 +300,32 @@ export async function syncRoutineSchedules() {
     where: { enabled: true, schedule: { not: null } },
   });
 
+  let synced = 0;
   for (const routine of routines) {
     if (!routine.schedule) continue;
-    await routineQueue.add(
-      'execute-routine',
-      { routineId: routine.id, userId: routine.userId, triggeredBy: 'schedule' },
-      {
-        repeat: { pattern: routine.schedule },
-        jobId: `routine-${routine.id}`,
-      },
-    );
+    // Register each repeatable job independently. A structurally-valid but
+    // impossible cron (e.g. "0 0 31 2 *") makes BullMQ's cron parser throw; if
+    // that propagates it crashes the whole worker at startup, taking down ALL
+    // background execution. Isolate the failure so one bad routine can't do that.
+    try {
+      await routineQueue.add(
+        'execute-routine',
+        { routineId: routine.id, userId: routine.userId, triggeredBy: 'schedule' },
+        {
+          repeat: { pattern: routine.schedule },
+          jobId: `routine-${routine.id}`,
+        },
+      );
+      synced++;
+    } catch (err) {
+      logger.error(
+        { err, routineId: routine.id, schedule: routine.schedule },
+        'Skipped routine with invalid schedule during sync',
+      );
+    }
   }
 
-  logger.info({ count: routines.length }, 'Synced routine schedules');
+  logger.info({ synced, total: routines.length }, 'Synced routine schedules');
 }
 
 /**
