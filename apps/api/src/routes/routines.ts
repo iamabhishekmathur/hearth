@@ -53,6 +53,16 @@ function extractResourceParams(tool: { name: string; inputSchema?: Record<string
 
 const router: ReturnType<typeof Router> = Router();
 
+/** Build the permission context the routine service uses for scope/org checks. */
+function permCtx(req: { user?: { id: string; orgId: string | null; teamId: string | null; role: string } }) {
+  return {
+    userId: req.user!.id,
+    orgId: req.user!.orgId,
+    teamId: req.user!.teamId,
+    role: req.user!.role,
+  };
+}
+
 /**
  * GET /integrations — list connected integrations with their tools
  */
@@ -170,7 +180,7 @@ router.param('id', (req, res, next, id) => {
  */
 router.get('/:id', requireAuth, async (req, res, next) => {
   try {
-    const routine = await routineService.getRoutine(req.params.id as string, req.user!.id);
+    const routine = await routineService.getRoutine(req.params.id as string, permCtx(req));
     if (!routine) {
       res.status(404).json({ error: 'Routine not found' });
       return;
@@ -283,7 +293,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       }
     }
 
-    const routine = await routineService.updateRoutine(req.params.id as string, req.user!.id, {
+    const routine = await routineService.updateRoutine(req.params.id as string, permCtx(req), {
       name, description, prompt, schedule, context, delivery,
       stateConfig, state, scope, teamId, parameters, checkpoints,
     });
@@ -339,7 +349,7 @@ router.post('/:id/toggle', requireAuth, async (req, res, next) => {
  */
 router.post('/:id/run-now', requireAuth, async (req, res, next) => {
   try {
-    const routine = await routineService.getRoutine(req.params.id as string, req.user!.id);
+    const routine = await routineService.getRoutine(req.params.id as string, permCtx(req));
     if (!routine) {
       res.status(404).json({ error: 'Routine not found' });
       return;
@@ -389,7 +399,11 @@ router.get('/:id/runs', requireAuth, async (req, res, next) => {
  */
 router.get('/:id/state', requireAuth, async (req, res, next) => {
   try {
-    const state = await routineService.getState(req.params.id as string);
+    const state = await routineService.getState(req.params.id as string, permCtx(req));
+    if (state === null) {
+      res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
     res.json({ data: state });
   } catch (err) {
     next(err);
@@ -402,7 +416,11 @@ router.get('/:id/state', requireAuth, async (req, res, next) => {
 router.put('/:id/state', requireAuth, async (req, res, next) => {
   try {
     const state = req.body as Record<string, unknown>;
-    await routineService.updateState(req.params.id as string, state);
+    const updated = await routineService.updateState(req.params.id as string, state, permCtx(req));
+    if (!updated) {
+      res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
     res.json({ data: state });
   } catch (err) {
     next(err);
@@ -414,7 +432,11 @@ router.put('/:id/state', requireAuth, async (req, res, next) => {
  */
 router.delete('/:id/state', requireAuth, async (req, res, next) => {
   try {
-    await routineService.resetState(req.params.id as string);
+    const reset = await routineService.resetState(req.params.id as string, permCtx(req));
+    if (!reset) {
+      res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
     res.json({ data: {} });
   } catch (err) {
     next(err);

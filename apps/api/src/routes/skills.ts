@@ -53,7 +53,7 @@ router.get('/', requireAuth, async (req, res, next) => {
  */
 router.get('/:id', requireAuth, async (req, res, next) => {
   try {
-    const skill = await skillService.getSkill(req.params.id as string);
+    const skill = await skillService.getSkill(req.params.id as string, req.user!.orgId ?? undefined);
     if (!skill) {
       res.status(404).json({ error: 'Skill not found' });
       return;
@@ -69,7 +69,7 @@ router.get('/:id', requireAuth, async (req, res, next) => {
  */
 router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
-    const skill = await skillService.getSkill(req.params.id as string);
+    const skill = await skillService.getSkill(req.params.id as string, req.user!.orgId ?? undefined);
     if (!skill) {
       res.status(404).json({ error: 'Skill not found' });
       return;
@@ -127,7 +127,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const skill = await skillService.getSkill(req.params.id as string);
+    const skill = await skillService.getSkill(req.params.id as string, req.user!.orgId ?? undefined);
     if (!skill) {
       res.status(404).json({ error: 'Skill not found' });
       return;
@@ -187,7 +187,7 @@ router.post('/', requireAuth, async (req, res, next) => {
  */
 router.post('/:id/install', requireAuth, async (req, res, next) => {
   try {
-    const userSkill = await skillService.installSkill(req.user!.id, req.params.id as string);
+    const userSkill = await skillService.installSkill(req.user!.id, req.params.id as string, req.user!.orgId ?? undefined);
     res.status(201).json({ data: userSkill });
   } catch (err) {
     if (err instanceof Error && err.message === 'Skill not found') {

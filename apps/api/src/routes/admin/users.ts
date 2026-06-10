@@ -15,7 +15,13 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res, next) => {
     const teamId = req.query.teamId as string | undefined;
     const role = req.query.role as UserRole | undefined;
 
-    const result = await userService.listUsers({ page, pageSize, teamId, role });
+    const result = await userService.listUsers({
+      orgId: req.user!.orgId ?? undefined,
+      page,
+      pageSize,
+      teamId,
+      role,
+    });
     res.json({
       data: result.users.map(userService.sanitizeUser),
       total: result.total,
@@ -37,6 +43,12 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res, next) =
       role?: UserRole;
       teamId?: string;
     };
+
+    // Org isolation: an admin may only modify users within their own org.
+    if (req.user!.orgId && !(await userService.userInOrg(req.params.id as string, req.user!.orgId))) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
 
     let user;
     if (teamId) {
@@ -64,6 +76,11 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req, res, next) 
   try {
     if (req.params.id as string === req.user!.id) {
       res.status(400).json({ error: 'Cannot delete your own account' });
+      return;
+    }
+    // Org isolation: an admin may only delete users within their own org.
+    if (req.user!.orgId && !(await userService.userInOrg(req.params.id as string, req.user!.orgId))) {
+      res.status(404).json({ error: 'User not found' });
       return;
     }
     await userService.deleteUser(req.params.id as string);

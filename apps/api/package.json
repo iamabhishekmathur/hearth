@@ -20,6 +20,10 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:integration": "docker compose -f ../../docker-compose.test.yml up -d --wait && vitest run --config vitest.integration.config.ts",
+    "test:integration:down": "docker compose -f ../../docker-compose.test.yml down",
+    "sim-seed": "tsx prisma/sim-seed.ts",
+    "route-manifest": "tsx integration/generate-route-manifest.ts",
     "lint": "eslint src/",
     "seed:gtm-demo": "tsx src/scripts/seed-gtm-demo.ts"
   },
@@ -53,7 +57,9 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.6.0",
     "@types/bcrypt": "^5.0.2",
+    "@types/supertest": "^6.0.2",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
@@ -70,6 +76,7 @@
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^4.1.4",
     "prisma": "^6.0.0",
+    "supertest": "^7.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.4"

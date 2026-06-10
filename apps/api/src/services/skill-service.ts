@@ -79,8 +79,11 @@ export async function listSkills(orgId: string, filters?: SkillFilters) {
 
 /**
  * Gets a single skill by ID, including author info.
+ *
+ * When `orgId` is provided, the skill is only returned if it belongs to that
+ * org — cross-org reads resolve to `null` (the route maps that to a 404).
  */
-export async function getSkill(id: string) {
+export async function getSkill(id: string, orgId?: string) {
   const skill = await prisma.skill.findUnique({
     where: { id },
     include: {
@@ -90,6 +93,7 @@ export async function getSkill(id: string) {
   });
 
   if (!skill) return null;
+  if (orgId && skill.orgId !== orgId) return null;
 
   const { _count, ...rest } = skill;
   return { ...rest, installCount: _count.users };
@@ -125,10 +129,12 @@ export async function deleteSkill(id: string) {
 /**
  * Installs a skill for a user — creates UserSkill record and increments install_count.
  */
-export async function installSkill(userId: string, skillId: string) {
-  // Check skill exists
+export async function installSkill(userId: string, skillId: string, orgId?: string) {
+  // Check skill exists and belongs to the caller's org. Skills are org-scoped,
+  // so a user can only install skills available in their own org — a cross-org
+  // install is treated as if the skill does not exist (404).
   const skill = await prisma.skill.findUnique({ where: { id: skillId } });
-  if (!skill) {
+  if (!skill || (orgId && skill.orgId !== orgId)) {
     throw new Error('Skill not found');
   }
 

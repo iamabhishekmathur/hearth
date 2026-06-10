@@ -23,7 +23,7 @@ router.get('/', requireAuth, async (req, res, next) => {
  */
 router.get('/:id', requireAuth, async (req, res, next) => {
   try {
-    const approval = await approvalService.getApprovalRequest(req.params.id as string);
+    const approval = await approvalService.getApprovalRequest(req.params.id as string, req.user!.orgId);
     if (!approval) {
       res.status(404).json({ error: 'Approval request not found' });
       return;
@@ -50,12 +50,21 @@ router.post('/:id/resolve', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const result = await approvalService.resolveApproval(
-      req.params.id as string,
-      req.user!.id,
-      decision as 'approved' | 'rejected' | 'edited',
-      { comment, editedOutput },
-    );
+    let result;
+    try {
+      result = await approvalService.resolveApproval(
+        req.params.id as string,
+        req.user!.id,
+        decision as 'approved' | 'rejected' | 'edited',
+        { comment, editedOutput, orgId: req.user!.orgId, callerRole: req.user!.role },
+      );
+    } catch (err) {
+      if (err instanceof approvalService.ApprovalForbiddenError) {
+        res.status(403).json({ error: 'Only the routine owner or an admin can resolve this approval' });
+        return;
+      }
+      throw err;
+    }
 
     if (!result) {
       res.status(404).json({ error: 'Approval request not found or already resolved' });

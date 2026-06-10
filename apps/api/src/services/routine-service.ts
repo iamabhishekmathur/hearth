@@ -78,7 +78,7 @@ export async function listRoutines(userId: string, opts?: {
   });
 }
 
-export async function getRoutine(id: string, userId: string) {
+export async function getRoutine(id: string, user: string | PermissionContext) {
   const routine = await prisma.routine.findUnique({
     where: { id },
     include: {
@@ -90,7 +90,34 @@ export async function getRoutine(id: string, userId: string) {
     },
   });
 
+  if (!routine) return null;
+  if (!canAccessRoutine(routine, user, 'view')) return null;
+
   return routine;
+}
+
+/**
+ * Scope/permission guard shared by the routine read/write/state paths.
+ *
+ * Accepts either a bare userId (legacy callers — owner-only check) or a full
+ * PermissionContext. With a context it enforces org isolation first (a routine
+ * from another org is never accessible) and then defers to
+ * checkRoutinePermission for the personal/team/org scope semantics.
+ */
+function canAccessRoutine(
+  routine: { userId: string; scope: string; teamId: string | null; orgId: string | null },
+  user: string | PermissionContext,
+  action: 'view' | 'edit' | 'run' | 'delete',
+): boolean {
+  if (typeof user === 'string') {
+    return routine.userId === user;
+  }
+  // Hard org isolation: a routine carrying an orgId from another org is never
+  // visible/writable, regardless of scope.
+  if (routine.orgId && user.orgId && routine.orgId !== user.orgId) {
+    return false;
+  }
+  return checkRoutinePermission(routine, user, action);
 }
 
 export async function createRoutine(
@@ -132,7 +159,7 @@ export async function createRoutine(
 
 export async function updateRoutine(
   id: string,
-  userId: string,
+  user: string | PermissionContext,
   data: {
     name?: string;
     description?: string;
@@ -150,6 +177,7 @@ export async function updateRoutine(
 ) {
   const routine = await prisma.routine.findUnique({ where: { id } });
   if (!routine) return null;
+  if (!canAccessRoutine(routine, user, 'edit')) return null;
 
   return prisma.routine.update({
     where: { id },
@@ -260,22 +288,61 @@ export async function completeRun(
 
 // ── Feature 1: State management endpoints ──
 
-export async function getState(routineId: string) {
+/**
+ * Reads a routine's state. Returns `null` when the routine is missing OR the
+ * caller (when a PermissionContext is supplied) is not allowed to view it —
+ * the route maps `null` to a 404. Without a context, legacy behavior (no scope
+ * check) is preserved for internal callers.
+ */
+export async function getState(
+  routineId: string,
+  user?: string | PermissionContext,
+): Promise<Record<string, unknown> | null> {
   const routine = await prisma.routine.findUnique({
     where: { id: routineId },
-    select: { state: true },
+    select: { state: true, userId: true, scope: true, teamId: true, orgId: true },
   });
-  return (routine?.state as Record<string, unknown>) ?? {};
+  if (!routine) return null;
+  if (user !== undefined && !canAccessRoutine(routine, user, 'view')) return null;
+  return (routine.state as Record<string, unknown>) ?? {};
 }
 
-export async function updateState(routineId: string, state: Record<string, unknown>) {
+/**
+ * Writes a routine's state. When a PermissionContext is supplied, enforces
+ * edit scope/org isolation and returns `null` on a missing/unauthorized
+ * routine (route maps to 404).
+ */
+export async function updateState(
+  routineId: string,
+  state: Record<string, unknown>,
+  user?: string | PermissionContext,
+) {
+  if (user !== undefined) {
+    const routine = await prisma.routine.findUnique({
+      where: { id: routineId },
+      select: { userId: true, scope: true, teamId: true, orgId: true },
+    });
+    if (!routine) return null;
+    if (!canAccessRoutine(routine, user, 'edit')) return null;
+  }
   return prisma.routine.update({
     where: { id: routineId },
     data: { state: state as Prisma.InputJsonValue },
   });
 }
 
-export async function resetState(routineId: string) {
+export async function resetState(
+  routineId: string,
+  user?: string | PermissionContext,
+) {
+  if (user !== undefined) {
+    const routine = await prisma.routine.findUnique({
+      where: { id: routineId },
+      select: { userId: true, scope: true, teamId: true, orgId: true },
+    });
+    if (!routine) return null;
+    if (!canAccessRoutine(routine, user, 'edit')) return null;
+  }
   return prisma.routine.update({
     where: { id: routineId },
     data: { state: {} },

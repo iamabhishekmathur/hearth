@@ -123,7 +123,7 @@ describe('agentLoop', () => {
 
     expect(mockedChatWithFallback).toHaveBeenCalledTimes(2);
     expect(mockedExecuteTool).toHaveBeenCalledOnce();
-    expect(mockedExecuteTool).toHaveBeenCalledWith('search', { q: 'foo' }, expect.any(Map));
+    expect(mockedExecuteTool).toHaveBeenCalledWith('search', { q: 'foo' }, expect.any(Map), 'user-1');
   });
 
   it('yields error and returns immediately when LLM streams an error event', async () => {

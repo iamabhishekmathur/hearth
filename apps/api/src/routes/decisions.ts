@@ -196,6 +196,12 @@ router.post('/:id/outcomes', async (req, res) => {
 // List outcomes
 router.get('/:id/outcomes', async (req, res) => {
   try {
+    const orgId = await getOrgId(req.user!.id);
+    // Org-scope: only return outcomes for a decision that belongs to the
+    // caller's org. A cross-org (or unknown) decision id resolves to 404.
+    const decision = await decisionService.getDecision(req.params.id, orgId);
+    if (!decision) return res.status(404).json({ error: 'Decision not found' });
+
     const outcomes = await prisma.decisionOutcome.findMany({
       where: { decisionId: req.params.id },
       include: { observedBy: { select: { name: true } } },

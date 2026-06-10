@@ -254,9 +254,15 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     res.status(202).json({ data: { messageId: userMessage.id } });
 
     // Build agent context and run the agent loop asynchronously.
-    runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
-      logger.error({ err, sessionId }, 'Agent loop unhandled error');
-    });
+    // Integration tests set HEARTH_DISABLE_AGENT_DISPATCH to suppress this
+    // fire-and-forget loop, which otherwise persists an assistant message after
+    // the response and races the next test's DB truncate. The var is only ever
+    // set by the integration harness — production/dev behavior is unchanged.
+    if (process.env.HEARTH_DISABLE_AGENT_DISPATCH !== 'true') {
+      runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
+        logger.error({ err, sessionId }, 'Agent loop unhandled error');
+      });
+    }
   } catch (err) {
     next(err);
   }
