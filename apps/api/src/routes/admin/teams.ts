@@ -47,10 +47,16 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res, next) => {
 router.patch('/:id', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
     const { name } = req.body as { name?: string };
-    const team = await prisma.team.update({
-      where: { id: req.params.id as string },
+    // Org isolation: only update a team that belongs to the admin's org.
+    const result = await prisma.team.updateMany({
+      where: { id: req.params.id as string, orgId: req.user!.orgId! },
       data: { name },
     });
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Team not found' });
+      return;
+    }
+    const team = await prisma.team.findUnique({ where: { id: req.params.id as string } });
     res.json({ data: team });
   } catch (err) {
     next(err);
@@ -62,7 +68,14 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res, next) =
  */
 router.delete('/:id', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
-    await prisma.team.delete({ where: { id: req.params.id as string } });
+    // Org isolation: only delete a team that belongs to the admin's org.
+    const result = await prisma.team.deleteMany({
+      where: { id: req.params.id as string, orgId: req.user!.orgId! },
+    });
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Team not found' });
+      return;
+    }
     res.json({ message: 'Team deleted' });
   } catch (err) {
     next(err);

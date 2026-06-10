@@ -11,6 +11,7 @@ export async function findByEmail(email: string): Promise<User | null> {
 }
 
 export async function listUsers(options?: {
+  orgId?: string;
   teamId?: string;
   role?: UserRole;
   page?: number;
@@ -20,6 +21,9 @@ export async function listUsers(options?: {
   const pageSize = options?.pageSize ?? 20;
   const where: Record<string, unknown> = {};
 
+  // Org isolation: only users whose team belongs to the caller's org. Without
+  // this filter GET /admin/users would leak every org's users system-wide.
+  if (options?.orgId) where.team = { orgId: options.orgId };
   if (options?.teamId) where.teamId = options.teamId;
   if (options?.role) where.role = options.role;
 
@@ -34,6 +38,18 @@ export async function listUsers(options?: {
   ]);
 
   return { users, total };
+}
+
+/**
+ * Returns true if the given user belongs to the specified org (via their team).
+ * Used by admin user routes to prevent cross-org reads/writes/deletes.
+ */
+export async function userInOrg(userId: string, orgId: string): Promise<boolean> {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, team: { orgId } },
+    select: { id: true },
+  });
+  return user !== null;
 }
 
 export async function updateUser(

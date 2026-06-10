@@ -1,0 +1,1310 @@
+{
+  "generatedRoutes": 201,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/activity/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/activity/:id/reactions",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/activity/:id/reactions/:emoji",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/activity/digest",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/activity/signals",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/analytics/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit-logs/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/cognitive/settings",
+      "guards": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/cognitive/settings",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/compliance/config",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/compliance/config",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/compliance/packs",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/compliance/stats",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/compliance/test",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/governance/export",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/governance/policies",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/governance/policies",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/governance/policies/:id",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/governance/policies/:id",
+      "guards": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/governance/policies/:id",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/governance/policies/test",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/governance/settings",
+      "guards": []
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/governance/settings",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/governance/stats",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/governance/violations",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/governance/violations/:id",
+      "guards": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/governance/violations/:id",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/integrations/",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/integrations/",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/integrations/:id",
+      "guards": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/integrations/:id",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/integrations/:id/health",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/llm-config/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/llm-config/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/llm-config/embedding",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/llm-config/keys",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/llm-config/providers",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/routines/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/routines/alerts",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/routines/alerts",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/routines/alerts/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/routines/analytics",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/routines/analytics/top-consumers",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/setup/init",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/setup/status",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/setup/test-llm",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/sso/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/sso/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/sso/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/teams/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/teams/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/teams/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/teams/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/users/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/users/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/approvals/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/approvals/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/approvals/:id/resolve",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/oauth/google",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/oauth/google/callback",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/slack/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/slack/callback",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sso/callback",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/sso/check/:slug",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/chat/artifacts/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/artifacts/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/chat/artifacts/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/artifacts/:id/promote-to-task",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/artifacts/:id/versions",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/cognitive-profile/status",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/chat/cognitive-profile/status",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/integrations/active",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/chat/sessions/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/chat/sessions/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions/:id/collaborators",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/collaborators",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/chat/sessions/:id/collaborators/:userId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/duplicate",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/fork",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/join",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/messages",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/messages/:messageId/feedback",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/messages/:messageId/reactions",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/chat/sessions/:id/messages/:messageId/reactions/:emoji",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/read",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/share",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/chat/sessions/:id/visibility",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions/:sessionId/active-tasks",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions/:sessionId/artifacts",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:sessionId/artifacts",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:sessionId/messages/:messageId/promote-to-task",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:sessionId/messages/:messageId/tasks/:taskId/unlink",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions/shared",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/sessions/unread-counts",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/users/search",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/decisions/",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/decisions/:id",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/:id",
+      "guards": []
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/decisions/:id",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/decisions/:id/confirm",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/decisions/:id/dependencies",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/decisions/:id/dependencies/:depId",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/decisions/:id/dismiss",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/:id/graph",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/:id/outcomes",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/decisions/:id/outcomes",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/patterns",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/pending-review",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/principles",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/decisions/search",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/identity/:level/:fileType",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/identity/:level/:fileType",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/intake/dismiss/:taskId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/meetings/",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/meetings/:id",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/meetings/ingest",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/memory/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/memory/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/memory/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/memory/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/memory/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/memory/search",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notifications/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notifications/:id/read",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/recommendations/skills",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/recurrence/check",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/routines/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/routines/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/chains",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/chains",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/routines/:id/chains/:chainId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/run-now",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/runs",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/routines/:id/state",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/state",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/routines/:id/state",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/toggle",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/triggers",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/triggers",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/routines/:id/triggers/:triggerId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/integrations",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/test-run",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/webhook-endpoints",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/webhook-endpoints",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/routines/webhook-endpoints/:endpointId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/shared/:token",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/skills/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/skills/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/skills/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/skills/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/skills/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/skills/:id/install",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/skills/:id/install",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/skills/:id/proposal",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/skills/:id/submit-for-review",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/skills/import",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/skills/import/preview",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/skills/installed",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/skills/proposals",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/skills/seed",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/task-suggestions/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/task-suggestions/:id/accept",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/task-suggestions/:id/dismiss",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/tasks/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/tasks/:id",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks/:id/comments",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/comments",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/context",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks/:id/context-items",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/context-items",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/tasks/:id/context-items/:itemId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/tasks/:id/context-items/:itemId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/context-items/:itemId/analyze",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/context-items/:itemId/refresh",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/context-items/upload",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/replan",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks/:id/reviews",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/reviews",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks/:id/steps",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/:id/subtasks",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/uploads/",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/uploads/:filePath(*)",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/webhooks/ingest/:urlToken",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/webhooks/slack/",
+      "guards": []
+    }
+  ]
+}

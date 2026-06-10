@@ -39,6 +39,13 @@ describe('task-context-service', () => {
   });
 
   describe('createContextItem', () => {
+    beforeEach(() => {
+      // createContextItem loads the parent task (for orgId) in parallel with
+      // the last-item sortOrder lookup; it throws "Task ... not found" if the
+      // task query returns null.
+      (prisma.task.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ orgId: 'org-1' });
+    });
+
     it('creates a note with completed extraction status (passthrough)', async () => {
       (prisma.taskContextItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
       (prisma.taskContextItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({

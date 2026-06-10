@@ -35,13 +35,15 @@ export default defineConfig({
     // Feature tests (parallel)
     {
       name: 'chat',
-      testMatch: /chat\.spec\.ts/,
+      // Top-level chat spec only — not e2e/ui/chat.spec.ts (the 'ui' project).
+      testMatch: /[\\/]e2e[\\/]chat\.spec\.ts$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'tasks',
-      testMatch: /tasks\.spec\.ts/,
+      // Top-level tasks spec only — not e2e/ui/kanban.tasks.spec.ts ('ui').
+      testMatch: /[\\/]e2e[\\/]tasks\.spec\.ts$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -83,7 +85,9 @@ export default defineConfig({
     },
     {
       name: 'settings',
-      testMatch: /settings\.spec\.ts/,
+      // Scope to the top-level settings spec so it doesn't also pick up
+      // e2e/ui/settings.spec.ts (which belongs to the 'ui' project below).
+      testMatch: /[\\/]e2e[\\/]settings\.spec\.ts$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -127,6 +131,20 @@ export default defineConfig({
     {
       name: 'pipelines',
       testMatch: /pipelines\.spec\.ts/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // DOM-driven UI specs (e2e/ui/*.spec.ts) — click the real frontend.
+    {
+      name: 'ui',
+      testMatch: /[\\/]e2e[\\/]ui[\\/].*\.spec\.ts$/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // Concurrency / race specs (e2e/concurrency/*.spec.ts) — parallel API races.
+    {
+      name: 'concurrency',
+      testMatch: /[\\/]e2e[\\/]concurrency[\\/].*\.spec\.ts$/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'] },
     },

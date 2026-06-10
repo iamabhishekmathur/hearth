@@ -1,0 +1,38 @@
+# Isolated Postgres + Redis for integration tests.
+# Runs on alternate ports so it never collides with the dev stack
+# (docker-compose.yml uses 5432 / 6379; this uses 5433 / 6380).
+# Postgres data lives in tmpfs — fast and ephemeral; nothing persists
+# between `down` cycles, which is exactly what we want for a test DB.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up -d
+#   pnpm --filter @hearth/api test:integration
+#   docker compose -f docker-compose.test.yml down
+services:
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    container_name: hearth-postgres-test
+    environment:
+      POSTGRES_USER: hearth
+      POSTGRES_PASSWORD: hearth
+      POSTGRES_DB: hearth_test
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U hearth -d hearth_test']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: hearth-redis-test
+    ports:
+      - '6380:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 5s
+      retries: 15
