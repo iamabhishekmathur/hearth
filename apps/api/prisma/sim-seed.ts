@@ -92,6 +92,33 @@ async function main(): Promise<void> {
     }
   }
 
+  // Named e2e fixture users — the identities the Playwright specs log in as
+  // (see e2e/fixtures/test-helpers.ts USERS). Created IN the primary sim org so
+  // every e2e login lands in the populated dataset (not an empty default org).
+  const teamByName = new Map(primaryTeams.map((t, i) => [PRIMARY_TEAMS[i], t] as const));
+  const FIXTURE_USERS: Array<{ email: string; name: string; role: string; team: string }> = [
+    { email: 'admin@hearth.local', name: 'Admin', role: 'admin', team: 'Engineering' },
+    { email: 'cto@hearth.local', name: 'CTO', role: 'admin', team: 'Engineering' },
+    { email: 'eng-lead@hearth.local', name: 'Engineering Lead', role: 'team_lead', team: 'Engineering' },
+    { email: 'product-lead@hearth.local', name: 'Product Lead', role: 'team_lead', team: 'Product' },
+    { email: 'dev1@hearth.local', name: 'Developer One', role: 'member', team: 'Engineering' },
+    { email: 'dev2@hearth.local', name: 'Developer Two', role: 'member', team: 'Engineering' },
+    { email: 'pm1@hearth.local', name: 'Product Manager', role: 'member', team: 'Product' },
+    { email: 'designer@hearth.local', name: 'Designer', role: 'member', team: 'Design' },
+    { email: 'data-analyst@hearth.local', name: 'Data Analyst', role: 'member', team: 'Engineering' },
+    { email: 'intern@hearth.local', name: 'Intern', role: 'viewer', team: 'Engineering' },
+    { email: 'contractor@hearth.local', name: 'Contractor', role: 'viewer', team: 'Product' },
+    { email: 'new-hire@hearth.local', name: 'New Hire', role: 'member', team: 'Engineering' },
+  ];
+  for (const f of FIXTURE_USERS) {
+    const team = teamByName.get(f.team)!;
+    const u = await prisma.user.create({
+      data: { email: f.email, name: f.name, role: f.role as never, authProvider: 'email', passwordHash, teamId: team.id },
+    });
+    primaryUsers.push({ id: u.id, teamId: team.id, orgId: primaryOrg.id });
+  }
+  console.log(`sim-seed: + ${FIXTURE_USERS.length} named e2e fixture users in ${primaryOrg.slug}`);
+
   // Rival org: 6 users (1 admin + 5 members)
   const rivalUsers: SeedUser[] = [];
   for (let i = 0; i < 6; i++) {
