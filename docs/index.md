@@ -3,86 +3,79 @@ layout: home
 
 hero:
   name: Hearth
-  text: One AI Workspace for Your Entire Team
-  tagline: Multiplayer AI chat, a task board that executes, and automated routines — self-hosted on your infrastructure with your own LLM keys.
+  text: A Team AI Workspace
+  tagline: A team AI workspace for chat, agent-assisted tasks, routines, activity, and company-owned context. Available in Hearth Cloud or self-hosted. BYO LLM either way.
   actions:
     - theme: brand
-      text: Get Started
-      link: /getting-started/
+      text: Start with Hearth Cloud
+      link: /getting-started/cloud
     - theme: brand
-      text: User Guide
-      link: /guide/
+      text: Start self-hosted
+      link: /getting-started/self-hosted
     - theme: alt
-      text: API Reference
-      link: /developers/api/
+      text: Compare paths
+      link: /getting-started/comparison
     - theme: alt
       text: View on GitHub
       link: https://github.com/iamabhishekmathur/hearth
 
 features:
   - icon: "💬"
-    title: Multiplayer AI Chat
-    details: The only AI chat with real-time multiplayer. Multiple people in one session. Shared artifacts everyone can see and edit. Web search, code execution, and memory recall built in.
+    title: Chat
+    details: Teammates and agents work in one shared AI session with shared context, files, and artifacts.
     link: /guide/chat
     linkText: Learn more
   - icon: "📋"
-    title: Task Board
-    details: Kanban board with tasks proactively generated from meetings, email, and Slack. Auto-decomposition into subtasks. The AI executes with approval gates — you review, approve, done.
+    title: Tasks
+    details: Assigned work becomes visible, planned into subtasks, executed through connected tools, and returned for approval.
     link: /guide/tasks
     linkText: Learn more
   - icon: "🔄"
     title: Routines
-    details: Cron-scheduled and webhook-triggered AI workflows. Standup summaries, metric digests, alert triage, report generation. Set up once, runs forever. Delivers to Slack, email, Jira.
+    details: Repeated work becomes agent-run workflows that run manually, on a schedule, or from triggers.
     link: /guide/routines
     linkText: Learn more
-  - icon: "🧩"
-    title: Skills
-    details: Reusable AI workflows anyone can create and share. One person discovers a pattern, saves it as a skill, whole team benefits. The AI proposes new skills from experience.
-    link: /guide/skills
+  - icon: "📊"
+    title: Activity
+    details: Teams discover what coworkers are doing in Hearth and adopt useful workflows into their own work.
+    link: /guide/activity
     linkText: Learn more
   - icon: "🧠"
     title: Memory
-    details: "Three layers — personal, team, org — with semantic search. Daily synthesis extracts insights from conversations and integrations. The AI gets smarter for your org over time."
+    details: Context, decisions, outputs, and workflow history accumulate at user, team, and organization levels.
     link: /guide/memory
     linkText: Learn more
-  - icon: "🕸️"
-    title: Decisions & Context Graph
-    details: "Auto-captured from chat and meetings. Timeline view, graph view, pattern detection. The AI surfaces relevant past decisions when you're making new ones."
-    link: /guide/decisions
-    linkText: Learn more
-  - icon: "🤝"
-    title: Cognitive Profiles
-    details: "The AI learns how each person thinks. @mention a teammate: \"How would Sarah approach this?\" Responses grounded in observed patterns with cited evidence."
-    link: /admin/cognitive-profiles
-    linkText: Learn more
-  - icon: "📊"
-    title: Activity Feed
-    details: Real-time stream of what's happening across your org. React to decisions, discover workflows, and let the AI surface patterns and anomalies.
-    link: /guide/activity
+  - icon: "🛡️"
+    title: Governance
+    details: Admin policies, approval gates, audit trails, and sensitive-data controls keep agent execution reviewable.
+    link: /admin/governance
     linkText: Learn more
   - icon: "🔌"
     title: Integrations
-    details: "Slack, email, calendar, Jira, MCP connectors, and webhooks. Bi-directional: tasks from Slack, results to Slack, routines triggered by any event."
+    details: Connect communication, meeting, work, knowledge, and GTM systems through integrations, MCP, webhooks, and APIs.
     link: /admin/integrations
     linkText: Learn more
+  - icon: "🏠"
+    title: Cloud or self-hosted
+    details: Use Hearth Cloud for managed operations, or run the open-source core in your own infrastructure.
+    link: /getting-started/comparison
+    linkText: Compare paths
   - icon: "🔑"
     title: BYO LLM
-    details: Bring your own API keys. OpenAI, Anthropic, local models. Switch providers anytime. No vendor lock-in on the intelligence layer.
-    link: /self-hosting/
-    linkText: Self-Hosting Guide
-  - icon: "🏠"
-    title: Self-Hosted
-    details: Deploy in your cloud or on-prem. Your data never touches our servers. Docker Compose for dev, Kubernetes + Helm for production. AGPL v3 licensed.
-    link: /self-hosting/
-    linkText: Self-Hosting Guide
-  - icon: "🛡️"
-    title: Enterprise-Ready
-    details: "6 compliance packs, governance policies with monitor/warn/block, full audit trail, approval workflows, SSO + RBAC, and a violation dashboard."
-    link: /admin/
+    details: Bring OpenAI, Anthropic, Azure OpenAI, OpenAI-compatible providers, or OSS/local models on either path.
+    link: /admin/llm-providers
     linkText: Learn more
 ---
 
-## Under 5 Minutes to Value
+## Choose Your Starting Path
+
+Hearth can be used as a managed cloud workspace or deployed from the open-source core.
+
+- **Hearth Cloud:** fastest path to a managed team AI workspace.
+- **Self-hosted:** run Hearth in your own cloud when infrastructure ownership matters.
+- **BYO LLM:** use your preferred model path with either deployment option.
+
+## Self-Hosted Quickstart
 
 ```bash
 git clone https://github.com/iamabhishekmathur/hearth.git

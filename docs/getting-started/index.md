@@ -29,6 +29,6 @@ Use this checklist for either edition:
 2. Confirm at least one LLM provider is configured.
 3. Invite the initial team members.
 4. Connect the first high-value integration, usually Slack, Google Calendar, GitHub, Jira, or Notion.
-5. Start a shared chat and create one task from the conversation.
+5. Start a Chat session with teammates and create one task from the conversation.
 6. Create one routine from a repeated workflow.
 7. Review admin settings for governance, compliance, audit logs, and access controls.
