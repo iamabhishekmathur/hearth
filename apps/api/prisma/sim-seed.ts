@@ -96,19 +96,21 @@ async function main(): Promise<void> {
   // (see e2e/fixtures/test-helpers.ts USERS). Created IN the primary sim org so
   // every e2e login lands in the populated dataset (not an empty default org).
   const teamByName = new Map(primaryTeams.map((t, i) => [PRIMARY_TEAMS[i], t] as const));
+  // Real human names — the UI shows `name` as the author label, and the agent
+  // attributes shared-session messages by name, so these must read like people.
   const FIXTURE_USERS: Array<{ email: string; name: string; role: string; team: string }> = [
-    { email: 'admin@hearth.local', name: 'Admin', role: 'admin', team: 'Engineering' },
-    { email: 'cto@hearth.local', name: 'CTO', role: 'admin', team: 'Engineering' },
-    { email: 'eng-lead@hearth.local', name: 'Engineering Lead', role: 'team_lead', team: 'Engineering' },
-    { email: 'product-lead@hearth.local', name: 'Product Lead', role: 'team_lead', team: 'Product' },
-    { email: 'dev1@hearth.local', name: 'Developer One', role: 'member', team: 'Engineering' },
-    { email: 'dev2@hearth.local', name: 'Developer Two', role: 'member', team: 'Engineering' },
-    { email: 'pm1@hearth.local', name: 'Product Manager', role: 'member', team: 'Product' },
-    { email: 'designer@hearth.local', name: 'Designer', role: 'member', team: 'Design' },
-    { email: 'data-analyst@hearth.local', name: 'Data Analyst', role: 'member', team: 'Engineering' },
-    { email: 'intern@hearth.local', name: 'Intern', role: 'viewer', team: 'Engineering' },
-    { email: 'contractor@hearth.local', name: 'Contractor', role: 'viewer', team: 'Product' },
-    { email: 'new-hire@hearth.local', name: 'New Hire', role: 'member', team: 'Engineering' },
+    { email: 'admin@hearth.local', name: 'Alex Rivera', role: 'admin', team: 'Engineering' },
+    { email: 'cto@hearth.local', name: 'Marcus Chen', role: 'admin', team: 'Engineering' },
+    { email: 'eng-lead@hearth.local', name: 'Devin Rao', role: 'team_lead', team: 'Engineering' },
+    { email: 'product-lead@hearth.local', name: 'Dana Lewis', role: 'team_lead', team: 'Product' },
+    { email: 'dev1@hearth.local', name: 'Sam Park', role: 'member', team: 'Engineering' },
+    { email: 'dev2@hearth.local', name: 'Jordan Lee', role: 'member', team: 'Engineering' },
+    { email: 'pm1@hearth.local', name: 'Priya Sharma', role: 'member', team: 'Product' },
+    { email: 'designer@hearth.local', name: 'Nina Alvarez', role: 'member', team: 'Design' },
+    { email: 'data-analyst@hearth.local', name: 'Omar Farouk', role: 'member', team: 'Engineering' },
+    { email: 'intern@hearth.local', name: 'Chloe Wong', role: 'viewer', team: 'Engineering' },
+    { email: 'contractor@hearth.local', name: 'Diego Santos', role: 'viewer', team: 'Product' },
+    { email: 'new-hire@hearth.local', name: 'Ravi Patel', role: 'member', team: 'Engineering' },
   ];
   for (const f of FIXTURE_USERS) {
     const team = teamByName.get(f.team)!;
