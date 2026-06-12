@@ -92,25 +92,37 @@ export class OpenAIProvider implements LLMProvider {
   readonly id: string;
   readonly name: string;
   protected client: OpenAI;
+  protected readonly defaultModel: string;
 
-  constructor(options?: { apiKey?: string; baseURL?: string; id?: string; name?: string }) {
+  constructor(options?: { apiKey?: string; baseURL?: string; id?: string; name?: string; defaultModel?: string }) {
     const key = options?.apiKey ?? env.OPENAI_API_KEY;
     if (!key) {
       throw new Error('OPENAI_API_KEY is required for OpenAI provider');
     }
     this.id = options?.id ?? 'openai';
     this.name = options?.name ?? 'OpenAI';
+    this.defaultModel = options?.defaultModel ?? process.env.OPENAI_DEFAULT_MODEL ?? 'gpt-4o';
     this.client = new OpenAI({
       apiKey: key,
       ...(options?.baseURL ? { baseURL: options.baseURL } : {}),
     });
   }
 
+  /**
+   * Map a requested model id to one this provider can actually serve. Call
+   * sites across the app hardcode Anthropic ids (e.g. 'claude-sonnet-4-6')
+   * as their default; forwarding those to the OpenAI API 404s. Anything that
+   * doesn't look like an OpenAI/Azure model falls back to defaultModel.
+   */
+  protected resolveModel(requested: string): string {
+    return /^(gpt-|o1|o3|o4|chatgpt|text-|ft:)/i.test(requested) ? requested : this.defaultModel;
+  }
+
   async *chat(params: ChatParams): AsyncIterable<ChatEvent> {
     const messages = toOpenAIMessages(params.messages, params.systemPrompt);
 
     const requestParams: OpenAI.ChatCompletionCreateParams = {
-      model: params.model,
+      model: this.resolveModel(params.model),
       messages,
       stream: true,
       ...(params.temperature != null ? { temperature: params.temperature } : {}),
