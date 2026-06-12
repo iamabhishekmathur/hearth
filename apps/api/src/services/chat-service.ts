@@ -661,7 +661,7 @@ export async function promoteMessageToTask(input: {
       milestone: 'started',
       taskTitle: task.title,
       taskStatus: task.status,
-    }).catch((err) => logger.warn({ err, taskId: task.id }, 'postTaskProgress(started) failed'));
+    }).catch((err) => logger.error({ err, taskId: task.id }, 'postTaskProgress(started) failed'));
   }
 
   return {
@@ -693,20 +693,7 @@ export async function postTaskProgress(input: {
   });
   if (!session) return;
 
-  // Idempotency: check whether we've already posted this milestone.
-  const existing = await prisma.chatMessage.findFirst({
-    where: {
-      sessionId: input.sessionId,
-      role: 'system',
-      metadata: {
-        path: ['kind'],
-        equals: 'task_progress',
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 25,
-  });
-  // Walk recent system messages; skip if same milestone already exists.
+  // Idempotency: walk recent system messages; skip if same milestone exists.
   const recent = await prisma.chatMessage.findMany({
     where: { sessionId: input.sessionId, role: 'system' },
     orderBy: { createdAt: 'desc' },
@@ -723,7 +710,6 @@ export async function postTaskProgress(input: {
       return; // already posted
     }
   }
-  void existing; // (kept for future consolidation; unused at present)
 
   const labels: Record<typeof input.milestone, string> = {
     started: 'Task started',

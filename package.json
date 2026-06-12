@@ -17,7 +17,8 @@
     "db:studio": "pnpm --filter @hearth/api exec prisma studio",
     "docs:dev": "pnpm --filter @hearth/docs dev",
     "docs:build": "pnpm --filter @hearth/docs build",
-    "seed:gtm-demo": "pnpm --filter @hearth/api seed:gtm-demo"
+    "seed:gtm-demo": "pnpm --filter @hearth/api seed:gtm-demo",
+    "pressure": "pnpm --filter @hearth/api exec tsx ../../load/pressure/run-all.ts"
   },
   "pnpm": {
     "overrides": {

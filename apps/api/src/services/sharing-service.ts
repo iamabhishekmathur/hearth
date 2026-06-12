@@ -40,6 +40,28 @@ export async function createShare(
 }
 
 /**
+ * Revoke all share links for a session (owner-only).
+ * Deletes every SessionShare row for the session so existing public tokens stop working.
+ * Throws 'Session not found' if the session does not exist or the user is not the owner.
+ */
+export async function revokeShares(sessionId: string, userId: string) {
+  // Verify the user owns the session
+  const session = await prisma.chatSession.findFirst({
+    where: { id: sessionId, userId },
+    select: { id: true },
+  });
+  if (!session) {
+    throw new Error('Session not found');
+  }
+
+  const result = await prisma.sessionShare.deleteMany({
+    where: { sessionId },
+  });
+
+  return { revoked: result.count };
+}
+
+/**
  * Get a shared session by token (public — no auth required).
  * Returns null if the token is invalid or expired.
  */
@@ -63,6 +85,12 @@ export async function getSharedSession(token: string) {
 
   // Check expiration
   if (share.expiresAt && share.expiresAt < new Date()) {
+    return null;
+  }
+
+  // Reject if the underlying session is no longer active (archived/deleted).
+  // A revoked share token must not leak messages from an archived session.
+  if (share.session.status !== 'active') {
     return null;
   }
 

@@ -377,9 +377,34 @@ Create a shareable link for a session.
 
 ---
 
+#### DELETE /api/v1/sharing/chat/sessions/:id/share
+
+Revoke all share links for a session. Owner-only. After revocation, every public token for the session stops working (returns `404`).
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Session ID |
+
+**Response:** `200 OK`
+
+```json
+{
+  "data": { "revoked": 1 },
+  "message": "Share links revoked"
+}
+```
+
+Returns `404 Not Found` if the session does not exist or the caller is not the owner.
+
+---
+
 #### GET /api/v1/sharing/shared/:token
 
 View a shared session via its public token. No authentication required.
+
+The link is rejected with `404` if the token has been revoked, the link has expired, or the underlying session is no longer active (archived or deleted).
 
 **Path Parameters:**
 

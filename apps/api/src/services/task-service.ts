@@ -8,6 +8,7 @@ import type {
 import { VALID_STATUS_TRANSITIONS } from '@hearth/shared';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { logger } from '../lib/logger.js';
 
 export async function createTask(
   orgId: string,
@@ -285,9 +286,12 @@ export async function createReview(
   reviewerId: string,
   data: { decision: ReviewDecision; feedback?: string },
 ) {
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { orgId: true } });
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { orgId: true, title: true, sourceSessionId: true },
+  });
   if (!task) throw new Error(`Task ${taskId} not found`);
-  return prisma.taskReview.create({
+  const review = await prisma.taskReview.create({
     data: {
       orgId: task.orgId,
       taskId,
@@ -297,6 +301,28 @@ export async function createReview(
     },
     include: { reviewer: { select: { id: true, name: true } } },
   });
+
+  // An approval transitions the task to 'done'. If the task originated from a
+  // chat session, post a 'done' milestone so the chat story doesn't dangle at
+  // "Awaiting review". Best-effort: never fail the review on a side effect.
+  if (data.decision === 'approved' && task.sourceSessionId) {
+    const sessionId = task.sourceSessionId;
+    void import('./chat-service.js')
+      .then((chatService) =>
+        chatService.postTaskProgress({
+          sessionId,
+          taskId,
+          milestone: 'done',
+          taskTitle: task.title,
+          taskStatus: 'done',
+        }),
+      )
+      .catch((err) =>
+        logger.error({ err, taskId }, 'postTaskProgress(done) failed'),
+      );
+  }
+
+  return review;
 }
 
 export async function listReviews(taskId: string) {

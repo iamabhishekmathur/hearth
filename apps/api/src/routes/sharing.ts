@@ -50,6 +50,24 @@ router.post('/chat/sessions/:id/share', requireAuth, async (req, res, next) => {
 });
 
 /**
+ * DELETE /chat/sessions/:id/share — revoke all share links for a session (owner-only)
+ */
+router.delete('/chat/sessions/:id/share', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const userId = req.user!.id;
+    const result = await sharingService.revokeShares(sessionId, userId);
+    res.json({ data: result, message: 'Share links revoked' });
+  } catch (err) {
+    if ((err as Error).message === 'Session not found') {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    next(err);
+  }
+});
+
+/**
  * GET /shared/:token — view a shared session (public, no auth)
  */
 router.get('/shared/:token', publicRateLimit, async (req, res, next) => {

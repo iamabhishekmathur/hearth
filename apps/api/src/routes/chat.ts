@@ -206,6 +206,18 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       await chatService.linkAttachments(userMessage.id, attachmentIds);
     }
 
+    // Parse @mentions of session participants and notify each mentioned user.
+    // Best-effort: never block or fail the send on notification errors.
+    void notifyMentions({
+      session,
+      messageId: userMessage.id,
+      authorId: userId,
+      authorName: req.user!.name,
+      content,
+    }).catch((err) => {
+      logger.error({ err, sessionId }, 'mention notify failed');
+    });
+
     // Auto-title: if the session has no title, derive one from the first message (owner only)
     if (!session.title && access === 'owner') {
       const title = deriveSessionTitle(content);
@@ -313,6 +325,19 @@ router.post('/sessions/:id/messages/:messageId/reactions', requireAuth, async (r
       emoji,
       op: 'add',
     });
+
+    // Notify the message author that someone reacted (skip self-reactions).
+    // Best-effort: never block or fail the request on notification errors.
+    void notifyReactionOnMessage({
+      sessionId,
+      messageId,
+      reactorId: req.user!.id,
+      reactorName: req.user!.name,
+      emoji,
+    }).catch((err) => {
+      logger.error({ err, sessionId, messageId }, 'reaction_on_your_message notify failed');
+    });
+
     res.status(201).json({ data: result });
   } catch (err) {
     next(err);
@@ -626,11 +651,9 @@ router.get('/users/search', requireAuth, async (req, res, next) => {
       res.json({ data: [] });
       return;
     }
+    // Empty/short query is allowed — typing just "@" should surface teammates
+    // immediately (searchOrgMembers caps the result set).
     const q = (req.query.q as string) || '';
-    if (q.length < 2) {
-      res.json({ data: [] });
-      return;
-    }
     const users = await chatService.searchOrgMembers(orgId, q, req.user!.id);
     res.json({ data: users });
   } catch (err) {
@@ -691,6 +714,113 @@ router.put('/cognitive-profile/status', requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * Notifies the author of a chat message that someone reacted to it.
+ * No-op when the reactor is the author, or when the message has no human
+ * author (e.g. assistant/system messages have a null createdBy).
+ * Best-effort — caller wraps in `void ... .catch()`.
+ */
+async function notifyReactionOnMessage(input: {
+  sessionId: string;
+  messageId: string;
+  reactorId: string;
+  reactorName?: string;
+  emoji: string;
+}): Promise<void> {
+  const { prisma } = await import('../lib/prisma.js');
+  const message = await prisma.chatMessage.findFirst({
+    where: { id: input.messageId, sessionId: input.sessionId },
+    select: { id: true, orgId: true, createdBy: true },
+  });
+  if (!message || !message.createdBy) return;
+  if (message.createdBy === input.reactorId) return;
+
+  const session = await prisma.chatSession.findUnique({
+    where: { id: input.sessionId },
+    select: { title: true },
+  });
+
+  await notify({
+    orgId: message.orgId,
+    userId: message.createdBy,
+    type: 'reaction_on_your_message',
+    title: `${input.reactorName ?? 'Someone'} reacted ${input.emoji} to your message`,
+    body: session?.title ?? 'Untitled chat',
+    sessionId: input.sessionId,
+    entityType: 'chat_message',
+    entityId: input.messageId,
+  });
+}
+
+/**
+ * Parses @mentions out of a chat message and notifies each mentioned session
+ * participant (owner or collaborator). Self-mentions are skipped. Names are
+ * resolved against the session's participants only, so mentions never leak to
+ * non-participants. Best-effort — caller wraps in `void ... .catch()`.
+ */
+async function notifyMentions(input: {
+  session: { id: string; orgId: string; userId: string; title: string | null; collaborators: Array<{ userId: string }> };
+  messageId: string;
+  authorId: string;
+  authorName?: string;
+  content: string;
+}): Promise<void> {
+  // Extract @mention tokens. Supports "@Name" and "@First Last" (up to two words).
+  const rawMentions = input.content.match(/@([\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*)?)/gu);
+  if (!rawMentions || rawMentions.length === 0) return;
+
+  // Build the set of participant userIds (owner + collaborators), minus the author.
+  const participantIds = new Set<string>([input.session.userId, ...input.session.collaborators.map((c) => c.userId)]);
+  participantIds.delete(input.authorId);
+  if (participantIds.size === 0) return;
+
+  const { prisma } = await import('../lib/prisma.js');
+  const participants = await prisma.user.findMany({
+    where: { id: { in: Array.from(participantIds) } },
+    select: { id: true, name: true },
+  });
+  if (participants.length === 0) return;
+
+  // Normalise candidate mention strings (strip leading @, collapse whitespace,
+  // lowercase). Each "@First Last" capture also yields its first word as a
+  // candidate, so "@Jordan can you..." still matches "Jordan" even though the
+  // regex greedily grabbed the following word.
+  const mentionCandidates = new Set<string>();
+  for (const raw of rawMentions) {
+    const norm = raw.replace(/^@/, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!norm) continue;
+    mentionCandidates.add(norm);
+    const firstWord = norm.split(' ')[0];
+    if (firstWord) mentionCandidates.add(firstWord);
+  }
+
+  // Match each participant whose full name or first name appears as a mention.
+  const matched = new Map<string, { id: string; name: string }>();
+  for (const p of participants) {
+    const full = p.name.replace(/\s+/g, ' ').trim().toLowerCase();
+    const first = full.split(' ')[0] ?? '';
+    if (mentionCandidates.has(full) || (first && mentionCandidates.has(first))) {
+      matched.set(p.id, p);
+    }
+  }
+  if (matched.size === 0) return;
+
+  await Promise.all(
+    Array.from(matched.values()).map((p) =>
+      notify({
+        orgId: input.session.orgId,
+        userId: p.id,
+        type: 'mention',
+        title: `${input.authorName ?? 'Someone'} mentioned you`,
+        body: input.session.title ?? 'Untitled chat',
+        sessionId: input.session.id,
+        entityType: 'chat_message',
+        entityId: input.messageId,
+      }),
+    ),
+  );
+}
 
 /**
  * Derives a short session title from the first user message.

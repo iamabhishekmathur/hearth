@@ -13,6 +13,8 @@ import { enqueuePlanning } from '../services/task-planner.js';
 import { emitToTask } from '../ws/socket-manager.js';
 import { logger } from '../lib/logger.js';
 import { tenantUploadDir } from '../lib/storage-paths.js';
+import { notify } from '../services/notification-service.js';
+import { prisma } from '../lib/prisma.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -184,10 +186,22 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const comment = await taskService.addComment(req.params.id as string, req.user!.id, content);
+    const taskId = req.params.id as string;
+    const comment = await taskService.addComment(taskId, req.user!.id, content);
 
     // Emit real-time
-    emitToTask(req.params.id as string, { type: 'task:comment', comment });
+    emitToTask(taskId, { type: 'task:comment', comment });
+
+    // Notify the task owner that someone commented (skip self-comments).
+    // Best-effort: never block or fail the request on notification errors.
+    void notifyCommentOnTask({
+      taskId,
+      commenterId: req.user!.id,
+      commenterName: req.user!.name,
+      content,
+    }).catch((err) => {
+      logger.error({ err, taskId }, 'comment_on_your_message notify failed');
+    });
 
     res.status(201).json({ data: comment });
   } catch (err) {
@@ -646,5 +660,34 @@ router.post('/:id/context-items/:itemId/analyze', requireAuth, async (req, res, 
     next(err);
   }
 });
+
+/**
+ * Notifies the owner of a task that someone commented on it.
+ * No-op when the commenter is the owner. Best-effort — callers wrap in
+ * `void ... .catch()`, and notify() itself swallows persistence errors.
+ */
+async function notifyCommentOnTask(input: {
+  taskId: string;
+  commenterId: string;
+  commenterName?: string;
+  content: string;
+}): Promise<void> {
+  const task = await prisma.task.findUnique({
+    where: { id: input.taskId },
+    select: { id: true, orgId: true, userId: true, title: true },
+  });
+  if (!task) return;
+  if (task.userId === input.commenterId) return;
+
+  await notify({
+    orgId: task.orgId,
+    userId: task.userId,
+    type: 'comment_on_your_message',
+    title: `${input.commenterName ?? 'Someone'} commented on your task`,
+    body: input.content.slice(0, 200),
+    entityType: 'task',
+    entityId: task.id,
+  });
+}
 
 export default router;
