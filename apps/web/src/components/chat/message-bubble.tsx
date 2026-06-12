@@ -17,6 +17,49 @@ function ensureClosedCodeFences(content: string): string {
 
 const MemoizedSyntaxHighlighter = memo(SyntaxHighlighter);
 
+// Wrap @Name mentions in a styled <span class="hearth-mention">. Matches an @
+// not preceded by a word char (so emails like a@b.com are skipped) followed by
+// a Capitalized name (one or two words). Skips text inside code/links.
+const MENTION_RE = /(?<![\w@])@([A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)?)/g;
+function rehypeMentions() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const walk = (node: any) => {
+    if (!node || !Array.isArray(node.children)) return;
+    const next: unknown[] = [];
+    for (const child of node.children) {
+      if (child.type === 'text' && node.tagName !== 'code' && node.tagName !== 'a') {
+        const text: string = child.value;
+        MENTION_RE.lastIndex = 0;
+        let last = 0;
+        let m: RegExpExecArray | null;
+        let matched = false;
+        while ((m = MENTION_RE.exec(text)) !== null) {
+          matched = true;
+          if (m.index > last) next.push({ type: 'text', value: text.slice(last, m.index) });
+          next.push({
+            type: 'element',
+            tagName: 'span',
+            properties: { className: ['hearth-mention'] },
+            children: [{ type: 'text', value: m[0] }],
+          });
+          last = m.index + m[0].length;
+        }
+        if (matched) {
+          if (last < text.length) next.push({ type: 'text', value: text.slice(last) });
+        } else {
+          next.push(child);
+        }
+      } else {
+        walk(child);
+        next.push(child);
+      }
+    }
+    node.children = next;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (tree: any) => walk(tree);
+}
+
 interface CitationSource {
   index: number;
   type: string;
@@ -56,6 +99,24 @@ function renderWithCitations(text: string, sources?: CitationSource[]): React.Re
   });
 }
 
+// Render plain text (user messages aren't markdown-rendered) with @mention
+// chips. Uses the same matcher as rehypeMentions; the chip tints the bubble's
+// own text color so it reads on any author-colored bubble.
+function renderMentionsInText(text: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  MENTION_RE.lastIndex = 0;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = MENTION_RE.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    nodes.push(<span key={key++} className="hearth-mention-on-bubble">{m[0]}</span>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes.length > 0 ? nodes : [text];
+}
+
 export function MessageBubble({ message, artifacts, onOpenArtifact, author, showAuthor, respondingToAuthor }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const messageArtifacts = artifacts?.filter((a) => a.parentMessageId === message.id) ?? [];
@@ -82,7 +143,7 @@ export function MessageBubble({ message, artifacts, onOpenArtifact, author, show
                   : { background: 'var(--hearth-text)', color: 'var(--hearth-text-inverse)' }
               }
             >
-              <p className="whitespace-pre-wrap">{message.content}</p>
+              <p className="whitespace-pre-wrap">{renderMentionsInText(message.content)}</p>
             </div>
             {attachments.length > 0 && (
               <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
@@ -118,6 +179,7 @@ export function MessageBubble({ message, artifacts, onOpenArtifact, author, show
         <div className="prose prose-sm max-w-none text-[14.5px] leading-[1.6] text-hearth-text prose-p:my-1 prose-pre:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:mt-3 prose-headings:mb-1 prose-headings:font-semibold prose-strong:text-hearth-text prose-code:text-hearth-accent prose-code:bg-hearth-chip prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[12.5px] prose-code:font-mono prose-code:font-normal">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeMentions]}
             components={{
               p({ children }) {
                 if (!messageSources || messageSources.length === 0) {

@@ -87,3 +87,31 @@
   from { opacity: 0; transform: translate(-50%, calc(-1 * var(--hearth-motion-rise))); }
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* @mention chip — rendered in chat messages by rehypeMentions */
+.hearth-mention {
+  color: var(--hearth-accent);
+  background: color-mix(in srgb, var(--hearth-accent) 12%, transparent);
+  border-radius: 0.375rem;
+  padding: 0.05rem 0.3rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* @mention highlight inside the composer backdrop. MUST NOT alter glyph metrics
+   (no padding / font-weight / font-size) or the overlaid textarea caret drifts —
+   background tint + color + radius only. */
+.hearth-mention-inline {
+  color: var(--hearth-accent);
+  background: color-mix(in srgb, var(--hearth-accent) 14%, transparent);
+  border-radius: 0.25rem;
+}
+
+/* @mention chip inside a user's colored message bubble — tints the bubble's own
+   text color so it contrasts on any author color (white-on-purple, dark-on-light…). */
+.hearth-mention-on-bubble {
+  background: color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 0.375rem;
+  padding: 0.05rem 0.3rem;
+  font-weight: 600;
+}

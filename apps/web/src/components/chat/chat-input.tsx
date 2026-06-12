@@ -40,7 +40,7 @@ interface ChatInputProps {
 
 const ACCEPTED_TYPES = 'image/*,application/pdf,text/*,application/json';
 
-export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
   const [value, setValue] = useState('');
   const [focused, setFocused] = useState(false);
   const [taskSlashOpen, setTaskSlashOpen] = useState(false);
@@ -52,55 +52,65 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, se
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionResults, setMentionResults] = useState<MentionUser[]>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
-  const [selectedMention, setSelectedMention] = useState<MentionUser | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const mentionStartRef = useRef<number>(-1);
 
-  // Detect @mention at the start of input
-  useEffect(() => {
-    if (!cognitiveEnabled) {
-      setMentionQuery(null);
-      return;
-    }
+  // Detect an @mention being typed at the cursor — anywhere in the message, not
+  // just at the start. @ must begin the line or follow whitespace (so emails
+  // like a@b.com don't trigger it).
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const v = e.target.value;
+    setValue(v);
 
-    const match = value.match(/^@(\S*)$/);
-    if (match && match[1].length >= 2) {
+    const cursor = e.target.selectionStart ?? v.length;
+    const before = v.slice(0, cursor);
+    const match = before.match(/(?:^|\s)@(\w*)$/);
+    if (match) {
       const query = match[1];
+      mentionStartRef.current = cursor - query.length - 1; // index of the '@'
       setMentionQuery(query);
-
-      // Debounced search
       if (mentionDebounceRef.current) clearTimeout(mentionDebounceRef.current);
       mentionDebounceRef.current = setTimeout(async () => {
         try {
           const res = await api.get<{ data: MentionUser[] }>(
-            `/chat/users/search?q=${encodeURIComponent(query)}`,
+            `/chat/users/search?q=${encodeURIComponent(query || '')}`,
           );
           setMentionResults(res.data);
           setMentionIndex(0);
         } catch {
           setMentionResults([]);
         }
-      }, 200);
-    } else if (!value.startsWith('@') || value.includes(' ')) {
+      }, 150);
+    } else {
       setMentionQuery(null);
       setMentionResults([]);
     }
+  }, []);
 
-    return () => {
-      if (mentionDebounceRef.current) clearTimeout(mentionDebounceRef.current);
-    };
-  }, [value, cognitiveEnabled]);
-
+  // Replace the @query being typed with the chosen teammate's name (keeps the
+  // rest of the message intact, so multiple mentions work).
   const selectMention = useCallback(
     (user: MentionUser) => {
-      setSelectedMention(user);
-      setValue(`@${user.name} `);
+      const ta = textareaRef.current;
+      const start = mentionStartRef.current;
+      if (start < 0) return;
+      const cursor = ta?.selectionStart ?? value.length;
+      const insert = `@${user.name} `;
+      const next = value.slice(0, start) + insert + value.slice(cursor);
+      setValue(next);
       setMentionQuery(null);
       setMentionResults([]);
-      textareaRef.current?.focus();
+      requestAnimationFrame(() => {
+        if (!ta) return;
+        ta.focus();
+        const pos = start + insert.length;
+        ta.setSelectionRange(pos, pos);
+      });
     },
-    [],
+    [value],
   );
 
   const addFiles = useCallback((files: FileList | File[]) => {
@@ -142,16 +152,15 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, se
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
       return;
     }
-    onSend(trimmed, attachments, selectedMention ?? undefined);
+    onSend(trimmed, attachments, undefined);
     setValue('');
     setAttachments([]);
-    setSelectedMention(null);
     setMentionResults([]);
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [value, attachments, disabled, onSend, selectedMention, sessionId, latestMessageId]);
+  }, [value, attachments, disabled, onSend, sessionId, latestMessageId]);
 
   const handleTaskSlashSubmit = useCallback((_result: TaskComposerSubmit) => {
     setTaskSlashOpen(false);
@@ -331,6 +340,8 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, se
     );
   }
 
+  const mentionSegments = parseMentionSegments(value);
+
   return (
     <div className="border-t border-hearth-border bg-hearth-card px-4 py-3">
       <div className="mx-auto max-w-3xl">
@@ -388,7 +399,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, se
         {mentionResults.length > 0 && mentionQuery !== null && (
           <div className="mb-1 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3">
             <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-hearth-text-faint">
-              Ask as someone's perspective
+              Mention a teammate
             </div>
             {mentionResults.map((user, i) => (
               <button
@@ -408,25 +419,6 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, se
                 </div>
               </button>
             ))}
-          </div>
-        )}
-
-        {/* Selected mention badge */}
-        {selectedMention && (
-          <div className="mb-1 flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-hearth-100 px-2.5 py-0.5 text-xs font-medium text-hearth-700">
-              Asking as @{selectedMention.name}'s perspective
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedMention(null);
-                  setValue(value.replace(/^@\S+\s?/, ''));
-                }}
-                className="ml-0.5 text-hearth-400 hover:text-hearth-600"
-              >
-                &times;
-              </button>
-            </span>
           </div>
         )}
 
@@ -492,20 +484,46 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, se
             className="hidden"
           />
 
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-            onPaste={handlePaste}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder="Type a message..."
-            disabled={disabled}
-            rows={1}
-            className="flex-1 resize-none rounded-xl border border-hearth-border-strong bg-hearth-bg px-4 py-2.5 text-sm text-hearth-text placeholder-hearth-text-faint outline-none transition-colors focus:border-hearth-400 focus:bg-hearth-card focus:ring-2 focus:ring-hearth-100 disabled:cursor-not-allowed disabled:opacity-60"
-          />
+          {/* Mention-aware input: a transparent textarea over a styled backdrop
+              that renders @mentions as chips. The chip is a background tint only
+              (no padding/weight change) so glyph widths — and the caret — stay
+              aligned with the textarea text. */}
+          <div className="relative flex-1">
+            <div
+              ref={backdropRef}
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-xl border border-transparent px-4 py-2.5 text-sm leading-5 text-hearth-text ${focused ? 'bg-hearth-card' : 'bg-hearth-bg'}`}
+            >
+              {mentionSegments.map((seg, i) =>
+                seg.type === 'mention' ? (
+                  <span key={i} className="hearth-mention-inline">{seg.value}</span>
+                ) : (
+                  <span key={i}>{seg.value}</span>
+                ),
+              )}
+              {value.endsWith('\n') ? '\n' : null}
+            </div>
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onInput={handleInput}
+              onScroll={() => {
+                if (backdropRef.current && textareaRef.current) {
+                  backdropRef.current.scrollTop = textareaRef.current.scrollTop;
+                }
+              }}
+              onPaste={handlePaste}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="Type a message..."
+              disabled={disabled}
+              rows={1}
+              style={{ caretColor: 'var(--hearth-text, #111827)' }}
+              className="relative block w-full resize-none rounded-xl border border-hearth-border-strong bg-transparent px-4 py-2.5 text-sm leading-5 text-transparent placeholder-hearth-text-faint outline-none transition-colors focus:border-hearth-400 focus:ring-2 focus:ring-hearth-100 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </div>
           <button
             type="button"
             onClick={handleSend}
@@ -524,6 +542,24 @@ export function ChatInput({ onSend, disabled, accessPrompt, cognitiveEnabled, se
       </div>
     </div>
   );
+}
+
+// Split composer text into plain + @mention segments for the styled backdrop.
+// Matches @ + a Capitalized name (one or two words) — i.e. a chosen teammate.
+const COMPOSER_MENTION_RE = /@[A-Z][A-Za-z'’.-]*(?:\s[A-Z][A-Za-z'’.-]*)?/g;
+function parseMentionSegments(text: string): Array<{ type: 'text' | 'mention'; value: string }> {
+  if (!text) return [];
+  const segs: Array<{ type: 'text' | 'mention'; value: string }> = [];
+  COMPOSER_MENTION_RE.lastIndex = 0;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = COMPOSER_MENTION_RE.exec(text)) !== null) {
+    if (m.index > last) segs.push({ type: 'text', value: text.slice(last, m.index) });
+    segs.push({ type: 'mention', value: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) segs.push({ type: 'text', value: text.slice(last) });
+  return segs.length > 0 ? segs : [{ type: 'text', value: text }];
 }
 
 function formatFileSize(bytes: number): string {
