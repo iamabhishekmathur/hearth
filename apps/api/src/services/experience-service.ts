@@ -477,7 +477,7 @@ async function createExperience(params: {
         created_at
       ) VALUES (
         gen_random_uuid(), $1, $2, $3,
-        $4, $5, $6::\"ExperienceOutcome\",
+        $4, $5, $6::"ExperienceOutcome",
         $7::text[], $8::text[], $9::text[],
         $10::vector, $11, $12, $13, $14,
         NOW()

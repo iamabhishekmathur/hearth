@@ -154,7 +154,6 @@ export function ActivityPage() {
     setCursor(null);
     setHasMore(false);
     fetchEvents(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionFilter]);
 
   const handleLoadMore = useCallback(() => {

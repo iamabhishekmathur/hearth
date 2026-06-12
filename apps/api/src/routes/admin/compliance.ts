@@ -173,7 +173,7 @@ router.get('/stats', requireAuth, requireRole('admin'), async (req, res, next) =
 
     const entityCounts: Record<string, number> = {};
     const packUsage: Record<string, number> = {};
-    let totalScrubs = logs.length;
+    const totalScrubs = logs.length;
 
     for (const log of logs) {
       const details = log.details as Record<string, unknown> | null;

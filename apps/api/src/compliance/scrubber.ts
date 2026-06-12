@@ -60,7 +60,7 @@ export function detectEntities(
       let match: RegExpExecArray | null;
 
       while ((match = regex.exec(text)) !== null) {
-        let matchedText = match[0];
+        const matchedText = match[0];
 
         // For context-dependent patterns, strip the context prefix to get the actual value
         // The placeholder should only cover the sensitive value, not the context keyword
