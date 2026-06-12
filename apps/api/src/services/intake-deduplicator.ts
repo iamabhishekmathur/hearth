@@ -33,12 +33,32 @@ export async function checkDuplicate(userId: string, text: string): Promise<bool
 
     if (recentTasks.length === 0) return false;
 
-    // Try embedding-based comparison first
+    // Exact-title guard: a byte-identical incoming signal must never create a
+    // second task, regardless of embedding noise. The caller passes the
+    // classification *title* as `text`, and that title is stored verbatim as
+    // task.title — so an identical message reliably collides here first. This
+    // also guards the case where embeddings degrade (provider drift) and the
+    // cosine score for an identical string dips below threshold.
+    const normalizedIncoming = normalizeText(text);
+    for (const task of recentTasks) {
+      if (normalizeText(task.title) === normalizedIncoming) {
+        logger.info(
+          { existingTaskId: task.id, method: 'exact_title' },
+          'Duplicate task detected',
+        );
+        return true;
+      }
+    }
+
+    // Try embedding-based comparison next.
     const embedding = await generateEmbedding(text);
     if (embedding) {
       for (const task of recentTasks) {
-        const taskText = [task.title, task.description].filter(Boolean).join(' ');
-        const taskEmbedding = await generateEmbedding(taskText);
+        // Compare like-for-like: the incoming `text` is the classification
+        // title, so we must embed the stored *title* (not title+description),
+        // otherwise an identical title scores well below threshold against a
+        // title+description embedding and the duplicate slips through.
+        const taskEmbedding = await generateEmbedding(task.title);
         if (taskEmbedding) {
           const similarity = cosineSimilarity(embedding, taskEmbedding);
           if (similarity > EMBEDDING_SIMILARITY_THRESHOLD) {
@@ -53,12 +73,11 @@ export async function checkDuplicate(userId: string, text: string): Promise<bool
       return false;
     }
 
-    // Fallback: Jaccard similarity on word sets
-    const normalizedText = normalizeText(text);
+    // Fallback: Jaccard similarity on word sets. Compare title-to-title to
+    // match what the embedding path (and the exact-title guard) compare.
+    const normalizedText = normalizedIncoming;
     for (const task of recentTasks) {
-      const taskText = normalizeText(
-        [task.title, task.description].filter(Boolean).join(' '),
-      );
+      const taskText = normalizeText(task.title);
       const similarity = computeJaccardSimilarity(normalizedText, taskText);
       if (similarity > JACCARD_SIMILARITY_THRESHOLD) {
         logger.info(

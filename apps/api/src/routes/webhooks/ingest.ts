@@ -7,12 +7,29 @@ import { normalizeEvent } from '../../services/event-normalizer.js';
 import { findMatchingTriggers } from '../../services/trigger-matcher.js';
 import { isDuplicate } from '../../services/event-dedup.js';
 import { enqueueRoutineForEvent } from '../../jobs/routine-scheduler.js';
+import { detectAndCreateTask, type FromHandle, type ThreadRef } from '../../services/task-detector.js';
+import type { TaskSource } from '@hearth/shared';
 import { prisma } from '../../lib/prisma.js';
 
 const router: ReturnType<typeof Router> = Router();
 
-// Raw body for signature verification
+// Raw body for signature verification. The global express.json() (mounted
+// before this router) already consumes the request stream and stashes the
+// exact bytes on req.rawBody via its verify hook; we read those below. This
+// express.raw() is kept as a fallback for any path that bypasses global JSON
+// parsing (e.g. non-JSON content types).
 router.use(express.raw({ type: '*/*', limit: '1mb' }));
+
+/** Recover the exact raw request body for HMAC verification. */
+function getRawBody(req: { rawBody?: Buffer; body?: unknown }): string {
+  if (req.rawBody && Buffer.isBuffer(req.rawBody)) return req.rawBody.toString('utf8');
+  if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
+  if (typeof req.body === 'string') return req.body;
+  // Last resort: a parsed object with no captured raw bytes. Re-stringify so
+  // signatureless/generic verification still works; HMAC providers require the
+  // verify-hook raw bytes above.
+  return req.body != null ? JSON.stringify(req.body) : '';
+}
 
 /**
  * POST /webhooks/ingest/:urlToken — generic webhook receiver
@@ -27,7 +44,7 @@ router.post('/:urlToken', async (req, res) => {
     return;
   }
 
-  const rawBody = typeof req.body === 'string' ? req.body : req.body.toString();
+  const rawBody = getRawBody(req as { rawBody?: Buffer; body?: unknown });
 
   // Verify signature
   const headers: Record<string, string | undefined> = {};
@@ -102,7 +119,106 @@ router.post('/:urlToken', async (req, res) => {
   } catch (err) {
     logger.error({ err, provider: endpoint.provider, eventType }, 'Failed to process webhook triggers');
   }
+
+  // ── Work intake: actionable message → Task + navigation graph ──────────────
+  // The generic ingest path is the canonical external entry point. For
+  // message-shaped events we run the SAME detection pipeline the work-intake
+  // worker runs (detectAndCreateTask), carrying fromHandle/threadRef so
+  // landEdges() can populate Person + produced_by + discussed_in. This is what
+  // makes an external signal become a navigable task node.
+  try {
+    const detected = extractMessageSignal(endpoint.provider, payload);
+    if (detected) {
+      const ownerUserId = await resolveIntakeOwner(endpoint.orgId);
+      if (!ownerUserId) {
+        logger.warn({ orgId: endpoint.orgId, provider: endpoint.provider }, 'Ingest detection skipped: org has no user to own intake');
+      } else {
+        const result = await detectAndCreateTask({
+          source: detected.source,
+          text: detected.text,
+          from: detected.from,
+          messageId: detected.messageId,
+          channel: detected.channel,
+          userId: ownerUserId,
+          orgId: endpoint.orgId,
+          fromHandle: detected.fromHandle,
+          threadRef: detected.threadRef,
+        });
+        logger.info(
+          { provider: endpoint.provider, created: result.created, taskId: result.taskId, reason: result.reason },
+          'Ingest work-intake detection complete',
+        );
+      }
+    }
+  } catch (err) {
+    logger.error({ err, provider: endpoint.provider, eventType }, 'Ingest work-intake detection failed');
+  }
 });
+
+interface MessageSignal {
+  source: TaskSource;
+  text: string;
+  from: string;
+  messageId: string;
+  channel?: string;
+  fromHandle?: FromHandle;
+  threadRef?: ThreadRef;
+}
+
+/**
+ * Extract a message-shaped work signal (text + author + thread) from a raw
+ * provider payload, if the event looks like a human message. Returns null for
+ * non-message events (the routine-trigger path above still handles those).
+ */
+function extractMessageSignal(provider: string, payload: Record<string, unknown>): MessageSignal | null {
+  if (provider === 'slack') {
+    const event = payload.event as Record<string, unknown> | undefined;
+    if (!event || event.type !== 'message') return null;
+    // Ignore bot/system messages and edits — same guard as the slack route.
+    if (event.bot_id || event.subtype) return null;
+    const text = typeof event.text === 'string' ? event.text : '';
+    if (!text.trim()) return null;
+
+    const user = typeof event.user === 'string' ? event.user : undefined;
+    const ts = typeof event.ts === 'string' ? event.ts : undefined;
+    const threadTs = typeof event.thread_ts === 'string' ? event.thread_ts : ts;
+    const channel = typeof event.channel === 'string' ? event.channel : undefined;
+    const clientMsgId = typeof event.client_msg_id === 'string' ? event.client_msg_id : undefined;
+
+    return {
+      source: 'slack',
+      text,
+      from: user ?? 'unknown',
+      messageId: clientMsgId ?? ts ?? `slack:${Date.now()}`,
+      channel,
+      fromHandle: user ? { provider: 'slack', externalId: user } : undefined,
+      threadRef: threadTs ? { provider: 'slack', externalId: threadTs } : undefined,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Resolve which Hearth user should own tasks auto-created from this org's
+ * webhook. Prefers an ADMIN (deterministic, stable), falling back to the
+ * earliest-created user in the org. Returns null if the org has no users.
+ */
+async function resolveIntakeOwner(orgId: string): Promise<string | null> {
+  const admin = await prisma.user.findFirst({
+    where: { team: { orgId }, role: 'admin' },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (admin) return admin.id;
+
+  const anyUser = await prisma.user.findFirst({
+    where: { team: { orgId } },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  return anyUser?.id ?? null;
+}
 
 function extractDeliveryId(
   provider: string,

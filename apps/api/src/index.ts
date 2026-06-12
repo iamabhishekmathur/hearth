@@ -41,6 +41,7 @@ import webhookIngestRouter from './routes/webhooks/ingest.js';
 import slackWebhookRouter from './routes/webhooks/slack.js';
 import slackOAuthRouter from './routes/auth-slack-oauth.js';
 import intakeRouter from './routes/intake.js';
+import graphRouter from './routes/graph.js';
 import recommendationsRouter from './routes/recommendations.js';
 import activityRouter from './routes/activity.js';
 import uploadsRouter from './routes/uploads.js';
@@ -80,7 +81,17 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json({ limit: '10mb' }));
+app.use(
+  express.json({
+    limit: '10mb',
+    // Capture the exact raw bytes so webhook routes can verify HMAC signatures.
+    // Without this, the global JSON parser consumes the body and downstream
+    // routes (e.g. /webhooks/ingest) cannot reproduce the signed payload.
+    verify: (req, _res, buf) => {
+      (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+    },
+  }),
+);
 app.use(cookieParser());
 app.use(requestId);
 app.use(requestLogger);
@@ -147,6 +158,7 @@ app.use('/api/v1/webhooks/ingest', webhookIngestRouter);
 app.use('/api/v1/webhooks/slack', slackWebhookRouter);
 app.use('/api/v1/auth/slack', slackOAuthRouter);
 app.use('/api/v1/intake', intakeRouter);
+app.use('/api/v1/graph', graphRouter);
 app.use('/api/v1/recommendations', recommendationsRouter);
 app.use('/api/v1/activity', activityRouter);
 app.use('/api/v1/uploads', uploadsRouter);

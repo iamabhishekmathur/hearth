@@ -198,7 +198,52 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Save the user message with attribution
+    // ── Governance containment ──
+    // Blocking policies MUST be evaluated BEFORE the user message is persisted.
+    // If we saved the message first and then 403'd, the offending content would
+    // remain in the session transcript and be replayed into the LLM context on
+    // the next turn — a containment failure (the block would still leak the
+    // secret to the model). So for orgs with block enforcement we evaluate the
+    // in-memory content up front and, on a block, return 403 WITHOUT ever
+    // persisting the message. The violation row + audit + governance:blocked
+    // socket event are still written exactly as before (evaluateMessage records
+    // every matching policy, including warn/monitor ones, in this single call).
+    //
+    // `governanceEvaluated` tracks whether this synchronous pass already ran the
+    // policy evaluation, so the non-blocking monitor path below doesn't
+    // double-evaluate (and double-record) the same message.
+    const orgId = req.user!.orgId;
+    let governanceEvaluated = false;
+    if (orgId) {
+      const settings = await getGovernanceSettings(orgId);
+      if (settings.enabled && settings.checkUserMessages && (await hasBlockPolicies(orgId))) {
+        // Synchronous check — must complete before the message is persisted or
+        // sent to the LLM. messageId is null: the message does not (and must
+        // not) exist when a block fires.
+        const violations = await evaluateMessage({
+          orgId, userId, sessionId,
+          messageId: undefined as unknown as string, messageRole: 'user', content,
+        });
+        governanceEvaluated = true;
+
+        const blocked = violations.find(v => v.enforcement === 'block');
+        if (blocked) {
+          emitToSessionEvent(sessionId, 'governance:blocked', {
+            messageId: null,
+            policyName: blocked.policyName,
+            severity: blocked.severity,
+            reason: `This message was blocked by the "${blocked.policyName}" governance policy.`,
+          });
+          res.status(403).json({
+            error: 'Message blocked by governance policy',
+            data: { policyName: blocked.policyName, severity: blocked.severity },
+          });
+          return;
+        }
+      }
+    }
+
+    // Save the user message with attribution (only reached when not blocked)
     const userMessage = await chatService.addMessage(session.orgId, sessionId, 'user', content, undefined, userId);
 
     // Link uploaded attachments to this message
@@ -224,41 +269,17 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       await chatService.updateSessionTitle(sessionId, userId, title);
     }
 
-    // Governance compliance check
-    const orgId = req.user!.orgId;
-    if (orgId) {
+    // Monitor / observe-only governance for orgs without block policies.
+    // (When block policies exist, evaluateMessage already ran above for the
+    // persisted-or-not message and recorded all warn/monitor violations too, so
+    // we skip re-evaluating here.) Fire-and-forget — never blocks the send.
+    if (orgId && !governanceEvaluated) {
       const settings = await getGovernanceSettings(orgId);
       if (settings.enabled && settings.checkUserMessages) {
-        const blocking = await hasBlockPolicies(orgId);
-
-        if (blocking) {
-          // Synchronous check — must complete before sending to LLM
-          const violations = await evaluateMessage({
-            orgId, userId, sessionId,
-            messageId: userMessage.id, messageRole: 'user', content,
-          });
-
-          const blocked = violations.find(v => v.enforcement === 'block');
-          if (blocked) {
-            emitToSessionEvent(sessionId, 'governance:blocked', {
-              messageId: userMessage.id,
-              policyName: blocked.policyName,
-              severity: blocked.severity,
-              reason: `This message was blocked by the "${blocked.policyName}" governance policy.`,
-            });
-            res.status(403).json({
-              error: 'Message blocked by governance policy',
-              data: { policyName: blocked.policyName, severity: blocked.severity },
-            });
-            return;
-          }
-        } else {
-          // No blocking policies — fire-and-forget
-          evaluateMessage({
-            orgId, userId, sessionId,
-            messageId: userMessage.id, messageRole: 'user', content,
-          }).catch(err => logger.error({ err }, 'Governance evaluation failed'));
-        }
+        evaluateMessage({
+          orgId, userId, sessionId,
+          messageId: userMessage.id, messageRole: 'user', content,
+        }).catch(err => logger.error({ err }, 'Governance evaluation failed'));
       }
     }
 

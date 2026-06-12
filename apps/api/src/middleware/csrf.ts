@@ -19,6 +19,10 @@ const EXEMPT_PATHS: readonly string[] = [
   '/api/v1/auth/oauth/',
   '/api/v1/admin/setup/',
   '/api/v1/webhooks/slack',
+  // Generic webhook receiver: external providers authenticate by URL token +
+  // HMAC signature (verifyWebhookSignature), not by a CSRF cookie they could
+  // never possess. Without this exemption no external provider can reach it.
+  '/api/v1/webhooks/ingest',
 ];
 
 /**

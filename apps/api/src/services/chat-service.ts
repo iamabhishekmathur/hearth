@@ -1,7 +1,19 @@
 import type { ChatMessageRole, SessionVisibility, CollaboratorRole, ChatAttachment, LLMMessage } from '@hearth/shared';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+
+/**
+ * True when an error is a Prisma unique-constraint violation (P2002).
+ * Under concurrent identical upserts, Postgres lets both INSERTs race; the
+ * loser hits the unique index and Prisma surfaces P2002. The row the winner
+ * created already satisfies the caller's intent, so we treat the violation as
+ * an idempotent success rather than leaking a raw 500 (which also exposes the
+ * failing query).
+ */
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+}
 
 /**
  * Transforms a DB attachment row into the shared API type,
@@ -278,19 +290,31 @@ export async function addCollaborator(
   });
   if (!session) return null;
 
-  return prisma.sessionCollaborator.upsert({
-    where: {
-      sessionId_userId: { sessionId, userId: targetUserId },
-    },
-    update: { role },
-    create: {
-      orgId: session.orgId,
-      sessionId,
-      userId: targetUserId,
-      role,
-      addedBy: ownerUserId,
-    },
-  });
+  try {
+    return await prisma.sessionCollaborator.upsert({
+      where: {
+        sessionId_userId: { sessionId, userId: targetUserId },
+      },
+      update: { role },
+      create: {
+        orgId: session.orgId,
+        sessionId,
+        userId: targetUserId,
+        role,
+        addedBy: ownerUserId,
+      },
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      // A concurrent add created the row first — converge by setting the role
+      // and returning the existing collaborator.
+      return prisma.sessionCollaborator.update({
+        where: { sessionId_userId: { sessionId, userId: targetUserId } },
+        data: { role },
+      });
+    }
+    throw err;
+  }
 }
 
 /**
@@ -346,19 +370,29 @@ export async function joinSession(sessionId: string, userId: string) {
     return null;
   }
 
-  return prisma.sessionCollaborator.upsert({
-    where: {
-      sessionId_userId: { sessionId, userId },
-    },
-    update: {},
-    create: {
-      orgId: sessionOrgId,
-      sessionId,
-      userId,
-      role: 'contributor',
-      addedBy: userId,
-    },
-  });
+  try {
+    return await prisma.sessionCollaborator.upsert({
+      where: {
+        sessionId_userId: { sessionId, userId },
+      },
+      update: {},
+      create: {
+        orgId: sessionOrgId,
+        sessionId,
+        userId,
+        role: 'contributor',
+        addedBy: userId,
+      },
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      // A concurrent join already created the membership — idempotent success.
+      return prisma.sessionCollaborator.findUnique({
+        where: { sessionId_userId: { sessionId, userId } },
+      });
+    }
+    throw err;
+  }
 }
 
 /**
@@ -377,11 +411,24 @@ export async function markSessionRead(
     select: { id: true },
   });
   if (!message) return null;
-  await prisma.sessionRead.upsert({
-    where: { sessionId_userId: { sessionId, userId } },
-    update: { lastReadMessageId, lastReadAt: new Date() },
-    create: { orgId: accessible.orgId, sessionId, userId, lastReadMessageId, lastReadAt: new Date() },
-  });
+  try {
+    await prisma.sessionRead.upsert({
+      where: { sessionId_userId: { sessionId, userId } },
+      update: { lastReadMessageId, lastReadAt: new Date() },
+      create: { orgId: accessible.orgId, sessionId, userId, lastReadMessageId, lastReadAt: new Date() },
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      // Concurrent identical mark-read race: the row now exists. Converge to
+      // this caller's position instead of failing with a 500.
+      await prisma.sessionRead.update({
+        where: { sessionId_userId: { sessionId, userId } },
+        data: { lastReadMessageId, lastReadAt: new Date() },
+      });
+    } else {
+      throw err;
+    }
+  }
   return { sessionId, userId, lastReadMessageId };
 }
 
@@ -498,11 +545,19 @@ export async function addMessageReaction(
     select: { id: true },
   });
   if (!message) return null;
-  await prisma.messageReaction.upsert({
-    where: { messageId_userId_emoji: { messageId, userId, emoji } },
-    update: {},
-    create: { orgId: accessible.orgId, messageId, userId, emoji },
-  });
+  try {
+    await prisma.messageReaction.upsert({
+      where: { messageId_userId_emoji: { messageId, userId, emoji } },
+      update: {},
+      create: { orgId: accessible.orgId, messageId, userId, emoji },
+    });
+  } catch (err) {
+    // Concurrent identical reaction-adds race past the upsert's existence check
+    // and both attempt the INSERT; the loser hits the unique index (P2002).
+    // The reaction already exists, so this is an idempotent success — return
+    // it rather than leaking a 500 with the failing query.
+    if (!isUniqueViolation(err)) throw err;
+  }
   return { messageId, userId, emoji };
 }
 

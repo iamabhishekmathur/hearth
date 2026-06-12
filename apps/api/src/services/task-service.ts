@@ -10,6 +10,21 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 
+/**
+ * Thrown when a concurrent status transition lost the compare-and-set race:
+ * another transaction already moved the task off the status we validated
+ * against. Carries `status = 409` so the global error handler maps it to a
+ * Conflict response (the route does not need to special-case it).
+ */
+export class TaskTransitionConflictError extends Error {
+  readonly status = 409;
+  readonly code = 'task_transition_conflict';
+  constructor(message = 'Task was modified concurrently; status transition no longer valid') {
+    super(message);
+    this.name = 'TaskTransitionConflictError';
+  }
+}
+
 export async function createTask(
   orgId: string,
   userId: string,
@@ -115,25 +130,50 @@ export async function updateTask(
   const task = await prisma.task.findFirst({ where: { id, userId } });
   if (!task) return null;
 
-  // Validate status transition
-  if (data.status && data.status !== task.status) {
+  const isStatusChange = data.status !== undefined && data.status !== task.status;
+
+  // Validate status transition against the status we just observed. The same
+  // status is enforced atomically below via a compare-and-set, so the rule we
+  // check here is the rule that actually commits.
+  if (isStatusChange) {
     const allowed = VALID_STATUS_TRANSITIONS[task.status as TaskStatus];
-    if (!allowed.includes(data.status)) {
+    if (!allowed.includes(data.status as TaskStatus)) {
       throw new Error(
         `Invalid status transition from ${task.status} to ${data.status}`,
       );
     }
   }
 
-  const updateData: Prisma.TaskUpdateInput = {};
-  if (data.title !== undefined) updateData.title = data.title;
-  if (data.description !== undefined) updateData.description = data.description;
-  if (data.status !== undefined) updateData.status = data.status;
-  if (data.priority !== undefined) updateData.priority = data.priority;
+  const fieldData: Prisma.TaskUpdateInput = {};
+  if (data.title !== undefined) fieldData.title = data.title;
+  if (data.description !== undefined) fieldData.description = data.description;
+  if (data.priority !== undefined) fieldData.priority = data.priority;
 
-  return prisma.task.update({
-    where: { id },
-    data: updateData,
+  if (isStatusChange) {
+    // Atomic compare-and-set: only flip the status if it is *still* the value
+    // we validated the transition from. Under two racing PATCHes (e.g. both
+    // reading `executing` and one trying `review`, the other `archived`), only
+    // the first updateMany matches `status: task.status`; the loser sees
+    // count===0 and is rejected with a 409 instead of silently overwriting a
+    // now-terminal/illegal state.
+    const res = await prisma.task.updateMany({
+      where: { id, userId, status: task.status },
+      data: { ...fieldData, status: data.status as TaskStatus },
+    });
+    if (res.count === 0) {
+      throw new TaskTransitionConflictError(
+        `Task ${id} changed concurrently; transition from ${task.status} to ${data.status} no longer valid`,
+      );
+    }
+  } else if (Object.keys(fieldData).length > 0) {
+    // No status change — plain field update (title/description/priority).
+    await prisma.task.updateMany({ where: { id, userId }, data: fieldData });
+  }
+
+  // Re-read so the caller (and emitted WS event) reflects the committed row,
+  // including the status the winning transition actually set.
+  return prisma.task.findFirst({
+    where: { id, userId },
     include: { subTasks: true },
   });
 }
