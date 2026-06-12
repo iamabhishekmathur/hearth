@@ -4,7 +4,20 @@ import * as taskService from './task-service.js';
 import { emitToUser } from '../ws/socket-manager.js';
 import { checkDuplicate } from './intake-deduplicator.js';
 import { providerRegistry } from '../llm/provider-registry.js';
+import { upsertPersonFromHandle, type PersonHandle } from './person-service.js';
+import { upsertEdge } from './graph-service.js';
 import type { TaskSource } from '@hearth/shared';
+
+export interface FromHandle {
+  provider: 'slack' | 'email' | 'notion' | 'google' | string;
+  externalId: string;
+  displayName?: string;
+}
+
+export interface ThreadRef {
+  provider: string;
+  externalId: string;
+}
 
 interface DetectedMessage {
   source: TaskSource;
@@ -15,6 +28,35 @@ interface DetectedMessage {
   snippet?: string;
   userId: string;
   orgId: string;
+  fromHandle?: FromHandle;
+  threadRef?: ThreadRef;
+}
+
+/**
+ * Map a FromHandle into the PersonHandle shape that person-service expects.
+ * Provider-specific: slack → slackUserId, email → email, notion → notionUserId,
+ * google → googleId. Unknown providers fall back to email if the externalId
+ * looks like one, otherwise produce no handle.
+ */
+function toPersonHandle(h: FromHandle): PersonHandle | null {
+  const base: PersonHandle = h.displayName ? { displayName: h.displayName } : {};
+  switch (h.provider) {
+    case 'slack':
+      return { ...base, slackUserId: h.externalId };
+    case 'email':
+      return { ...base, email: h.externalId };
+    case 'notion':
+      return { ...base, notionUserId: h.externalId };
+    case 'google':
+      return { ...base, googleId: h.externalId };
+    default:
+      if (h.externalId.includes('@')) return { ...base, email: h.externalId };
+      return null;
+  }
+}
+
+function sourceLabel(source: TaskSource): string {
+  return `${source}_webhook`;
 }
 
 // ── Fast pre-filter (skip obvious non-actionable messages) ──────────────
@@ -188,6 +230,10 @@ export async function detectAndCreateTask(
       },
     });
 
+    // Land graph edges (Person + external_ref). Non-fatal on failure —
+    // an edge landing problem must not prevent the Task from being created.
+    await landEdges(message, task.id);
+
     // Notify user via WebSocket
     emitToUser(message.userId, 'notification', {
       type: 'task_auto_detected',
@@ -206,5 +252,51 @@ export async function detectAndCreateTask(
   } catch (err) {
     logger.error({ err, source: message.source }, 'Failed to create auto-detected task');
     return { created: false, reason: 'Creation failed' };
+  }
+}
+
+async function landEdges(message: DetectedMessage, taskId: string): Promise<void> {
+  const sourceTag = sourceLabel(message.source);
+
+  // produced_by: Task → Person (only if we have a usable handle)
+  if (message.fromHandle) {
+    const personHandle = toPersonHandle(message.fromHandle);
+    if (personHandle) {
+      try {
+        const person = await upsertPersonFromHandle(message.orgId, personHandle);
+        await upsertEdge({
+          orgId: message.orgId,
+          fromType: 'task',
+          fromId: taskId,
+          toType: 'person',
+          toId: person.id,
+          kind: 'produced_by',
+          source: sourceTag,
+        });
+      } catch (err) {
+        logger.warn({ err, taskId, handle: message.fromHandle }, 'Failed to land produced_by edge');
+      }
+    }
+  }
+
+  // discussed_in: Task → external_ref(thread)
+  if (message.threadRef) {
+    try {
+      await upsertEdge({
+        orgId: message.orgId,
+        fromType: 'task',
+        fromId: taskId,
+        toType: 'external_ref',
+        toId: `${message.threadRef.provider}:${message.threadRef.externalId}`,
+        kind: 'discussed_in',
+        source: sourceTag,
+        externalRef: {
+          provider: message.threadRef.provider,
+          externalId: message.threadRef.externalId,
+        },
+      });
+    } catch (err) {
+      logger.warn({ err, taskId, threadRef: message.threadRef }, 'Failed to land discussed_in edge');
+    }
   }
 }

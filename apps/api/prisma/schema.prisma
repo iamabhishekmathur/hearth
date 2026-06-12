@@ -1534,3 +1534,76 @@ model NotificationPreference {
 
   @@map("notification_preferences")
 }
+
+// ──────────────────────────────────────────────
+// Graph (navigation-over-search)
+//
+// Person: external participants (Slack users, meeting attendees) that may or
+// may not resolve to a Hearth User. Carries integration handles.
+//
+// Edge: polymorphic edges between internal entities (and to ExternalRefs that
+// are resolved live via integration APIs at navigation time). Modeled on the
+// existing DecisionContext pattern.
+// ──────────────────────────────────────────────
+
+enum EntityKind {
+  task
+  person
+  meeting
+  chat_message
+  chat_session
+  user
+  external_ref
+}
+
+enum EdgeKind {
+  assigned_to
+  mentioned_in
+  derived_from
+  discussed_in
+  references
+  participates_in
+  produced_by
+  blocks
+  attended
+}
+
+model Person {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  userId        String?  @unique @map("user_id") // optional link to Hearth User
+  displayName   String?  @map("display_name")
+  email         String?
+  slackUserId   String?  @map("slack_user_id")
+  notionUserId  String?  @map("notion_user_id")
+  googleId      String?  @map("google_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([orgId, email])
+  @@unique([orgId, slackUserId])
+  @@unique([orgId, notionUserId])
+  @@unique([orgId, googleId])
+  @@index([orgId])
+  @@map("persons")
+}
+
+model Edge {
+  id          String     @id @default(uuid())
+  orgId       String     @map("org_id")
+  fromType    EntityKind @map("from_type")
+  fromId      String     @map("from_id")
+  toType      EntityKind @map("to_type")
+  toId        String     @map("to_id")
+  kind        EdgeKind
+  weight      Float?
+  source      String? // 'slack_webhook' | 'meeting_extract' | 'mention_parse' | etc.
+  externalRef Json?      @map("external_ref") // populated when toType=external_ref: { provider, externalId, hint }
+  stale       Boolean    @default(false)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@unique([orgId, fromType, fromId, toType, toId, kind])
+  @@index([orgId, fromType, fromId, kind])
+  @@index([orgId, toType, toId, kind])
+  @@map("edges")
+}
