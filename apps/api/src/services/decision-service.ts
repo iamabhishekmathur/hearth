@@ -181,6 +181,17 @@ export async function updateDecision(
 /**
  * Hybrid search: vector + FTS with Reciprocal Rank Fusion.
  */
+// Every decisions column EXCEPT `embedding` — the pgvector type cannot be
+// deserialized by prisma.$queryRawUnsafe, so selecting `d.*` throws as soon as
+// a matched row has a non-null embedding. formatDecision never reads it anyway.
+const DECISION_SELECT_COLUMNS = [
+  'd.id', 'd.org_id', 'd.team_id', 'd.created_by_id', 'd.session_id',
+  'd.title', 'd.description', 'd.reasoning', 'd.alternatives', 'd.domain',
+  'd.tags', 'd.scope', 'd.status', 'd.confidence', 'd.source', 'd.source_ref',
+  'd.sensitivity', 'd.participants', 'd.context_snapshot', 'd.quality',
+  'd.importance', 'd.superseded_by_id', 'd.created_at', 'd.updated_at',
+].join(', ');
+
 export async function searchDecisions(
   scope: DecisionScope,
   req: DecisionSearchRequest,
@@ -275,7 +286,7 @@ export async function searchDecisions(
         FROM vector_results v
         FULL OUTER JOIN fts_results f ON v.id = f.id
       )
-      SELECT d.* FROM combined c
+      SELECT ${DECISION_SELECT_COLUMNS} FROM combined c
       JOIN decisions d ON d.id = c.id
       ORDER BY c.rrf_score DESC
       LIMIT $${limitIdx}
@@ -289,7 +300,7 @@ export async function searchDecisions(
     const limitIdx = paramIdx;
 
     query = `
-      SELECT d.* FROM decisions d
+      SELECT ${DECISION_SELECT_COLUMNS} FROM decisions d
       WHERE ${whereClause}
         AND to_tsvector('english', coalesce(d.title,'') || ' ' || coalesce(d.description,'') || ' ' || coalesce(d.reasoning,''))
             @@ plainto_tsquery('english', $${queryIdx})
