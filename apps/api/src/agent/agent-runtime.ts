@@ -68,6 +68,7 @@ export async function* agentLoop(
         messages: conversationMessages,
         tools: toolDefs.length > 0 ? toolDefs : undefined,
         systemPrompt: context.systemPrompt,
+        sessionId: context.sessionId,
       },
       context.providerId,
     );

@@ -18,6 +18,12 @@ export interface ChatParams {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
+  /**
+   * Chat session this call belongs to, if any. Used by the compliance layer to
+   * keep one PII token map per conversation (stable placeholders across turns
+   * and across participants in a shared session), not per HTTP request.
+   */
+  sessionId?: string;
 }
 
 export interface LLMMessage {

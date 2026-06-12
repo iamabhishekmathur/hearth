@@ -160,22 +160,35 @@ function scrubMessageContent(
   return content.map((part) => scrubContentPart(part, detectors, tokenMap));
 }
 
-/** Scrub all ChatParams before sending to LLM */
+/**
+ * Scrub all ChatParams before sending to LLM.
+ *
+ * Pass a `tokenMap` to reuse one across the turns of a session: placeholder
+ * numbering then stays stable (a given value always maps to the same token),
+ * and the accumulated reverse map lets descrubStream rehydrate ANY placeholder
+ * the model echoes — including one copied from earlier in the conversation.
+ * With a fresh per-request map, a placeholder minted on a prior turn can't be
+ * reversed and leaks into the stored transcript (where it then compounds).
+ */
 export function scrubChatParams(
   params: ChatParams,
   config: OrgComplianceConfig,
+  tokenMap: TokenMap = createTokenMap(),
 ): ChatScrubResult {
-  const tokenMap = createTokenMap();
   const detectors = resolveDetectors(config.enabledPacks, config.detectorOverrides);
 
   if (detectors.length === 0) {
     return {
       scrubbedParams: params,
       tokenMap,
-      totalEntities: 0,
+      totalEntities: tokenMap.toOriginal.size,
       entityCounts: {},
     };
   }
+
+  // Snapshot counters so entityCounts reflects what THIS call scrubbed — the map
+  // may be session-stable and already populated from earlier turns.
+  const before = new Map(tokenMap.counters);
 
   const scrubbedMessages: LLMMessage[] = params.messages.map((msg) => ({
     ...msg,
@@ -187,20 +200,18 @@ export function scrubChatParams(
     scrubbedSystemPrompt = scrubText(scrubbedSystemPrompt, detectors, tokenMap).scrubbedText;
   }
 
-  // Add compliance notice to system prompt when scrubbing is active
+  // Add compliance notice to system prompt when scrubbing is (or has been) active
   if (tokenMap.toOriginal.size > 0 && scrubbedSystemPrompt) {
     scrubbedSystemPrompt =
       'Note: Some personal information in this conversation has been replaced with placeholders (e.g., [PERSON_NAME_1]) for privacy compliance. Use these placeholders as-is in your responses.\n\n' +
       scrubbedSystemPrompt;
   }
 
-  // Build entity counts
+  // Per-call entity counts (delta vs the pre-call snapshot) for accurate auditing.
   const entityCounts: Record<string, number> = {};
-  for (const [, counter] of tokenMap.counters) {
-    // counters map has entityType -> count
-  }
   for (const [entityType, count] of tokenMap.counters) {
-    entityCounts[entityType] = count;
+    const delta = count - (before.get(entityType) ?? 0);
+    if (delta > 0) entityCounts[entityType] = delta;
   }
 
   return {
@@ -210,6 +221,8 @@ export function scrubChatParams(
       systemPrompt: scrubbedSystemPrompt,
     },
     tokenMap,
+    // Cumulative map size: gates the interceptor's pass-through so that once a
+    // session has any mappings, later turns still descrub history placeholders.
     totalEntities: tokenMap.toOriginal.size,
     entityCounts,
   };

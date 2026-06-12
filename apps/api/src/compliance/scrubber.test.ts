@@ -366,3 +366,63 @@ describe('multi-pack scrubbing', () => {
     expect(result.scrubbedText).toContain('[MRN_1]');
   });
 });
+
+// ── Session-stable token map (multi-turn descrub regression) ──
+//
+// Bug: scrubChatParams minted a fresh token map per request. A placeholder
+// produced on one turn (and persisted in the stored transcript) could not be
+// rehydrated on later turns — descrubText left it as-is, so [PERSON_NAME_4] &
+// friends leaked into the conversation and then compounded. The fix reuses one
+// token map across a session's turns.
+describe('scrubChatParams — session-stable token map', () => {
+  const cfg = makeConfig(['pii']);
+  const turn = (content: string): ChatParams => ({
+    model: 'test',
+    messages: [{ role: 'user', content }],
+  });
+
+  it('assigns the same placeholder to a value across turns when the map is reused', () => {
+    const tm = createTokenMap();
+    scrubChatParams(turn('reach me at jane@acme.com'), cfg, tm);
+    const ph = tm.toPlaceholder.get('jane@acme.com');
+    expect(ph).toMatch(/^\[EMAIL_\d+\]$/);
+
+    // A later turn with a *different* leading entity must not renumber the email.
+    scrubChatParams(turn('cc bob@acme.com and jane@acme.com'), cfg, tm);
+    expect(tm.toPlaceholder.get('jane@acme.com')).toBe(ph);
+  });
+
+  it('rehydrates a placeholder minted on an earlier turn (the leak fix)', () => {
+    const tm = createTokenMap();
+    scrubChatParams(turn('reach me at jane@acme.com'), cfg, tm);
+    const ph = tm.toPlaceholder.get('jane@acme.com')!;
+
+    // Later turn: the model echoes the placeholder (e.g. carried from history).
+    // The reused map still knows it → real value comes back.
+    expect(descrubText(`Replied to ${ph} and ${ph}'s team.`, tm)).toBe(
+      "Replied to jane@acme.com and jane@acme.com's team.",
+    );
+  });
+
+  it("a fresh per-request map leaks a prior turn's placeholder (demonstrates the bug)", () => {
+    const tm = createTokenMap();
+    scrubChatParams(turn('reach me at jane@acme.com'), cfg, tm);
+    const ph = tm.toPlaceholder.get('jane@acme.com')!;
+
+    const freshPerRequestMap = createTokenMap();
+    expect(descrubText(`Replied to ${ph}.`, freshPerRequestMap)).toBe(`Replied to ${ph}.`);
+  });
+
+  it('reports per-call entity counts even when the map is pre-populated', () => {
+    const tm = createTokenMap();
+    const first = scrubChatParams(turn('ssn 123-45-6789'), cfg, tm);
+    expect(first.entityCounts.SSN).toBe(1);
+
+    // Second turn introduces one new email; the SSN is already mapped.
+    const second = scrubChatParams(turn('again 123-45-6789, plus jane@acme.com'), cfg, tm);
+    expect(second.entityCounts.EMAIL).toBe(1);
+    expect(second.entityCounts.SSN).toBeUndefined();
+    // Cumulative size still reflects both, so the interceptor keeps descrubbing.
+    expect(second.totalEntities).toBe(2);
+  });
+});
