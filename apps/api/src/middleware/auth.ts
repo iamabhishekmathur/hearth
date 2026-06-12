@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 import type { UserRole } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
 import { enterTenant } from '../lib/tenant-context.js';
+import { env } from '../config.js';
 
 /**
  * Set on the session by cloud's impersonate-as-user route while a Hearth
@@ -60,7 +61,19 @@ declare global {
 export const attachUser: RequestHandler = async (req, _res, next) => {
   try {
     const passportUserId = (req.session as { passport?: { user?: string } } | undefined)?.passport?.user;
-    const userId = req.session?.userId ?? passportUserId;
+    let userId = req.session?.userId ?? passportUserId;
+
+    if (!userId && env.DEV_AUTO_LOGIN && env.NODE_ENV !== 'production') {
+      const devUser = await prisma.user.findUnique({
+        where: { email: env.DEV_AUTO_LOGIN },
+        select: { id: true },
+      });
+      if (devUser) {
+        userId = devUser.id;
+        req.session.userId = devUser.id;
+      }
+    }
+
     if (!userId) {
       return next();
     }

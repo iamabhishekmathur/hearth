@@ -41,6 +41,10 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().default('Hearth <noreply@hearth.local>'),
+
+  // Dev-only: when set in non-production, attachUser auto-attaches the user
+  // with this email so you can skip the login form. Ignored when NODE_ENV=production.
+  DEV_AUTO_LOGIN: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
