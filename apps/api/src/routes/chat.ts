@@ -751,6 +751,27 @@ async function runAgent(
     // Load conversation history — skip tool-role messages (providers reject
     // them without matching tool_use_id linkage from the original call).
     const dbMessages = await chatService.getMessages(sessionId);
+
+    // Shared sessions interleave messages from several people, but the model
+    // only receives { role, content } — so without attribution it sees one
+    // anonymous "user" voice and can't tell collaborators apart. When more than
+    // one human has posted, prefix each user message with the author's name and
+    // tell the agent to track who said what.
+    const humanAuthorIds = new Set(
+      dbMessages.filter((m) => m.role === 'user' && m.createdBy).map((m) => m.createdBy as string),
+    );
+    const isCollaborative = humanAuthorIds.size > 1;
+    const authors = isCollaborative ? await chatService.getMessageAuthors(dbMessages) : {};
+    const speaker = (m: (typeof dbMessages)[number]): string =>
+      isCollaborative && m.role === 'user' && m.createdBy && authors[m.createdBy]
+        ? `${authors[m.createdBy].name}: `
+        : '';
+    if (isCollaborative) {
+      context.systemPrompt =
+        (context.systemPrompt ?? '') +
+        '\n\nThis is a shared, multi-person session. Each user message below is prefixed with the speaker\'s name (e.g. "Priya: ..."). Track who said what, address people by name, and call out where participants agree or disagree.';
+    }
+
     const messages: LLMMessage[] = dbMessages
       .filter((m) => {
         if (m.role === 'tool') return false;
@@ -786,7 +807,7 @@ async function runAgent(
           }
 
           if (m.content) {
-            parts.push({ type: 'text', text: m.content });
+            parts.push({ type: 'text', text: speaker(m) + m.content });
           }
 
           return {
@@ -797,7 +818,7 @@ async function runAgent(
 
         return {
           role: m.role as LLMMessage['role'],
-          content: m.content,
+          content: m.role === 'user' ? speaker(m) + m.content : m.content,
         };
       });
 
@@ -857,7 +878,7 @@ async function runAgent(
             : `_[Error: ${errorMessage}]_`
           : assistantContent;
 
-        await chatService.addMessage(
+        const assistantMsg = await chatService.addMessage(
           orgId,
           sessionId,
           'assistant',
@@ -870,6 +891,22 @@ async function runAgent(
           undefined,
           respondingToMessageId,
         );
+
+        // Link any artifacts the agent created during this turn to the message
+        // that produced them, so the chat renders an inline card to open them
+        // (and the link survives reload). create_artifact runs mid-loop, before
+        // this message exists, so it can't set parentMessageId itself.
+        if (assistantMsg) {
+          try {
+            const { prisma } = await import('../lib/prisma.js');
+            await prisma.artifact.updateMany({
+              where: { sessionId, parentMessageId: null, createdAt: { gte: new Date(startTime) } },
+              data: { parentMessageId: assistantMsg.id },
+            });
+          } catch (linkErr) {
+            logger.warn({ err: linkErr, sessionId }, 'Failed to link artifacts to assistant message');
+          }
+        }
       }
     } catch (persistErr) {
       logger.error({ err: persistErr, sessionId }, 'Failed to persist assistant message');

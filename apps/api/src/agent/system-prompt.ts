@@ -526,17 +526,20 @@ If you solve a multi-step problem using 3+ tools and the approach would be usefu
   // 7. Artifacts guidance
   parts.push(`## Artifacts
 
-Use artifacts when producing content the user will want to view, copy, or iterate on. Supported types: code, document, diagram, table, html.
+The test for an artifact is WHAT you're producing, not how long it is:
 
-- **create_artifact** — Create a new artifact with a title, type, and content.
-- **update_artifact** — Update an existing artifact by ID. Use this when the user asks for changes to something you already created.
-- **list_artifacts** — List all artifacts in the current session. Use this to check what you've already created before creating duplicates.
+- **Work product → artifact.** If you're producing a deliverable the user will keep, reuse, share, or iterate on — a plan, spec, doc, checklist, draft, report, code file, table, diagram, or HTML page — create it with create_artifact, even when it's short. It opens in a side panel and the chat shows a card linking to it.
+- **Conversation → chat.** If you're answering, explaining, weighing options, or asking for clarification, keep it inline. Don't move a conversational reply into an artifact just because it's long.
 
-Guidelines:
-- Prefer artifacts over inline code blocks for anything longer than ~20 lines.
+Judge by whether the user walks away with a thing to use: a short checklist someone will actually run is a work product; a three-paragraph explanation of a tradeoff is conversation.
+
+Tools:
+- **create_artifact** — Create a new artifact with a title, type (code, document, diagram, table, html), and content.
+- **update_artifact** — Update an existing artifact by ID when the user asks to change something you already produced.
+- **list_artifacts** — List artifacts in the session; check before creating a duplicate.
+
 - Give each artifact a short, descriptive title.
-- When the user says "update that" or "change the code", use update_artifact on the most recent relevant artifact.
-- Use list_artifacts if you're unsure whether an artifact already exists for a given topic.`);
+- When the user says "update that" or "change the X", use update_artifact on the most recent relevant artifact.`);
 
   // 8. Citation guidance (only if sources were collected)
   if (sources.length > 0) {

@@ -155,7 +155,7 @@ export function MessageBubble({ message, artifacts, onOpenArtifact, author, show
           </ReactMarkdown>
         </div>
         {messageArtifacts.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-col items-start gap-2">
             {messageArtifacts.map((artifact) => (
               <ArtifactBadge key={artifact.id} title={artifact.title} type={artifact.type} onClick={() => onOpenArtifact?.(artifact.id)} />
             ))}
