@@ -11,6 +11,28 @@ interface OAuthProfile {
 }
 
 /**
+ * Resolve the team a non-first self-service signup should join, scoped to the
+ * bootstrap `default` org. The first-user path (above) creates that org, so any
+ * later self-hosted signup lands in the same org's team — deterministically
+ * (oldest team first), never in some other org's team.
+ *
+ * Previously both call sites used an unscoped `prisma.team.findFirst()`, which
+ * returned the first team in the ENTIRE database. That is a latent cross-org
+ * leak in any multi-org deployment: a new member could be placed into an
+ * unrelated org's team. Returning `null` when no `default` org exists is the
+ * safe outcome — no team is better than a wrong-org team for tenant isolation.
+ */
+async function resolveDefaultTeam(): Promise<{ id: string } | null> {
+  const org = await prisma.org.findUnique({ where: { slug: 'default' } });
+  if (!org) return null;
+  return prisma.team.findFirst({
+    where: { orgId: org.id },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+}
+
+/**
  * Register a new user with email and password.
  * If this is the first user in the system, they become admin and a default org/team is created.
  */
@@ -60,8 +82,8 @@ export async function register(
     });
   }
 
-  // Non-first user: assign to the first available team
-  const defaultTeam = await prisma.team.findFirst();
+  // Non-first user: assign to the bootstrap `default` org's team (org-scoped).
+  const defaultTeam = await resolveDefaultTeam();
 
   return prisma.user.create({
     data: {
@@ -152,7 +174,8 @@ export async function findOrCreateOAuthUser(profile: OAuthProfile): Promise<User
     });
   }
 
-  const defaultTeam = await prisma.team.findFirst();
+  // Non-first OAuth user: assign to the bootstrap `default` org's team (org-scoped).
+  const defaultTeam = await resolveDefaultTeam();
 
   return prisma.user.create({
     data: {
