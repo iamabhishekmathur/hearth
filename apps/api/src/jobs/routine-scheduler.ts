@@ -7,13 +7,11 @@ import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
 import { emitToUser } from '../ws/socket-manager.js';
 import * as routineService from '../services/routine-service.js';
-import { deliver } from '../services/delivery-service.js';
 import { buildRoutineRunContext } from '../services/routine-context-service.js';
-import { evaluateDeliveryRules, applyTemplate } from '../services/delivery-rule-engine.js';
+import { deliverRoutineOutput, findApprovalGate, pauseRunForApproval } from '../services/routine-delivery.js';
 import { resolveDefaults, resolvePromptTemplate, validateParameterValues } from '../services/routine-parameter-service.js';
 import { getDownstreamChains } from '../services/chain-service.js';
 import { createPipelineRun, addRunToPipeline } from '../services/pipeline-service.js';
-import type { DeliveryRule, DeliveryTarget } from '@hearth/shared';
 
 const QUEUE_NAME = 'routine-execution';
 const connection = { url: env.REDIS_URL };
@@ -121,6 +119,21 @@ export function createRoutineWorker() {
 
         const durationMs = Date.now() - startTime;
 
+        // Feature 5: Approval gate. If this routine has a checkpoint, pause the
+        // run BEFORE completing/delivering — stash the produced output and open
+        // a pending approval. Delivery + finalization happen only once a reviewer
+        // approves (see routine-delivery.finalizeApprovedRun, called from the
+        // approvals route). An ungated routine falls straight through.
+        const gate = await findApprovalGate(routineId);
+        if (gate) {
+          await pauseRunForApproval(run.id, gate, output);
+          await prisma.routine.update({
+            where: { id: routineId },
+            data: { lastRunAt: new Date(), lastRunStatus: 'success' },
+          });
+          return { routineId, runId: run.id, status: 'awaiting_approval' as const };
+        }
+
         // Feature 1: Generate summary (first 200 chars of output)
         const summary = output.length > 0 ? output.slice(0, 200) : undefined;
 
@@ -138,56 +151,8 @@ export function createRoutineWorker() {
           data: { lastRunAt: new Date(), lastRunStatus: 'success' },
         });
 
-        // Feature 6: Conditional delivery routing
-        const deliveryConfig = routine.delivery as Record<string, unknown>;
-        const deliveryRules = deliveryConfig.rules as DeliveryRule[] | undefined;
-
-        if (deliveryRules && deliveryRules.length > 0) {
-          const routineState = (routine.state as Record<string, unknown>) ?? {};
-          const tags = (routineState._delivery_tags as string[]) ?? [];
-          const targets = evaluateDeliveryRules(deliveryRules, output, tags);
-
-          const fallbackChannels = (deliveryConfig.channels as string[]) ?? ['in_app'];
-          for (const channel of fallbackChannels) {
-            if (!targets.some((t) => t.channel === channel)) {
-              targets.push({ channel: channel as DeliveryTarget['channel'], config: {} });
-            }
-          }
-
-          for (const target of targets) {
-            const body = applyTemplate(target.template, output.slice(0, 500));
-            await deliver({
-              userId,
-              title: `Routine completed: ${routine.name}`,
-              body,
-              entityType: 'routine',
-              entityId: routineId,
-              channels: [target.channel as 'in_app' | 'slack' | 'email'],
-              metadata: { runId: run.id, ...target.config },
-            });
-          }
-
-          // Clear delivery tags after use
-          if (tags.length > 0) {
-            const cleanState = { ...routineState };
-            delete cleanState._delivery_tags;
-            await prisma.routine.update({
-              where: { id: routineId },
-              data: { state: cleanState as never },
-            });
-          }
-        } else {
-          const channels = (deliveryConfig.channels as string[]) ?? ['in_app'];
-          await deliver({
-            userId,
-            title: `Routine completed: ${routine.name}`,
-            body: output.slice(0, 500),
-            entityType: 'routine',
-            entityId: routineId,
-            channels: channels as ('in_app' | 'slack' | 'email')[],
-            metadata: { runId: run.id },
-          });
-        }
+        // Feature 6: Conditional delivery routing (shared with the approval-resume path)
+        await deliverRoutineOutput(routine, run.id, output);
 
         // Feature 7: Trigger downstream chains
         await triggerDownstream(routineId, run.id, 'success', output, pipelineId);

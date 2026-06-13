@@ -282,3 +282,86 @@ describe('approvals — resolve', () => {
     ).toBe(404);
   });
 });
+
+describe('approval gate — pause / resume / deliver', () => {
+  /**
+   * Seed a run paused at a gate exactly as the worker leaves it: status
+   * `awaiting_approval`, the produced output stashed on pausedState, and a
+   * pending ApprovalRequest carrying that output for the reviewer.
+   */
+  async function seedGatedRun(ownerUserId: string, agentOutput: string) {
+    const routine = await prisma.routine.create({
+      data: {
+        userId: ownerUserId,
+        name: 'Gated digest',
+        prompt: 'draft the customer digest',
+        delivery: { channels: ['in_app'] },
+        orgId: fx.primary.orgId,
+      },
+    });
+    const run = await prisma.routineRun.create({
+      data: {
+        routineId: routine.id,
+        status: 'awaiting_approval' as never,
+        pausedState: { output: agentOutput },
+      },
+    });
+    const checkpoint = await prisma.approvalCheckpoint.create({
+      data: { routineId: routine.id, name: 'Pre-send review', position: 0 },
+    });
+    const approval = await prisma.approvalRequest.create({
+      data: {
+        runId: run.id,
+        checkpointId: checkpoint.id,
+        status: 'pending' as never,
+        agentOutput,
+      },
+    });
+    return { routine, run, checkpoint, approval };
+  }
+
+  it('approving a gated run delivers the output and finalizes the run as success', async () => {
+    const { run, approval } = await seedGatedRun(fx.users.member.id, 'The Q3 digest is ready for the team.');
+    const member = await loginAgent('member');
+
+    const res = await member.post(`/api/v1/approvals/${approval.id}/resolve`, { decision: 'approved' });
+    expect(res.status).toBe(200);
+
+    const row = await prisma.routineRun.findUnique({ where: { id: run.id } });
+    // FIXED: the run no longer hangs in `running`/`awaiting_approval` — it is
+    // finalized as a success carrying the approved output.
+    expect(row?.status).toBe('success');
+    expect((row?.output as { result?: string } | null)?.result).toBe('The Q3 digest is ready for the team.');
+    expect(row?.completedAt).not.toBeNull();
+  });
+
+  it('editing on approve delivers the reviewer-edited output, not the original', async () => {
+    const { run, approval } = await seedGatedRun(fx.users.member.id, 'original draft with a typo');
+    const member = await loginAgent('member');
+
+    const res = await member.post(`/api/v1/approvals/${approval.id}/resolve`, {
+      decision: 'edited',
+      editedOutput: 'polished final copy',
+    });
+    expect(res.status).toBe(200);
+
+    const row = await prisma.routineRun.findUnique({ where: { id: run.id } });
+    expect(row?.status).toBe('success');
+    expect((row?.output as { result?: string } | null)?.result).toBe('polished final copy');
+  });
+
+  it('rejecting a gated run fails it without delivering', async () => {
+    const { run, approval } = await seedGatedRun(fx.users.member.id, 'do-not-send draft');
+    const member = await loginAgent('member');
+
+    const res = await member.post(`/api/v1/approvals/${approval.id}/resolve`, {
+      decision: 'rejected',
+      comment: 'off-brand',
+    });
+    expect(res.status).toBe(200);
+
+    const row = await prisma.routineRun.findUnique({ where: { id: run.id } });
+    expect(row?.status).toBe('failed');
+    expect(row?.error).toContain('off-brand');
+  });
+});

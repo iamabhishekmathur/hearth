@@ -155,7 +155,7 @@ router.post('/:urlToken', async (req, res) => {
   }
 });
 
-interface MessageSignal {
+export interface MessageSignal {
   source: TaskSource;
   text: string;
   from: string;
@@ -170,7 +170,7 @@ interface MessageSignal {
  * provider payload, if the event looks like a human message. Returns null for
  * non-message events (the routine-trigger path above still handles those).
  */
-function extractMessageSignal(provider: string, payload: Record<string, unknown>): MessageSignal | null {
+export function extractMessageSignal(provider: string, payload: Record<string, unknown>): MessageSignal | null {
   if (provider === 'slack') {
     const event = payload.event as Record<string, unknown> | undefined;
     if (!event || event.type !== 'message') return null;
@@ -196,7 +196,72 @@ function extractMessageSignal(provider: string, payload: Record<string, unknown>
     };
   }
 
+  if (provider === 'email') {
+    // Inbound-email shape (forwarding/parse services like SendGrid, Postmark,
+    // Mailgun, or a Granola/Gmail forward). We accept the common header fields
+    // and prefer plain text over HTML. Threading uses the RFC-822 message-id
+    // family (References/In-Reply-To → conversation root) so replies on the same
+    // email thread land on the same task node.
+    const fromRaw = firstString(payload.from, payload.sender, payload.From);
+    const subject = firstString(payload.subject, payload.Subject) ?? '';
+    const bodyText =
+      firstString(payload.text, payload.body, payload.plain, payload['body-plain'], payload.TextBody) ??
+      stripHtml(firstString(payload.html, payload.HtmlBody, payload['body-html']));
+    // The actionable signal is subject + body — a one-line subject is often the
+    // whole ask ("Please update the SOC2 evidence doc").
+    const text = [subject, bodyText].filter(Boolean).join('\n\n').trim();
+    if (!fromRaw || !text) return null;
+
+    const fromEmail = extractEmailAddress(fromRaw);
+    const messageId =
+      firstString(payload.messageId, payload['message-id'], payload.MessageID, payload.Message_Id) ??
+      `email:${fromEmail}:${subject}`;
+    // Conversation root: the first id in References, else In-Reply-To, else this
+    // message stands alone (its own id is the thread root).
+    const references = firstString(payload.references, payload.References);
+    const inReplyTo = firstString(payload.inReplyTo, payload['in-reply-to'], payload.InReplyTo);
+    const threadRoot =
+      (references ? references.trim().split(/\s+/)[0] : undefined) ?? inReplyTo ?? messageId;
+
+    return {
+      source: 'email',
+      text,
+      from: fromEmail,
+      messageId,
+      channel: firstString(payload.to, payload.To, payload.recipient),
+      fromHandle: { provider: 'email', externalId: fromEmail },
+      threadRef: { provider: 'email', externalId: threadRoot },
+    };
+  }
+
   return null;
+}
+
+/** First argument that is a non-empty string, else undefined. */
+function firstString(...vals: unknown[]): string | undefined {
+  for (const v of vals) {
+    if (typeof v === 'string' && v.trim()) return v;
+  }
+  return undefined;
+}
+
+/** Pull the bare address out of an RFC-822 From header ("Alice <a@x.com>"). */
+function extractEmailAddress(from: string): string {
+  const angle = from.match(/<([^>]+)>/);
+  if (angle) return angle[1].trim().toLowerCase();
+  return from.trim().toLowerCase();
+}
+
+/** Crude HTML→text fallback for emails that only carry an HTML body. */
+function stripHtml(html: string | undefined): string | undefined {
+  if (!html) return undefined;
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
@@ -230,6 +295,13 @@ function extractDeliveryId(
       return headers['x-github-delivery'];
     case 'slack':
       return (payload.event_id as string) ?? undefined;
+    case 'email':
+      return (
+        (payload.messageId as string) ??
+        (payload['message-id'] as string) ??
+        (payload.MessageID as string) ??
+        undefined
+      );
     default:
       return headers['x-delivery-id'] ?? headers['x-request-id'] ?? undefined;
   }

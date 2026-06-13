@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import * as approvalService from '../services/approval-service.js';
-import { enqueueRoutineNow } from '../jobs/routine-scheduler.js';
+import { finalizeApprovedRun } from '../services/routine-delivery.js';
 import { prisma } from '../lib/prisma.js';
 
 const router: ReturnType<typeof Router> = Router();
@@ -71,20 +71,12 @@ router.post('/:id/resolve', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // If approved or edited, resume the routine (enqueue resume job)
+    // If approved or edited, resume the run: deliver the (possibly edited)
+    // output and finalize the run as a success. This closes the approval loop —
+    // before this the run was only flipped back to `running` and its output was
+    // never delivered.
     if (decision === 'approved' || decision === 'edited') {
-      const run = await prisma.routineRun.findUnique({
-        where: { id: result.run.id },
-        include: { routine: { select: { id: true, userId: true } } },
-      });
-
-      if (run) {
-        // Update run status back to running
-        await prisma.routineRun.update({
-          where: { id: run.id },
-          data: { status: 'running' },
-        });
-      }
+      await finalizeApprovedRun(result.run.id);
     } else if (decision === 'rejected') {
       // Mark the run as failed
       await prisma.routineRun.update({
