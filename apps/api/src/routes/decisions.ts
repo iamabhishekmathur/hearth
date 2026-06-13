@@ -12,10 +12,17 @@ async function getOrgId(userId: string): Promise<string> {
     where: { id: userId },
     include: { team: { select: { orgId: true } } },
   });
-  const org = user?.team?.orgId
-    ? { id: user.team.orgId }
-    : await prisma.org.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } });
-  return org?.id ?? '';
+  // No fallback: a user with no team/org has NO decision org context. Falling
+  // back to the oldest org let a team-less user read/write another tenant's data.
+  return user?.team?.orgId ?? '';
+}
+
+function validateDecisionEnums(d: { scope?: string; confidence?: string; status?: string; sensitivity?: string }): string | null {
+  if (d.scope && !['org', 'team', 'personal'].includes(d.scope)) return 'scope must be one of: org, team, personal';
+  if (d.confidence && !['low', 'medium', 'high'].includes(d.confidence)) return 'confidence must be one of: low, medium, high';
+  if (d.status && !['draft', 'active', 'superseded', 'reversed', 'archived'].includes(d.status)) return 'invalid status';
+  if (d.sensitivity && !['normal', 'restricted', 'confidential'].includes(d.sensitivity)) return 'invalid sensitivity';
+  return null;
 }
 
 // List decisions (cursor-paginated)
@@ -41,11 +48,14 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const orgId = await getOrgId(req.user!.id);
+    if (!orgId) return res.status(400).json({ error: 'User must belong to an organization' });
     const scope = { orgId, userId: req.user!.id, teamId: req.user!.teamId ?? null, role: req.user!.role };
     const data = req.body as CreateDecisionRequest;
     if (!data.title || !data.reasoning) {
       return res.status(400).json({ error: 'title and reasoning are required' });
     }
+    const enumErr = validateDecisionEnums(data);
+    if (enumErr) return res.status(400).json({ error: enumErr });
     const decision = await decisionService.createDecision(scope, data);
     res.status(201).json({ data: decision });
   } catch (err) {
@@ -151,16 +161,31 @@ router.get('/:id/graph', async (req, res) => {
   }
 });
 
+// List conflicts (contradicting decisions) for a decision
+router.get('/:id/conflicts', async (req, res) => {
+  try {
+    const orgId = await getOrgId(req.user!.id);
+    if (!orgId) return res.status(400).json({ error: 'User must belong to an organization' });
+    const conflicts = await decisionService.listConflicts(req.params.id, orgId);
+    if (conflicts === null) return res.status(404).json({ error: 'Decision not found' });
+    res.json({ data: conflicts });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list conflicts' });
+  }
+});
+
 // Add link
 router.post('/:id/dependencies', async (req, res) => {
   try {
+    const orgId = await getOrgId(req.user!.id);
     const { toDecisionId, relationship, description } = req.body as CreateDecisionLinkRequest;
     if (!toDecisionId || !relationship) {
       return res.status(400).json({ error: 'toDecisionId and relationship are required' });
     }
     const link = await decisionService.addDecisionLink(
-      req.params.id, toDecisionId, relationship, description, req.user!.id,
+      req.params.id, toDecisionId, relationship, description, req.user!.id, orgId,
     );
+    if (!link) return res.status(404).json({ error: 'Decision not found in your organization' });
     res.status(201).json({ data: link });
   } catch (err) {
     res.status(500).json({ error: 'Failed to add link' });

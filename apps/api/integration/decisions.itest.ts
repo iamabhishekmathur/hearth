@@ -17,6 +17,7 @@ import { beforeEach, afterAll, describe, it, expect } from 'vitest';
 import {
   prisma,
   seedAuthFixture,
+  loginAgent,
   truncateAll,
   disconnect,
   type AuthFixture,
@@ -103,5 +104,65 @@ describe('searchDecisions — pgvector deserialization regression', () => {
     const ids = result.decisions.map((d) => d.id);
     expect(ids).toContain(withEmb);
     expect(ids).toContain(noEmb);
+  });
+});
+
+describe('decision conflicts — GET /:id/conflicts', () => {
+  /** Seed two decisions and a `contradicts` link between them (new → old). */
+  async function seedConflict(): Promise<{ newId: string; oldId: string }> {
+    const oldId = await seedDecision({
+      title: 'Move the datastore to DynamoDB',
+      reasoning: 'Single-digit-ms reads at scale.',
+      withEmbedding: false,
+    });
+    const newId = await seedDecision({
+      title: 'Standardize on PostgreSQL everywhere',
+      reasoning: 'One datastore to operate; strong consistency.',
+      withEmbedding: false,
+    });
+    await prisma.decisionLink.create({
+      data: {
+        fromDecisionId: newId,
+        toDecisionId: oldId,
+        relationship: 'contradicts',
+        description: 'Both choose the primary datastore; Postgres vs DynamoDB cannot both hold.',
+      },
+    });
+    return { newId, oldId };
+  }
+
+  it('lists the contradicting decision from the new side (outgoing) with rationale', async () => {
+    const { newId, oldId } = await seedConflict();
+    const admin = await loginAgent('admin');
+    const res = await admin.get(`/api/v1/decisions/${newId}/conflicts`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].decision.id).toBe(oldId);
+    expect(res.body.data[0].direction).toBe('outgoing');
+    expect(res.body.data[0].rationale).toContain('cannot both hold');
+  });
+
+  it('lists the conflict from the old side too (incoming)', async () => {
+    const { newId, oldId } = await seedConflict();
+    const admin = await loginAgent('admin');
+    const res = await admin.get(`/api/v1/decisions/${oldId}/conflicts`);
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].decision.id).toBe(newId);
+    expect(res.body.data[0].direction).toBe('incoming');
+  });
+
+  it('a rival-org user cannot read another org\'s decision conflicts (404)', async () => {
+    const { newId } = await seedConflict();
+    const rival = await loginAgent('rival');
+    const res = await rival.get(`/api/v1/decisions/${newId}/conflicts`);
+    expect(res.status).toBe(404);
+  });
+
+  it('returns an empty list for a decision with no conflicts', async () => {
+    const id = await seedDecision({ title: 'Pick a logo font', reasoning: 'brand', withEmbedding: false });
+    const admin = await loginAgent('admin');
+    const res = await admin.get(`/api/v1/decisions/${id}/conflicts`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@ import { logger } from '../lib/logger.js';
 import { generateEmbedding } from './embedding-service.js';
 import { logAudit } from './audit-service.js';
 import { emitToOrg } from '../ws/socket-manager.js';
+import { detectConflicts } from './decision-conflict-service.js';
 import type {
   Decision,
   DecisionSearchRequest,
@@ -103,9 +104,18 @@ export async function createDecision(
     );
   }
 
-  // Auto-link related decisions
+  // Auto-link related decisions + flag contradictions of existing decisions
   if (embedding) {
     await autoLinkRelated(decision.id, scope.orgId, embedding);
+    await detectConflicts({
+      decisionId: decision.id,
+      orgId: scope.orgId,
+      title: data.title,
+      reasoning: data.reasoning,
+      domain: data.domain,
+      embedding,
+      userId: scope.userId,
+    }).catch((err) => logger.debug({ err }, 'Conflict detection failed'));
   }
 
   // Audit log
@@ -571,7 +581,14 @@ export async function addDecisionLink(
   relationship: string,
   description?: string,
   createdById?: string,
+  orgId?: string,
 ) {
+  // Tenancy: both decisions must belong to the caller's org. Without this, a
+  // decision could be linked across org boundaries.
+  if (orgId) {
+    const both = await prisma.decision.findMany({ where: { id: { in: [fromId, toId] }, orgId }, select: { id: true } });
+    if (both.length !== new Set([fromId, toId]).size) return null;
+  }
   return prisma.decisionLink.create({
     data: {
       fromDecisionId: fromId,
@@ -588,6 +605,38 @@ export async function addDecisionLink(
  */
 export async function removeDecisionLink(linkId: string) {
   return prisma.decisionLink.delete({ where: { id: linkId } });
+}
+
+/**
+ * List decisions that contradict the given decision (either direction of the
+ * `contradicts` link), scoped to the caller's org. Returns null if the decision
+ * isn't in the org. Powers the conflict banner on a decision.
+ */
+export async function listConflicts(decisionId: string, orgId: string) {
+  const decision = await prisma.decision.findFirst({ where: { id: decisionId, orgId }, select: { id: true } });
+  if (!decision) return null;
+
+  const links = await prisma.decisionLink.findMany({
+    where: {
+      relationship: 'contradicts',
+      OR: [{ fromDecisionId: decisionId }, { toDecisionId: decisionId }],
+    },
+    include: {
+      fromDecision: { select: { id: true, title: true, status: true, createdAt: true } },
+      toDecision: { select: { id: true, title: true, status: true, createdAt: true } },
+    },
+  });
+
+  // Surface "the other" decision in each link, plus the recorded rationale.
+  return links.map((l) => {
+    const other = l.fromDecisionId === decisionId ? l.toDecision : l.fromDecision;
+    return {
+      linkId: l.id,
+      decision: other,
+      rationale: l.description ?? null,
+      direction: l.fromDecisionId === decisionId ? 'outgoing' : 'incoming',
+    };
+  });
 }
 
 /**

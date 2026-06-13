@@ -23,6 +23,7 @@ export type AuditAction =
   | 'governance_violation'
   | 'governance_policy_change'
   | 'decision_captured'
+  | 'decision_conflict_detected'
   | 'decision_outcome_updated'
   | 'pattern_extracted'
   | 'principle_proposed';
