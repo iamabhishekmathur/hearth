@@ -224,8 +224,28 @@ export class Recorder {
       for (const d of r.defects!) lines.push(`- **[${r.feature}/${r.subFeature}]** (${r.type}) ${d}  \n  ↳ _${r.name}_`);
     }
     lines.push('\n## Failures & partials\n');
-    for (const r of this.results.filter((r) => r.status === 'fail' || r.status === 'partial')) {
+    const fp = this.results.filter((r) => r.status === 'fail' || r.status === 'partial');
+    if (fp.length === 0) lines.push('_None — all scenarios passed._');
+    for (const r of fp) {
       lines.push(`- ${r.status === 'fail' ? '❌' : '🟡'} **[${r.feature}/${r.subFeature}]** ${r.name} — expected: ${r.expected} · observed: ${r.observed}`);
+    }
+
+    // ── Per-scenario detail: every user story, what it expected, and how
+    // Hearth actually responded. This is the full record, not the aggregate.
+    const icon = { pass: '✅', fail: '❌', partial: '🟡', blocked: '⛔' } as const;
+    lines.push('\n## Per-scenario detail\n');
+    lines.push('Every scenario driven against the live product — the user story, the expected behavior, and Hearth\'s actual response.\n');
+    let n = 0;
+    for (const f of features) {
+      lines.push(`### ${f}\n`);
+      lines.push('| # | Result | Type | Scenario (user story) | Expected | Hearth responded |');
+      lines.push('|---|---|---|---|---|---|');
+      for (const r of this.results.filter((x) => x.feature === f)) {
+        n += 1;
+        const esc = (s: string) => (s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+        lines.push(`| ${n} | ${icon[r.status]} | ${r.type} | ${esc(r.name)} | ${esc(r.expected)} | ${esc(r.observed)} |`);
+      }
+      lines.push('');
     }
     return lines.join('\n') + '\n';
   }
