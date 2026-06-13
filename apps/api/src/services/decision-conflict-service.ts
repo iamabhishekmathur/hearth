@@ -31,6 +31,8 @@ import { logAudit } from './audit-service.js';
 const CONFLICT_FLOOR_WITH_DOMAIN = 0.4;
 const CONFLICT_FLOOR_NO_DOMAIN = 0.75;
 const MAX_CANDIDATES = 5;
+/** Registered (dated) Haiku id — the undated alias resolves to no provider. */
+const CONFLICT_JUDGE_MODEL = 'claude-haiku-4-5-20251001';
 
 export interface DetectedConflict {
   decisionId: string;
@@ -174,12 +176,17 @@ Respond with ONLY a JSON array (possibly empty). Each item: {"id": "<existing id
 
   let raw = '';
   const stream = providerRegistry.chatWithFallback({
-    model: 'claude-haiku-4-5',
+    // Use the registered (dated) Haiku id — the undated alias resolves to no
+    // provider, so the stream would emit an error and the judge silently no-op.
+    model: CONFLICT_JUDGE_MODEL,
     messages: [{ role: 'user', content: prompt }],
     maxTokens: 400,
   });
   for await (const event of stream) {
     if (event.type === 'text_delta') raw += event.content;
+    // Surface provider/stream errors instead of swallowing them into an empty
+    // (→ "no conflicts") result; the caller's catch logs it as a real failure.
+    if (event.type === 'error') throw new Error(`Conflict judge LLM error: ${event.message}`);
   }
 
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);

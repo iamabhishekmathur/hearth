@@ -46,7 +46,10 @@ async function main() {
   console.log('\n══ Slack detection ══');
   {
     const baseTasks = await prisma.task.count({ where: { source: 'slack', org: { slug: 'hearth-sim' } } });
-    const body = JSON.stringify({ event: { type: 'message', text: 'Can someone add rate limiting to the public API before the launch on Friday? It is getting hammered.', user: 'U07ALICE', ts: `${Date.now() / 1000}`, channel: 'C_ENGINEERING', client_msg_id: `m-${Date.now()}` } });
+    // Unique ref so the LLM-derived task title differs per run (else intake
+    // dedup by title swallows the re-detected task on repeat runs).
+    const slackTag = Math.floor(Date.now() / 1000) % 100000;
+    const body = JSON.stringify({ event: { type: 'message', text: `Can someone add rate limiting to the public API endpoint /v2/orders-${slackTag} before the launch on Friday? It is getting hammered.`, user: 'U07ALICE', ts: `${Date.now() / 1000}`, channel: 'C_ENGINEERING', client_msg_id: `m-${Date.now()}` } });
     const r = await postIngest(slackToken, 'slack', body, slackSecret);
     // detection is async; poll for a new slack-sourced auto_detected task
     let created = 0;
@@ -104,11 +107,12 @@ async function main() {
     const eep = await admin.req<{ data?: { urlToken: string } }>('POST', '/routines/webhook-endpoints', { provider: 'email' });
     const emailToken = eep.body.data?.urlToken!;
     const base = await prisma.task.count({ where: { source: 'email', org: { slug: 'hearth-sim' } } });
+    const emailTag = Math.floor(Date.now() / 1000) % 100000;
     const emailBody = JSON.stringify({
       from: 'Dana Patel <dana.patel@partner-vendor.com>',
       to: 'intake@hearth-sim.com',
-      subject: 'Please update the SOC2 access-review evidence before the audit',
-      text: 'The auditors flagged that our quarterly access-review export is stale. Can someone regenerate it and attach it to the evidence folder before Friday?',
+      subject: `Please update the SOC2 access-review evidence (case ${emailTag}) before the audit`,
+      text: `The auditors flagged that our quarterly access-review export (case ${emailTag}) is stale. Can someone regenerate it and attach it to the evidence folder before Friday?`,
       messageId: `<email-${Date.now()}@partner-vendor.com>`,
     });
     const r = await postIngest(emailToken, 'email', emailBody);
@@ -130,10 +134,13 @@ async function main() {
     const cto = await loginAs('cto@hearth.local');
     const baseDec = await prisma.decision.count({ where: { orgId } });
     const baseTask = await prisma.task.count({ where: { source: 'meeting', orgId } });
+    // Unique per-run topics so extracted decisions don't dedup-merge into a
+    // prior run's identical decisions (which would show as +0 extracted).
+    const mtg = Math.floor(Date.now() / 1000) % 100000;
     const transcript = [
-      'Marcus: Quick sync. Decision: we standardize on OpenTelemetry for tracing across all services this quarter.',
-      'Sofia: Agreed. We also decided to cap PR review SLA at 24 hours.',
-      'Marcus: And we will sunset the legacy billing cron by end of next sprint.',
+      `Marcus: Quick sync. Decision: we standardize on message queue Kafka-${mtg} for all event streaming this quarter.`,
+      `Sofia: Agreed. We also decided to cap the deploy freeze window to ${mtg % 12} hours.`,
+      `Marcus: And we will sunset the legacy reporting service report-${mtg} by end of next sprint.`,
     ].join('\n');
     const ing = await cto.req('POST', '/meetings/ingest', { provider: 'granola', title: 'Eng leadership sync', transcript, participants: ['cto@hearth.local', 'vp-eng@hearth.local'], meetingDate: new Date().toISOString() });
     let decDelta = 0;

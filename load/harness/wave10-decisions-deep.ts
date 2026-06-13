@@ -54,9 +54,12 @@ async function main() {
   // judgement, and runs async after capture — poll the /conflicts endpoint.
   console.log('\n══ Conflict ══');
   {
-    const c1 = await lead.req<{ data?: { id: string } }>('POST', '/decisions', { title: 'Standardize on REST APIs', reasoning: 'Simplicity and ubiquity.', domain: 'engineering', scope: 'org', confidence: 'high' });
+    // Unique per-run tag so re-runs don't get dedup-merged into a prior run's
+    // identical decision (which would short-circuit conflict detection).
+    const tag = Math.floor(Date.now() / 1000) % 100000;
+    const c1 = await lead.req<{ data?: { id: string } }>('POST', '/decisions', { title: `Standardize on REST APIs [${tag}]`, reasoning: `Simplicity and ubiquity for service interfaces. Ref ${tag}.`, domain: 'engineering', scope: 'org', confidence: 'high' });
     await sleep(800);
-    const c2 = await lead.req<{ data?: { id: string; status?: string } }>('POST', '/decisions', { title: 'Standardize on gRPC instead of REST for all services', reasoning: 'Performance and typed contracts — replaces REST.', domain: 'engineering', scope: 'org', confidence: 'high' });
+    const c2 = await lead.req<{ data?: { id: string; status?: string } }>('POST', '/decisions', { title: `Standardize on gRPC instead of REST for all services [${tag}]`, reasoning: `Performance and typed contracts — gRPC replaces REST for service interfaces. Ref ${tag}.`, domain: 'engineering', scope: 'org', confidence: 'high' });
     let conflicts: Array<{ decision?: { id?: string } }> = [];
     for (let i = 0; i < 8; i++) {
       await sleep(1500);
