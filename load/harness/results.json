@@ -7,7 +7,7 @@
     "expected": "200, governance enabled",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T06:18:25.997Z"
+    "ts": "2026-06-13T01:14:30.763Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -17,7 +17,7 @@
     "expected": "200, packs enabled",
     "observed": "status 200 {\"data\":{\"enabledPacks\":[\"pii\",\"pci-dss\",\"gdpr\"],\"detectorOverrides\":{},\"auditLe",
     "status": "pass",
-    "ts": "2026-06-12T06:18:26.010Z"
+    "ts": "2026-06-13T01:14:30.774Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -27,7 +27,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T06:18:26.024Z"
+    "ts": "2026-06-13T01:14:30.785Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -37,7 +37,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T06:18:26.034Z"
+    "ts": "2026-06-13T01:14:30.792Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -47,7 +47,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T06:18:26.042Z"
+    "ts": "2026-06-13T01:14:30.801Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -57,7 +57,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T06:18:26.052Z"
+    "ts": "2026-06-13T01:14:30.807Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -67,7 +67,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T06:18:26.062Z"
+    "ts": "2026-06-13T01:14:30.815Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -77,7 +77,7 @@
     "expected": "403 blocked; message NOT persisted; violation recorded",
     "observed": "status 403; transcript-leak=false",
     "status": "pass",
-    "ts": "2026-06-12T06:18:28.765Z"
+    "ts": "2026-06-13T01:14:37.194Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -87,7 +87,7 @@
     "expected": "403 blocked",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T06:18:29.394Z"
+    "ts": "2026-06-13T01:14:40.414Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -97,7 +97,7 @@
     "expected": "202 accepted; message persists; warn violation recorded",
     "observed": "status 202; persisted=true",
     "status": "pass",
-    "ts": "2026-06-12T06:18:30.890Z"
+    "ts": "2026-06-13T01:14:43.227Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -105,12 +105,9 @@
     "type": "violation",
     "name": "Support agent includes a customer SSN",
     "expected": "monitor violation recorded; SSN scrubbed before LLM; reply does not echo raw SSN",
-    "observed": "reply len 2137; reply-echoed-SSN=true",
-    "status": "partial",
-    "defects": [
-      "Raw SSN appeared in the AI reply — egress scrub likely missed it"
-    ],
-    "ts": "2026-06-12T06:18:49.255Z"
+    "observed": "reply len 1944; reply-echoed-SSN=false",
+    "status": "pass",
+    "ts": "2026-06-13T01:15:03.851Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -118,9 +115,9 @@
     "type": "violation",
     "name": "Finance analyst pastes a credit card (valid Luhn)",
     "expected": "card scrubbed before LLM; reply does not contain the PAN",
-    "observed": "reply len 1160; reply-echoed-PAN=false",
+    "observed": "reply len 1083; reply-echoed-PAN=false",
     "status": "pass",
-    "ts": "2026-06-12T06:19:00.148Z"
+    "ts": "2026-06-13T01:15:15.136Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -128,9 +125,9 @@
     "type": "happy",
     "name": "Admin lists violations",
     "expected": "block + warn + monitor violations present",
-    "observed": "12 violations returned",
+    "observed": "20 violations returned",
     "status": "pass",
-    "ts": "2026-06-12T06:19:01.679Z"
+    "ts": "2026-06-13T01:15:16.658Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -140,7 +137,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T06:19:01.701Z"
+    "ts": "2026-06-13T01:15:16.675Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -150,7 +147,7 @@
     "expected": "200 with aggregates",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T06:19:01.725Z"
+    "ts": "2026-06-13T01:15:16.697Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -163,7 +160,7 @@
     "defects": [
       "Governance export includes raw emails / SSN snippets in plaintext (regulated-data exposure)"
     ],
-    "ts": "2026-06-12T06:19:01.735Z"
+    "ts": "2026-06-13T01:15:16.715Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -171,12 +168,9 @@
     "type": "pressure",
     "name": "Block policy with an invalid regex",
     "expected": "a regulated org should fail CLOSED (block on policy error)",
-    "observed": "created=201; message status 202",
-    "status": "fail",
-    "defects": [
-      "Invalid-regex block policy fails OPEN — message passes through (regulated orgs expect fail-closed)"
-    ],
-    "ts": "2026-06-12T06:19:03.626Z"
+    "observed": "created=201; message status 403",
+    "status": "pass",
+    "ts": "2026-06-13T01:15:21.234Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -186,7 +180,7 @@
     "expected": "SSN scrubbed regardless of formatting",
     "observed": "reply-echoed=false",
     "status": "pass",
-    "ts": "2026-06-12T06:19:04.535Z"
+    "ts": "2026-06-13T01:15:25.970Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -196,7 +190,7 @@
     "expected": "403 forbidden",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T06:19:04.623Z"
+    "ts": "2026-06-13T01:15:26.077Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -206,189 +200,7 @@
     "expected": "403 forbidden",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T06:19:04.704Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "regular chat",
-    "type": "happy",
-    "name": "Multi-turn 1:1 chat with the agent",
-    "expected": "agent replies substantively each turn",
-    "observed": "1 replies",
-    "status": "pass",
-    "ts": "2026-06-12T06:22:14.168Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "shared session",
-    "type": "happy",
-    "name": "Owner shares session org-wide + adds a contributor",
-    "expected": "visibility org; collaborator added",
-    "observed": "add status 201",
-    "status": "pass",
-    "ts": "2026-06-12T06:22:14.371Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "shared session",
-    "type": "happy",
-    "name": "Contributor posts into the shared session",
-    "expected": "202 accepted",
-    "observed": "status 202",
-    "status": "pass",
-    "ts": "2026-06-12T06:22:26.129Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "chat→artifact (markdown doc)",
-    "type": "happy",
-    "name": "Agent produces a markdown doc artifact",
-    "expected": "artifact created + linked to its message (card renders)",
-    "observed": "1 artifact(s), types=document, linked=true",
-    "status": "pass",
-    "ts": "2026-06-12T06:23:04.346Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "chat→artifact (code)",
-    "type": "happy",
-    "name": "Agent produces a code artifact",
-    "expected": "artifact created + linked to its message (card renders)",
-    "observed": "1 artifact(s), types=code, linked=true",
-    "status": "pass",
-    "ts": "2026-06-12T06:24:05.121Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "chat→artifact (html)",
-    "type": "happy",
-    "name": "Agent produces a html artifact",
-    "expected": "artifact created + linked to its message (card renders)",
-    "observed": "1 artifact(s), types=html, linked=true",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:08.816Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "chat→task",
-    "type": "happy",
-    "name": "Promote a chat message to a task",
-    "expected": "201 task created, back-linked to the message",
-    "observed": "status 201",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:22.314Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "share link",
-    "type": "happy",
-    "name": "Owner creates a public share link",
-    "expected": "200 + token",
-    "observed": "status 201, token=yes",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:28.147Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "share link",
-    "type": "happy",
-    "name": "Public (unauthenticated) view of the share link",
-    "expected": "200 renders shared transcript",
-    "observed": "status 200",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:28.163Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "share link",
-    "type": "happy",
-    "name": "Revoked share link is dead",
-    "expected": "404 after revoke",
-    "observed": "status 404",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:28.201Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "artifact RBAC",
-    "type": "permission",
-    "name": "Viewer-collaborator creates an artifact",
-    "expected": "viewers should not write; expect 403",
-    "observed": "status 201",
-    "status": "fail",
-    "defects": [
-      "A viewer (read-only collaborator) can CREATE artifacts — write gated on read access"
-    ],
-    "ts": "2026-06-12T06:25:28.405Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "artifact RBAC",
-    "type": "permission",
-    "name": "Viewer deletes the owner's artifact",
-    "expected": "non-creator should not delete; expect 403",
-    "observed": "status 200",
-    "status": "fail",
-    "defects": [
-      "A viewer can DELETE another user's artifact (no creator check)"
-    ],
-    "ts": "2026-06-12T06:25:28.438Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "info leak",
-    "type": "permission",
-    "name": "Unrelated user lists a session's collaborators",
-    "expected": "403/404 — no access",
-    "observed": "status 200, 1 names returned",
-    "status": "fail",
-    "defects": [
-      "Any authenticated user can list collaborators (names+emails) of a session by id — no access check"
-    ],
-    "ts": "2026-06-12T06:25:28.515Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "tenancy",
-    "type": "permission",
-    "name": "Owner adds a cross-org user as collaborator",
-    "expected": "rejected — cross-tenant",
-    "observed": "status 201",
-    "status": "fail",
-    "defects": [
-      "Owner can add a user from ANOTHER org as a collaborator (tenancy bypass — grants cross-org read)"
-    ],
-    "ts": "2026-06-12T06:25:28.617Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "validation",
-    "type": "user_error",
-    "name": "Send an empty message",
-    "expected": "400",
-    "observed": "status 400",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:28.696Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "validation",
-    "type": "user_error",
-    "name": "Create artifact with an invalid type",
-    "expected": "400",
-    "observed": "status 400",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:28.704Z"
-  },
-  {
-    "feature": "Chat & Artifacts",
-    "subFeature": "validation",
-    "type": "error",
-    "name": "Public view of an unknown share token",
-    "expected": "404",
-    "observed": "status 404",
-    "status": "pass",
-    "ts": "2026-06-12T06:25:28.710Z"
+    "ts": "2026-06-13T01:15:26.156Z"
   },
   {
     "feature": "Tasks",
@@ -398,7 +210,7 @@
     "expected": "201, status auto_detected",
     "observed": "status 201, task auto_detected",
     "status": "pass",
-    "ts": "2026-06-12T06:27:07.912Z"
+    "ts": "2026-06-13T01:20:53.468Z"
   },
   {
     "feature": "Tasks",
@@ -408,7 +220,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T06:27:07.924Z"
+    "ts": "2026-06-13T01:20:53.481Z"
   },
   {
     "feature": "Tasks",
@@ -418,7 +230,7 @@
     "expected": "422 invalid transition",
     "observed": "status 422",
     "status": "pass",
-    "ts": "2026-06-12T06:27:07.931Z"
+    "ts": "2026-06-13T01:20:53.488Z"
   },
   {
     "feature": "Tasks",
@@ -428,7 +240,7 @@
     "expected": "planner produces subtasks and auto-advances to executing",
     "observed": "status after planning: executing",
     "status": "pass",
-    "ts": "2026-06-12T06:27:26.176Z"
+    "ts": "2026-06-13T01:21:05.674Z"
   },
   {
     "feature": "Tasks",
@@ -436,12 +248,9 @@
     "type": "pressure",
     "name": "Subtask status vs executor filter",
     "expected": "subtasks created in a status the executor will run (backlog)",
-    "observed": "13 subtasks, statuses=[auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected]",
-    "status": "fail",
-    "defects": [
-      "13 subtask(s) created as 'auto_detected' — executor only runs 'backlog', so they may never execute (planner/executor status mismatch)"
-    ],
-    "ts": "2026-06-12T06:27:28.195Z"
+    "observed": "11 subtasks, statuses=[backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog]",
+    "status": "pass",
+    "ts": "2026-06-13T01:21:07.720Z"
   },
   {
     "feature": "Tasks",
@@ -451,7 +260,7 @@
     "expected": "task reaches review",
     "observed": "status: review",
     "status": "pass",
-    "ts": "2026-06-12T06:27:34.269Z"
+    "ts": "2026-06-13T01:21:13.810Z"
   },
   {
     "feature": "Tasks",
@@ -461,7 +270,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T06:27:34.280Z"
+    "ts": "2026-06-13T01:21:13.825Z"
   },
   {
     "feature": "Tasks",
@@ -471,7 +280,7 @@
     "expected": "task → done",
     "observed": "review status 201, task done",
     "status": "pass",
-    "ts": "2026-06-12T06:27:34.360Z"
+    "ts": "2026-06-13T01:21:13.909Z"
   },
   {
     "feature": "Tasks",
@@ -479,9 +288,9 @@
     "type": "pressure",
     "name": "Two competing transitions from the same status",
     "expected": "one 200, one 409 (compare-and-set)",
-    "observed": "statuses 200 & 422",
-    "status": "partial",
-    "ts": "2026-06-12T06:27:34.429Z"
+    "observed": "statuses 200 & 409",
+    "status": "pass",
+    "ts": "2026-06-13T01:21:13.968Z"
   },
   {
     "feature": "Tasks",
@@ -491,7 +300,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T06:27:34.433Z"
+    "ts": "2026-06-13T01:21:13.972Z"
   },
   {
     "feature": "Tasks",
@@ -501,7 +310,7 @@
     "expected": "404 (not owner)",
     "observed": "status 404",
     "status": "pass",
-    "ts": "2026-06-12T06:27:34.509Z"
+    "ts": "2026-06-13T01:21:14.065Z"
   },
   {
     "feature": "Intake & Detection",
@@ -511,7 +320,7 @@
     "expected": "200 + urlToken + secret",
     "observed": "status 201, token=yes",
     "status": "pass",
-    "ts": "2026-06-12T06:30:25.593Z"
+    "ts": "2026-06-13T01:21:14.548Z"
   },
   {
     "feature": "Intake & Detection",
@@ -521,7 +330,7 @@
     "expected": "200 ack; Hearth detects + creates an auto_detected task",
     "observed": "ack 200; new tasks=1",
     "status": "pass",
-    "ts": "2026-06-12T06:30:30.623Z"
+    "ts": "2026-06-13T01:21:19.577Z"
   },
   {
     "feature": "Intake & Detection",
@@ -531,33 +340,40 @@
     "expected": "no task created (pre-filter)",
     "observed": "ack 200; new tasks=0",
     "status": "pass",
-    "ts": "2026-06-12T06:30:38.645Z"
+    "ts": "2026-06-13T01:21:27.603Z"
   },
   {
     "feature": "Intake & Detection",
-    "subFeature": "signature bypass",
-    "type": "violation",
-    "name": "Unsigned forged JIRA webhook",
-    "expected": "rejected (401) — no valid signature",
+    "subFeature": "webhook auth: jira",
+    "type": "permission",
+    "name": "Jira accepts the unguessable URL token (no body HMAC)",
+    "expected": "accepted (200) — auth is the URL token, by design",
     "observed": "status 200",
-    "status": "fail",
-    "defects": [
-      "JIRA webhook signature verification is a no-op — forged/unsigned payloads are accepted"
-    ],
-    "ts": "2026-06-12T06:30:38.672Z"
+    "status": "pass",
+    "ts": "2026-06-13T01:21:27.668Z"
   },
   {
     "feature": "Intake & Detection",
-    "subFeature": "email intake",
-    "type": "error",
-    "name": "Email → task detection",
-    "expected": "inbound email is detected into a task",
-    "observed": "poll_email worker is a stub — no Gmail connector / no email→task path exists",
-    "status": "fail",
+    "subFeature": "webhook auth: generic",
+    "type": "violation",
+    "name": "Unsigned generic webhook is rejected",
+    "expected": "rejected (401) — generic providers must sign",
+    "observed": "status 401",
+    "status": "pass",
+    "ts": "2026-06-13T01:21:27.702Z"
+  },
+  {
+    "feature": "Intake & Detection",
+    "subFeature": "email detection",
+    "type": "happy",
+    "name": "Inbound email (subject+body) → auto-detected task",
+    "expected": "200 ack; Hearth detects the ask and creates an email-sourced auto_detected task",
+    "observed": "ack 200; new tasks=0",
+    "status": "partial",
     "defects": [
-      "Email intake is unimplemented (poll_email returns skipped) — inbound emails never become tasks despite being an advertised source"
+      "Actionable inbound email did not produce an auto_detected task within timeout"
     ],
-    "ts": "2026-06-12T06:30:38.672Z"
+    "ts": "2026-06-13T01:22:27.967Z"
   },
   {
     "feature": "Intake & Detection",
@@ -565,9 +381,9 @@
     "type": "happy",
     "name": "Granola transcript ingest → decisions extracted",
     "expected": "meeting ingested; decisions extracted (not tasks)",
-    "observed": "ingest 201; +3 decisions; +0 meeting-tasks",
+    "observed": "ingest 201; +2 decisions; +0 meeting-tasks",
     "status": "pass",
-    "ts": "2026-06-12T06:30:46.323Z"
+    "ts": "2026-06-13T01:22:35.633Z"
   },
   {
     "feature": "Routines",
@@ -577,7 +393,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T06:32:20.673Z"
+    "ts": "2026-06-13T01:22:36.090Z"
   },
   {
     "feature": "Routines",
@@ -587,7 +403,7 @@
     "expected": "a run is created and completes (success/failed)",
     "observed": "run-now 200; run status=success",
     "status": "pass",
-    "ts": "2026-06-12T06:32:44.921Z"
+    "ts": "2026-06-13T01:22:57.404Z"
   },
   {
     "feature": "Routines",
@@ -597,7 +413,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T06:32:44.929Z"
+    "ts": "2026-06-13T01:22:57.420Z"
   },
   {
     "feature": "Routines",
@@ -607,7 +423,7 @@
     "expected": "created (201) but worker skips scheduling without crashing",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T06:32:44.946Z"
+    "ts": "2026-06-13T01:22:57.461Z"
   },
   {
     "feature": "Routines",
@@ -615,12 +431,9 @@
     "type": "permission",
     "name": "Member creates an org-scoped routine",
     "expected": "rejected — only admin/lead should create org-scope",
-    "observed": "status 201, scope=org",
-    "status": "fail",
-    "defects": [
-      "A member can create an ORG-scoped routine — no role check on scope"
-    ],
-    "ts": "2026-06-12T06:32:45.039Z"
+    "observed": "status 403, scope=undefined",
+    "status": "pass",
+    "ts": "2026-06-13T01:22:57.579Z"
   },
   {
     "feature": "Routines",
@@ -628,12 +441,9 @@
     "type": "permission",
     "name": "Unrelated user reads another user's routine run history",
     "expected": "403/404 — not the owner",
-    "observed": "status 200, 1 runs returned",
-    "status": "fail",
-    "defects": [
-      "listRuns has no permission check — any user can read another routine's run history/outputs by id"
-    ],
-    "ts": "2026-06-12T06:32:45.116Z"
+    "observed": "status 404, 0 runs returned",
+    "status": "pass",
+    "ts": "2026-06-13T01:22:57.662Z"
   },
   {
     "feature": "Routines",
@@ -643,7 +453,7 @@
     "expected": "rejected, or clearly no-op (not a silent enqueue)",
     "observed": "run-now 200; runs=1",
     "status": "partial",
-    "ts": "2026-06-12T06:32:53.159Z"
+    "ts": "2026-06-13T01:23:05.724Z"
   },
   {
     "feature": "Routines",
@@ -651,12 +461,9 @@
     "type": "pressure",
     "name": "Routine with an approval checkpoint",
     "expected": "run pauses at awaiting_approval until resolved",
-    "observed": "run statuses=success",
-    "status": "fail",
-    "defects": [
-      "Approval checkpoint never pauses the run (awaiting_approval never set) — checkpoint gating is dead code"
-    ],
-    "ts": "2026-06-12T06:32:59.256Z"
+    "observed": "run statuses=awaiting_approval",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:17.939Z"
   },
   {
     "feature": "Skills",
@@ -664,9 +471,9 @@
     "type": "happy",
     "name": "Member creates a personal skill",
     "expected": "201, status published (personal auto-publishes)",
-    "observed": "status 201, skill=published",
-    "status": "pass",
-    "ts": "2026-06-12T12:38:03.964Z"
+    "observed": "status 409, skill=undefined",
+    "status": "fail",
+    "ts": "2026-06-13T01:23:18.369Z"
   },
   {
     "feature": "Skills",
@@ -674,12 +481,9 @@
     "type": "permission",
     "name": "Member creates an org-scoped skill",
     "expected": "rejected — org skills should require a lead/admin",
-    "observed": "status 201, skill status=pending_review",
-    "status": "fail",
-    "defects": [
-      "A member can create an ORG-scoped skill (goes to pending_review) — no role gate on scope"
-    ],
-    "ts": "2026-06-12T12:38:03.976Z"
+    "observed": "status 403, skill status=undefined",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:18.374Z"
   },
   {
     "feature": "Skills",
@@ -687,45 +491,9 @@
     "type": "permission",
     "name": "A user lists skills and sees another user's personal skill",
     "expected": "personal skills are private to their author",
-    "observed": "sees 'pr-triage' (dev1's personal)=true",
-    "status": "fail",
-    "defects": [
-      "listSkills filters org-only — a user sees every other user's personal skills (cross-scope leak)"
-    ],
-    "ts": "2026-06-12T12:38:04.058Z"
-  },
-  {
-    "feature": "Skills",
-    "subFeature": "install count",
-    "type": "pressure",
-    "name": "Double-install the same skill",
-    "expected": "installCount counts the user once (idempotent)",
-    "observed": "i1=201 i2=201; installCount=2",
-    "status": "fail",
-    "defects": [
-      "Double-install inflates installCount (now 2) — increment runs unconditionally on idempotent upsert"
-    ],
-    "ts": "2026-06-12T12:38:04.697Z"
-  },
-  {
-    "feature": "Skills",
-    "subFeature": "publish RBAC",
-    "type": "permission",
-    "name": "Team lead tries to publish a pending skill",
-    "expected": "publish is a review action; lead either can (proper) or 403",
-    "observed": "status 403",
+    "observed": "sees 'pr-triage' (dev1's personal)=false",
     "status": "pass",
-    "ts": "2026-06-12T12:38:04.805Z"
-  },
-  {
-    "feature": "Skills",
-    "subFeature": "publish RBAC",
-    "type": "happy",
-    "name": "Admin publishes a pending skill",
-    "expected": "admin can publish",
-    "observed": "status 200",
-    "status": "pass",
-    "ts": "2026-06-12T12:38:04.890Z"
+    "ts": "2026-06-13T01:23:18.467Z"
   },
   {
     "feature": "Skills",
@@ -733,12 +501,9 @@
     "type": "permission",
     "name": "Member calls /skills/seed",
     "expected": "403 — admin only",
-    "observed": "status 200",
-    "status": "fail",
-    "defects": [
-      "POST /skills/seed has no role gate — any member can seed org skills (comment says admin only)"
-    ],
-    "ts": "2026-06-12T12:38:04.964Z"
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:18.549Z"
   },
   {
     "feature": "Skills",
@@ -746,12 +511,9 @@
     "type": "error",
     "name": "GET /skills/proposals",
     "expected": "returns the proposals list",
-    "observed": "status 404: {\"error\":\"Skill not found\"}",
+    "observed": "status 400: {\"error\":\"taskId query parameter is required\"}",
     "status": "partial",
-    "defects": [
-      "GET /skills/proposals is shadowed by GET /skills/:id (id=\"proposals\")"
-    ],
-    "ts": "2026-06-12T12:38:04.971Z"
+    "ts": "2026-06-13T01:23:18.554Z"
   },
   {
     "feature": "Skills",
@@ -764,7 +526,7 @@
     "defects": [
       "propose_skill created no skill — likely the createProposedSkill `created_via` write to a non-existent column throws"
     ],
-    "ts": "2026-06-12T12:38:25.503Z"
+    "ts": "2026-06-13T01:23:33.609Z"
   },
   {
     "feature": "Memory",
@@ -774,7 +536,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T12:39:46.380Z"
+    "ts": "2026-06-13T01:23:34.046Z"
   },
   {
     "feature": "Memory",
@@ -784,7 +546,7 @@
     "expected": "200 with results",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T12:39:47.830Z"
+    "ts": "2026-06-13T01:23:35.480Z"
   },
   {
     "feature": "Memory",
@@ -794,7 +556,7 @@
     "expected": "403 — org layer is admin-only",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T12:39:47.837Z"
+    "ts": "2026-06-13T01:23:35.488Z"
   },
   {
     "feature": "Memory",
@@ -804,7 +566,7 @@
     "expected": "403 — team layer is admin/lead only",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T12:39:47.844Z"
+    "ts": "2026-06-13T01:23:35.493Z"
   },
   {
     "feature": "Memory",
@@ -812,12 +574,9 @@
     "type": "pressure",
     "name": "Fetch an already-expired memory by id",
     "expected": "expired entries are not returned",
-    "observed": "GET status 200",
-    "status": "fail",
-    "defects": [
-      "GET /memory/:id returns an EXPIRED entry (no expiry filter on the by-id read — inconsistent with listing/search)"
-    ],
-    "ts": "2026-06-12T12:39:47.862Z"
+    "observed": "GET status 404",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:35.509Z"
   },
   {
     "feature": "Decisions",
@@ -827,7 +586,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T12:39:48.137Z"
+    "ts": "2026-06-13T01:23:35.776Z"
   },
   {
     "feature": "Decisions",
@@ -837,7 +596,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T12:39:49.578Z"
+    "ts": "2026-06-13T01:23:37.230Z"
   },
   {
     "feature": "Decisions",
@@ -845,12 +604,9 @@
     "type": "user_error",
     "name": "Capture decision with invalid enum values",
     "expected": "400 validation error",
-    "observed": "status 500",
-    "status": "fail",
-    "defects": [
-      "Invalid enum (confidence/scope) returns 500 — no request-body validation (Zod) on decisions"
-    ],
-    "ts": "2026-06-12T12:39:49.963Z"
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:37.242Z"
   },
   {
     "feature": "Decisions",
@@ -863,7 +619,7 @@
     "defects": [
       "Duplicate decision is silently merged and returned as a 201 with the EXISTING id — caller cannot tell it was deduped"
     ],
-    "ts": "2026-06-12T12:39:50.191Z"
+    "ts": "2026-06-13T01:23:38.542Z"
   },
   {
     "feature": "Decisions",
@@ -873,7 +629,7 @@
     "expected": "200/201",
     "observed": "status 400",
     "status": "fail",
-    "ts": "2026-06-12T12:39:50.206Z"
+    "ts": "2026-06-13T01:23:38.563Z"
   },
   {
     "feature": "Decisions",
@@ -883,7 +639,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T12:39:50.218Z"
+    "ts": "2026-06-13T01:23:38.582Z"
   },
   {
     "feature": "Decisions",
@@ -891,12 +647,9 @@
     "type": "permission",
     "name": "Teamless user captures a decision",
     "expected": "rejected — user has no org",
-    "observed": "status 201",
-    "status": "fail",
-    "defects": [
-      "A teamless user can create a decision — getOrgId falls back to the OLDEST org in the DB (cross-tenant write)"
-    ],
-    "ts": "2026-06-12T12:39:50.820Z"
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:38.704Z"
   },
   {
     "feature": "Task Context",
@@ -906,7 +659,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.774Z"
+    "ts": "2026-06-13T01:23:39.132Z"
   },
   {
     "feature": "Task Context",
@@ -916,7 +669,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.796Z"
+    "ts": "2026-06-13T01:23:39.153Z"
   },
   {
     "feature": "Task Context",
@@ -926,7 +679,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.812Z"
+    "ts": "2026-06-13T01:23:39.168Z"
   },
   {
     "feature": "Task Context",
@@ -936,7 +689,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.816Z"
+    "ts": "2026-06-13T01:23:39.171Z"
   },
   {
     "feature": "Task Context",
@@ -946,7 +699,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.835Z"
+    "ts": "2026-06-13T01:23:39.188Z"
   },
   {
     "feature": "Task Context",
@@ -954,12 +707,9 @@
     "type": "pressure",
     "name": "Upload a file over the 10MB limit",
     "expected": "rejected (413/400)",
-    "observed": "status 500",
-    "status": "fail",
-    "defects": [
-      "Oversize upload returns 500 instead of a clean 413/400"
-    ],
-    "ts": "2026-06-12T12:59:14.865Z"
+    "observed": "status 413",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:39.212Z"
   },
   {
     "feature": "Task Context",
@@ -967,9 +717,9 @@
     "type": "user_error",
     "name": "Upload a disallowed MIME (application/zip)",
     "expected": "rejected",
-    "observed": "status 500",
-    "status": "fail",
-    "ts": "2026-06-12T12:59:14.873Z"
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:39.220Z"
   },
   {
     "feature": "Task Context",
@@ -979,7 +729,7 @@
     "expected": "filename sanitized; no traversal",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.888Z"
+    "ts": "2026-06-13T01:23:39.236Z"
   },
   {
     "feature": "Artifacts",
@@ -989,7 +739,7 @@
     "expected": "201 version 1",
     "observed": "version 1",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.919Z"
+    "ts": "2026-06-13T01:23:39.260Z"
   },
   {
     "feature": "Artifacts",
@@ -999,7 +749,7 @@
     "expected": "200, version 2",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.936Z"
+    "ts": "2026-06-13T01:23:39.282Z"
   },
   {
     "feature": "Artifacts",
@@ -1009,7 +759,7 @@
     "expected": "≥2 versions",
     "observed": "2 versions",
     "status": "pass",
-    "ts": "2026-06-12T12:59:14.948Z"
+    "ts": "2026-06-13T01:23:39.295Z"
   },
   {
     "feature": "Artifacts",
@@ -1022,7 +772,7 @@
     "defects": [
       "Concurrent updates desynced version (3) from version-row count (4) — no optimistic concurrency control"
     ],
-    "ts": "2026-06-12T12:59:15.326Z"
+    "ts": "2026-06-13T01:23:39.668Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1032,7 +782,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.293Z"
+    "ts": "2026-06-13T01:23:40.173Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1042,7 +792,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.298Z"
+    "ts": "2026-06-13T01:23:40.177Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1052,7 +802,7 @@
     "expected": "400 cycle detected",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.304Z"
+    "ts": "2026-06-13T01:23:40.183Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1060,9 +810,9 @@
     "type": "permission",
     "name": "Non-owner adds a chain to someone's routine",
     "expected": "403/404 — not the owner",
-    "observed": "status 500",
+    "observed": "status 409",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.313Z"
+    "ts": "2026-06-13T01:23:40.191Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1072,7 +822,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.327Z"
+    "ts": "2026-06-13T01:23:40.217Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1080,12 +830,9 @@
     "type": "permission",
     "name": "Non-owner attaches a trigger to someone's routine",
     "expected": "403/404",
-    "observed": "status 201",
-    "status": "fail",
-    "defects": [
-      "Trigger CRUD has no permission/org check — cross-user trigger injection"
-    ],
-    "ts": "2026-06-12T13:01:02.332Z"
+    "observed": "status 404",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:40.229Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1095,7 +842,7 @@
     "expected": "200 roundtrip",
     "observed": "put 200; get 200 {\"counter\":1,\"lastSeen\":\"pr-42\"}",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.346Z"
+    "ts": "2026-06-13T01:23:40.249Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1105,7 +852,7 @@
     "expected": "404 — scope-checked",
     "observed": "status 404",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.352Z"
+    "ts": "2026-06-13T01:23:40.256Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1115,7 +862,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.434Z"
+    "ts": "2026-06-13T01:23:40.337Z"
   },
   {
     "feature": "Routines (internals)",
@@ -1125,7 +872,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T13:01:02.438Z"
+    "ts": "2026-06-13T01:23:40.341Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -1133,9 +880,9 @@
     "type": "happy",
     "name": "Add a dependency link between decisions",
     "expected": "201",
-    "observed": "status 201",
-    "status": "pass",
-    "ts": "2026-06-12T13:03:07.078Z"
+    "observed": "status 409",
+    "status": "partial",
+    "ts": "2026-06-13T01:23:41.273Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -1143,12 +890,9 @@
     "type": "permission",
     "name": "Non-owner adds a link to someone's decision",
     "expected": "403/404 — not owner/org-scoped",
-    "observed": "status 201",
-    "status": "fail",
-    "defects": [
-      "Decision link endpoints have no org/ownership validation — cross-user/cross-org linking"
-    ],
-    "ts": "2026-06-12T13:03:07.093Z"
+    "observed": "status 409",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:41.306Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -1158,7 +902,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:07.111Z"
+    "ts": "2026-06-13T01:23:41.336Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -1168,7 +912,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:07.124Z"
+    "ts": "2026-06-13T01:23:41.358Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -1178,7 +922,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:07.137Z"
+    "ts": "2026-06-13T01:23:41.388Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -1188,7 +932,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:07.150Z"
+    "ts": "2026-06-13T01:23:41.396Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -1198,20 +942,20 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:07.165Z"
+    "ts": "2026-06-13T01:23:41.404Z"
   },
   {
     "feature": "Decisions (graph)",
     "subFeature": "conflict detection",
     "type": "pressure",
     "name": "Two directly-contradictory org decisions",
-    "expected": "system flags the contradiction",
-    "observed": "both created (c1=201, c2=201); no conflict surfaced",
+    "expected": "system flags the contradiction (a contradicts link surfaced via /conflicts)",
+    "observed": "both created (c1=201, c2=201); conflicts surfaced=0",
     "status": "fail",
     "defects": [
-      "No conflict detection — two directly-contradictory decisions are both stored as active with no contradiction flag/alert"
+      "Contradiction between two opposing same-domain decisions was not flagged"
     ],
-    "ts": "2026-06-12T13:03:08.773Z"
+    "ts": "2026-06-13T01:23:54.973Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1221,7 +965,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.377Z"
+    "ts": "2026-06-13T01:23:55.470Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1231,7 +975,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.389Z"
+    "ts": "2026-06-13T01:23:55.474Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1241,7 +985,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.414Z"
+    "ts": "2026-06-13T01:23:55.485Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1251,7 +995,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.421Z"
+    "ts": "2026-06-13T01:23:55.489Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1261,7 +1005,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.440Z"
+    "ts": "2026-06-13T01:23:55.497Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1271,7 +1015,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.446Z"
+    "ts": "2026-06-13T01:23:55.504Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1281,7 +1025,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.456Z"
+    "ts": "2026-06-13T01:23:55.515Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1291,7 +1035,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.464Z"
+    "ts": "2026-06-13T01:23:55.520Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1301,7 +1045,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.475Z"
+    "ts": "2026-06-13T01:23:55.529Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1311,7 +1055,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.482Z"
+    "ts": "2026-06-13T01:23:55.533Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1321,7 +1065,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.490Z"
+    "ts": "2026-06-13T01:23:55.542Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1329,12 +1073,9 @@
     "type": "permission",
     "name": "Admin moves a user into ANOTHER org's team",
     "expected": "rejected — cross-tenant move",
-    "observed": "status 200; moved=true (restored)",
-    "status": "fail",
-    "defects": [
-      "Admin can move a user into a DIFFERENT org's team — updateUserTeam connects a team by id with no org check (cross-tenant user exfiltration)"
-    ],
-    "ts": "2026-06-12T13:03:09.545Z"
+    "observed": "status 400; moved=false (restored)",
+    "status": "pass",
+    "ts": "2026-06-13T01:23:55.578Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1344,7 +1085,7 @@
     "expected": "200",
     "observed": "status 200 {\"data\":{\"items\":[{\"id\":\"b227ec8c-3e80-48e2-83cf-d481d7199c6",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.554Z"
+    "ts": "2026-06-13T01:23:55.588Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1354,7 +1095,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.561Z"
+    "ts": "2026-06-13T01:23:55.603Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1364,7 +1105,7 @@
     "expected": "200 (intentionally public pre-setup)",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.569Z"
+    "ts": "2026-06-13T01:23:55.615Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1374,6 +1115,6 @@
     "expected": "400 — already set up",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-12T13:03:09.575Z"
+    "ts": "2026-06-13T01:23:55.622Z"
   }
 ]
