@@ -111,11 +111,10 @@ beforeEach(() => {
 // ── GOV-E-07: llm_evaluation fails OPEN ──
 
 describe('GOV-E-07: llm_evaluation provider failure', () => {
-  it('DEFECT (GOV-E-07): a BLOCK policy fails OPEN when the LLM provider errors (pins current behavior)', async () => {
-    // DEFECT (GOV-E-07 / Part 3 #9): evaluateLLM swallows provider errors and
-    // returns { matched: false }. A block-enforcement llm_evaluation policy
-    // therefore produces NO violation when the provider is down — content that
-    // should be blocked passes. When hardened to fail closed this flips.
+  it('GOV-E-07 FIXED: a BLOCK policy fails CLOSED when the LLM provider errors', async () => {
+    // A block-enforcement llm_evaluation policy that cannot be evaluated (provider
+    // down) now records a violation and blocks — unverifiable content is not let
+    // through (fail closed), which is the correct posture for a regulated org.
     asMock(prisma.governancePolicy.findMany).mockResolvedValue([
       makePolicy({
         ruleType: 'llm_evaluation',
@@ -129,12 +128,12 @@ describe('GOV-E-07: llm_evaluation provider failure', () => {
 
     const violations = await callEvaluate('here is a secret value');
 
-    // Current behavior: no violation recorded — fails open.
-    expect(violations).toHaveLength(0);
-    expect(prisma.governanceViolation.create).not.toHaveBeenCalled();
+    // Fail closed: violation recorded so the message is blocked.
+    expect(violations).toHaveLength(1);
+    expect(prisma.governanceViolation.create).toHaveBeenCalled();
   });
 
-  it('DEFECT (GOV-E-07): fails open when the stream rejects mid-iteration', async () => {
+  it('GOV-E-07 FIXED: fails CLOSED when the stream rejects mid-iteration', async () => {
     asMock(prisma.governancePolicy.findMany).mockResolvedValue([
       makePolicy({
         ruleType: 'llm_evaluation',
@@ -149,7 +148,7 @@ describe('GOV-E-07: llm_evaluation provider failure', () => {
     asMock(providerRegistry.chatWithFallback).mockReturnValue(broken());
 
     const violations = await callEvaluate('anything');
-    expect(violations).toHaveLength(0);
+    expect(violations).toHaveLength(1); // fail closed
   });
 
   it('control: a healthy LLM still flags a VIOLATION response', async () => {

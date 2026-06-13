@@ -31,14 +31,29 @@ export interface CreateSkillInput {
 /**
  * Lists skills available in an org with optional search and filters.
  */
-export async function listSkills(orgId: string, filters?: SkillFilters) {
+export async function listSkills(orgId: string, filters?: SkillFilters, viewer?: { userId: string; teamId: string | null }) {
   const where: Prisma.SkillWhereInput = { orgId };
+  const and: Prisma.SkillWhereInput[] = [];
+
+  // Scope visibility: a user sees org-wide skills, their own team's team-skills,
+  // and skills they authored — NOT every other user's personal skills.
+  if (viewer) {
+    and.push({
+      OR: [
+        { scope: 'org' },
+        ...(viewer.teamId ? [{ scope: 'team', teamId: viewer.teamId } as Prisma.SkillWhereInput] : []),
+        { authorId: viewer.userId },
+      ],
+    });
+  }
 
   if (filters?.search) {
-    where.OR = [
-      { name: { contains: filters.search, mode: 'insensitive' } },
-      { description: { contains: filters.search, mode: 'insensitive' } },
-    ];
+    and.push({
+      OR: [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+      ],
+    });
   }
 
   if (filters?.scope) {
@@ -47,6 +62,10 @@ export async function listSkills(orgId: string, filters?: SkillFilters) {
 
   if (filters?.status) {
     where.status = filters.status;
+  }
+
+  if (and.length > 0) {
+    where.AND = and;
   }
 
   const skills = await prisma.skill.findMany({
@@ -138,18 +157,14 @@ export async function installSkill(userId: string, skillId: string, orgId?: stri
     throw new Error('Skill not found');
   }
 
-  // Upsert to handle idempotent installs. Use the skill's orgId — a user can
-  // only install skills available in their org (Skills are org-scoped).
+  // Idempotent install: if already installed, return it WITHOUT bumping the
+  // count (a previous unconditional increment inflated installCount on re-install).
+  const existing = await prisma.userSkill.findUnique({ where: { userId_skillId: { userId, skillId } } });
+  if (existing) return existing;
+
   const [userSkill] = await prisma.$transaction([
-    prisma.userSkill.upsert({
-      where: { userId_skillId: { userId, skillId } },
-      create: { orgId: skill.orgId, userId, skillId },
-      update: {},
-    }),
-    prisma.skill.update({
-      where: { id: skillId },
-      data: { installCount: { increment: 1 } },
-    }),
+    prisma.userSkill.create({ data: { orgId: skill.orgId, userId, skillId } }),
+    prisma.skill.update({ where: { id: skillId }, data: { installCount: { increment: 1 } } }),
   ]);
 
   return userSkill;

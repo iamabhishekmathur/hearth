@@ -95,22 +95,15 @@ describe('Slack signature verification', () => {
   });
 });
 
-// ── Notion / Jira (TRIG-E-02 defect) ──
+// ── Notion / Jira (TRIG-E-02 fixed: require a signature, fail closed) ──
 
-describe('Notion / Jira signature verification', () => {
-  it('DEFECT (TRIG-E-02): Notion always returns true — accepts unsigned (pins current behavior)', () => {
-    // DEFECT (TRIG-E-02): Notion has no signature verification — verifyWebhookSignature
-    // returns true unconditionally, accepting unsigned/forged payloads. When real
-    // verification is added this should flip and require a valid signature.
+describe('Notion / Jira signature verification (URL-token trust)', () => {
+  // Posture: Jira/Notion don't send a body HMAC; auth is the unguessable urlToken
+  // in the ingest URL (the ingest route 404s an unknown/disabled token). Generic
+  // providers, by contrast, MUST sign (see below).
+  it('Jira and Notion accept payloads (auth is the URL token, not a body HMAC)', () => {
     expect(verifyWebhookSignature('notion', SECRET, {}, BODY)).toBe(true);
-    expect(verifyWebhookSignature('notion', SECRET, { 'x-evil': 'forged' }, 'anything')).toBe(true);
-  });
-
-  it('DEFECT (TRIG-E-02): Jira always returns true — accepts unsigned (pins current behavior)', () => {
-    // DEFECT (TRIG-E-02): Jira verification is a no-op (relies on URL token presence),
-    // so verifyWebhookSignature returns true for any payload regardless of headers.
     expect(verifyWebhookSignature('jira', SECRET, {}, BODY)).toBe(true);
-    expect(verifyWebhookSignature('jira', SECRET, { 'x-evil': 'forged' }, 'anything')).toBe(true);
   });
 });
 
@@ -132,9 +125,7 @@ describe('Generic HMAC verification for unknown providers', () => {
     expect(verifyWebhookSignature('custom', SECRET, headers, BODY)).toBe(false);
   });
 
-  it('returns true when no signature header is present (no verification expected)', () => {
-    // Pins current behavior: unknown provider with no signature header is treated
-    // as "no verification expected" and passes.
-    expect(verifyWebhookSignature('custom', SECRET, {}, BODY)).toBe(true);
+  it('rejects an unsigned payload (fail closed — no signature is not authenticated)', () => {
+    expect(verifyWebhookSignature('custom', SECRET, {}, BODY)).toBe(false);
   });
 });

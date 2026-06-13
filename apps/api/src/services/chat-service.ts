@@ -290,6 +290,15 @@ export async function addCollaborator(
   });
   if (!session) return null;
 
+  // Tenancy: the collaborator must belong to the SAME org as the session.
+  // Without this, an owner could add a cross-org user id and grant them read
+  // access — a tenancy bypass.
+  const target = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { team: { select: { orgId: true } } },
+  });
+  if (!target || target.team?.orgId !== session.orgId) return null;
+
   try {
     return await prisma.sessionCollaborator.upsert({
       where: {

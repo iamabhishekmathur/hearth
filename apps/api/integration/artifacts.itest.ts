@@ -117,7 +117,7 @@ describe('artifacts — create / version / delete (owner happy path)', () => {
 });
 
 describe('artifacts — missing role gate (ARTIFACT-Z-01/02)', () => {
-  it('DEFECT (ARTIFACT-Z-02): a viewer who can read the session can PATCH an artifact', async () => {
+  it('FIXED (ARTIFACT-Z-02): a read-only viewer cannot PATCH an artifact (403)', async () => {
     const { sessionId } = await orgVisibleSession();
     const admin = await loginAgent('admin');
     const made = await admin.post(`/api/v1/chat/sessions/${sessionId}/artifacts`, {
@@ -125,17 +125,17 @@ describe('artifacts — missing role gate (ARTIFACT-Z-01/02)', () => {
     });
     const id = made.body.data.id;
 
-    // The org `viewer` role is read-only in product terms, but artifact PATCH
-    // only checks session *read* access — so the viewer can mutate it.
+    // The org `viewer` is read-only: it can SEE the org-visible session but
+    // artifact PATCH now requires session WRITE access (getSessionWriteAccess).
     const viewer = await loginAgent('viewer');
     const res = await viewer.patch(`/api/v1/chat/artifacts/${id}`, { content: 'edited by viewer' });
-    // DEFECT (ARTIFACT-Z-02): pins current behavior — no role/author gate.
-    expect(res.status).toBe(200);
+    // FIXED (ARTIFACT-Z-02): write-gated → 403, and the content is unchanged.
+    expect(res.status).toBe(403);
     const row = await prisma.artifact.findUnique({ where: { id } });
-    expect(row?.content).toBe('edited by viewer');
+    expect(row?.content).toBe('owned by admin');
   });
 
-  it('DEFECT (ARTIFACT-Z-01): any session reader (a member peer) can DELETE the artifact', async () => {
+  it('FIXED (ARTIFACT-Z-01): a non-author session reader cannot DELETE the artifact (403)', async () => {
     const { sessionId } = await orgVisibleSession();
     const admin = await loginAgent('admin');
     const made = await admin.post(`/api/v1/chat/sessions/${sessionId}/artifacts`, {
@@ -143,12 +143,13 @@ describe('artifacts — missing role gate (ARTIFACT-Z-01/02)', () => {
     });
     const id = made.body.data.id;
 
+    // A same-org member can read the org-visible session but is not a write
+    // collaborator → delete is write-gated.
     const member = await loginAgent('member');
     const res = await member.del(`/api/v1/chat/artifacts/${id}`);
-    // DEFECT (ARTIFACT-Z-01): pins current behavior — a non-author session
-    // reader deletes another user's artifact.
-    expect(res.status).toBe(200);
-    expect(await prisma.artifact.findUnique({ where: { id } })).toBeNull();
+    // FIXED (ARTIFACT-Z-01): write-gated → 403, and the artifact still exists.
+    expect(res.status).toBe(403);
+    expect(await prisma.artifact.findUnique({ where: { id } })).not.toBeNull();
   });
 
   it('a user with NO session access still cannot touch the artifact (404)', async () => {

@@ -226,7 +226,13 @@ export async function evaluateMessage(params: {
       matchResult = await evaluateLLM(policy, params.content);
     }
 
-    if (matchResult?.matched) {
+    // Fail CLOSED: a BLOCK policy that cannot be evaluated (invalid regex, LLM
+    // error, bad config) is treated as a violation. For a regulated org it is
+    // safer to block unverifiable content than to let it through (fail-open).
+    const evalErrored = !!(matchResult?.details as { error?: unknown } | undefined)?.error;
+    const triggered = !!matchResult?.matched || (evalErrored && policy.enforcement === 'block');
+
+    if (triggered) {
       const snippet = params.content.slice(0, 500);
       const record = await prisma.governanceViolation.create({
         data: {
@@ -238,7 +244,7 @@ export async function evaluateMessage(params: {
           messageRole: params.messageRole,
           severity: policy.severity,
           contentSnippet: snippet,
-          matchDetails: matchResult.details as Prisma.InputJsonValue,
+          matchDetails: (matchResult?.details ?? { failClosed: true }) as Prisma.InputJsonValue,
           enforcement: policy.enforcement,
         },
       });

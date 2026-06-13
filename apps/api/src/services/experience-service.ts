@@ -297,7 +297,6 @@ async function maybeProposeSKill(
       status: 'draft',
       source: 'auto_generated',
       sourceExperienceId: experienceId,
-      createdVia: 'reflection',
     } as never,
   });
 
@@ -346,7 +345,6 @@ export async function createProposedSkill(
       scope: 'personal',
       status: 'draft',
       source: 'auto_generated',
-      createdVia: 'agent',
     } as never,
   });
 

@@ -49,3 +49,6 @@ TODO-phase5.md
 
 # GitHub workflows from upstream
 .github/workflows/test-plugin-install.yml
+
+# Runtime file-upload storage (created by the API at runtime / in tests)
+apps/api/uploads/

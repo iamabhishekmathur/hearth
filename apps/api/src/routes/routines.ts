@@ -233,6 +233,12 @@ router.post('/', requireAuth, async (req, res, next) => {
       }
     }
 
+    // Only team leads / admins may create team- or org-scoped routines.
+    if ((scope === 'org' || scope === 'team') && !['admin', 'team_lead'].includes(req.user!.role)) {
+      res.status(403).json({ error: 'Only team leads or admins can create team- or org-scoped routines' });
+      return;
+    }
+
     const routine = await routineService.createRoutine(req.user!.id, {
       name,
       description,
@@ -381,7 +387,7 @@ router.post('/:id/run-now', requireAuth, async (req, res, next) => {
 router.get('/:id/runs', requireAuth, async (req, res, next) => {
   try {
     const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-    const result = await routineService.listRuns(req.params.id as string, req.user!.id, page);
+    const result = await routineService.listRuns(req.params.id as string, permCtx(req), page);
     if (!result) {
       res.status(404).json({ error: 'Routine not found' });
       return;
@@ -474,6 +480,13 @@ router.post('/:id/triggers', requireAuth, async (req, res, next) => {
 
     if (!webhookEndpointId || !eventType) {
       res.status(400).json({ error: 'webhookEndpointId and eventType are required' });
+      return;
+    }
+
+    // Only someone with access to the routine may attach a trigger to it.
+    const routine = await routineService.getRoutine(req.params.id as string, permCtx(req));
+    if (!routine) {
+      res.status(404).json({ error: 'Routine not found' });
       return;
     }
 

@@ -109,6 +109,7 @@ function createEchoProvider(id: string): LLMProvider {
       // Return a fake embedding that encodes the text length for verification
       return texts.map((t) => [t.length, 0, 0]);
     },
+    listModels: async () => [id],
   };
 }
 
@@ -136,6 +137,8 @@ function createToolCallProvider(): LLMProvider {
       yield { type: 'text_delta' as const, content: `Found record for ${placeholder}.` };
       yield { type: 'done' as const, usage: { inputTokens: 20, outputTokens: 15 } };
     },
+    embed: async (texts: string[]) => texts.map((t) => [t.length, 0, 0]),
+    listModels: async () => ['tool-provider'],
   };
 }
 

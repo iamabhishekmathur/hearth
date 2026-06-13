@@ -291,6 +291,9 @@ export async function createSubtask(
       userId,
       title: data.title,
       description: data.description ?? null,
+      // Subtasks are created ready-to-run: the executor picks up 'backlog'
+      // subtasks. Defaulting to 'auto_detected' left planner subtasks orphaned.
+      status: 'backlog',
       source: 'sub_agent',
       parentTaskId,
       context: {},

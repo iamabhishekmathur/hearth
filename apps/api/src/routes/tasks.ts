@@ -525,7 +525,20 @@ const contextUpload = multer({
   },
 });
 
-router.post('/:id/context-items/upload', requireAuth, requireOrg, contextUpload.single('file'), async (req, res, next) => {
+// Wrap multer so its errors (oversize, disallowed MIME) become clean 4xx
+// responses instead of bubbling to the 500 handler.
+const uploadFile: import('express').RequestHandler = (req, res, next) => {
+  contextUpload.single('file')(req, res, (err: unknown) => {
+    if (err) {
+      const code = (err as { code?: string }).code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+      res.status(code).json({ error: (err as Error).message ?? 'Upload rejected' });
+      return;
+    }
+    next();
+  });
+};
+
+router.post('/:id/context-items/upload', requireAuth, requireOrg, uploadFile, async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {

@@ -444,7 +444,15 @@ router.post('/sessions/:id/join', requireAuth, async (req, res, next) => {
  */
 router.get('/sessions/:id/collaborators', requireAuth, async (req, res, next) => {
   try {
-    const collaborators = await chatService.listCollaborators(req.params.id as string);
+    const sessionId = req.params.id as string;
+    // Require session access — the collaborator list exposes names/emails and
+    // must not be readable by any authenticated user who guesses a session id.
+    const session = await chatService.getSession(sessionId, req.user!.id);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    const collaborators = await chatService.listCollaborators(sessionId);
     res.json({ data: collaborators });
   } catch (err) {
     next(err);

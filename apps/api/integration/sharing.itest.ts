@@ -96,7 +96,7 @@ describe('sharing — create & anonymous resolve', () => {
 });
 
 describe('sharing — lifecycle defects', () => {
-  it('DEFECT (SHARE-E-02): archiving the session does NOT invalidate the share link', async () => {
+  it('FIXED (SHARE-E-02): archiving the session invalidates the share link', async () => {
     const { admin, sessionId, token } = await makeSharedSession();
 
     // Owner archives the session.
@@ -104,27 +104,28 @@ describe('sharing — lifecycle defects', () => {
     expect(archived.status).toBe(200);
     expect((await prisma.chatSession.findUnique({ where: { id: sessionId } }))?.status).toBe('archived');
 
-    // The public link still resolves — getSharedSession never checks status.
+    // getSharedSession now rejects a non-active underlying session, so the
+    // public link no longer leaks an archived conversation.
     const anon = anonAgent();
     const res = await anon.get(`/api/v1/shared/${token}`);
-    // DEFECT (SHARE-E-02): pins current behavior — archived session stays viewable.
-    expect(res.status).toBe(200);
-    expect(res.body.data.session.id).toBe(sessionId);
+    // FIXED (SHARE-E-02): archived session is no longer publicly viewable.
+    expect(res.status).toBe(404);
   });
 
-  it('DEFECT (SHARE-ERR-02): no revoke endpoint exists for a share link', async () => {
+  it('FIXED (SHARE-ERR-02): an owner can revoke a share link (DELETE /:id/share)', async () => {
     const { admin, sessionId, token } = await makeSharedSession();
 
-    // There is no DELETE route for shares. Express has no handler, so these
-    // 404 at the router level (route-not-found), and the link keeps working.
-    const delByToken = await admin.del(`/api/v1/shared/${token}`);
-    expect(delByToken.status).toBe(404);
-    const delBySession = await admin.del(`/api/v1/chat/sessions/${sessionId}/share`);
-    expect(delBySession.status).toBe(404);
+    // The link works before revocation.
+    expect((await anonAgent().get(`/api/v1/shared/${token}`)).status).toBe(200);
 
-    // DEFECT (SHARE-ERR-02): pins current behavior — link is still resolvable
-    // because there is no way to revoke it.
+    // There's still no per-token DELETE route (404), but the session-scoped
+    // revoke endpoint now exists and revokes every link for the session.
+    expect((await admin.del(`/api/v1/shared/${token}`)).status).toBe(404);
+    const delBySession = await admin.del(`/api/v1/chat/sessions/${sessionId}/share`);
+    expect(delBySession.status).toBe(200);
+
+    // FIXED (SHARE-ERR-02): the link no longer resolves after revocation.
     const anon = anonAgent();
-    expect((await anon.get(`/api/v1/shared/${token}`)).status).toBe(200);
+    expect((await anon.get(`/api/v1/shared/${token}`)).status).toBe(404);
   });
 });

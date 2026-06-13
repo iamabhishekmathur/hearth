@@ -63,6 +63,15 @@ export async function updateUser(
 }
 
 export async function updateUserTeam(id: string, teamId: string): Promise<User> {
+  // Tenancy: the target team must be in the SAME org as the user. Without this,
+  // an admin could move a user into another org's team (cross-tenant exfiltration).
+  const [user, team] = await Promise.all([
+    prisma.user.findUnique({ where: { id }, include: { team: { select: { orgId: true } } } }),
+    prisma.team.findUnique({ where: { id: teamId }, select: { orgId: true } }),
+  ]);
+  if (!user || !team || !user.team?.orgId || user.team.orgId !== team.orgId) {
+    throw new Error('Target team is not in the user\'s organization');
+  }
   return prisma.user.update({
     where: { id },
     data: { team: { connect: { id: teamId } } },

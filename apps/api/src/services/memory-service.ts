@@ -90,6 +90,9 @@ export async function getMemory(id: string, scope: MemoryScope) {
   const entry = await prisma.memoryEntry.findUnique({ where: { id } });
   if (!entry) return null;
 
+  // Expired entries are not returned (consistent with listing/search).
+  if (entry.expiresAt && entry.expiresAt.getTime() <= Date.now()) return null;
+
   // Verify access
   if (entry.orgId !== scope.orgId) return null;
   if (entry.layer === 'team' && entry.teamId !== scope.teamId) return null;

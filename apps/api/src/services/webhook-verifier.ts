@@ -17,10 +17,13 @@ export function verifyWebhookSignature(
     case 'github':
       return verifyGitHub(secret, headers, rawBody);
     case 'jira':
-      // Jira uses shared secret in URL — verification is done by URL token presence
-      return true;
     case 'notion':
-      // Notion doesn't support webhook signatures yet
+    case 'email':
+      // URL-token trust: the unguessable 24-byte urlToken in the ingest URL is
+      // the shared secret for these providers (their common webhook model — they
+      // don't send a body HMAC by default; inbound-email forwarders post to a
+      // secret parse URL). The ingest route already 404s an unknown/disabled
+      // token, so an attacker needs that token to reach here.
       return true;
     case 'slack':
       return verifySlack(secret, headers, rawBody);
@@ -65,7 +68,7 @@ function verifySlack(secret: string, headers: Record<string, string | undefined>
 
 function verifyGenericHmac(secret: string, headers: Record<string, string | undefined>, rawBody: string): boolean {
   const signature = headers['x-webhook-signature'] || headers['x-signature'];
-  if (!signature) return true; // No signature header means no verification expected
+  if (!signature) return false; // Fail closed — an unsigned payload is not authenticated
 
   const hmac = createHmac('sha256', secret).update(rawBody).digest('hex');
   try {

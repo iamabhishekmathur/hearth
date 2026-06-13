@@ -224,10 +224,12 @@ export async function toggleRoutine(id: string, userId: string) {
   });
 }
 
-export async function listRuns(routineId: string, userId: string, page = 1, pageSize = 20) {
-  // Verify access (simplified — owner check; scope check should be layered by route)
+export async function listRuns(routineId: string, user: string | PermissionContext, page = 1, pageSize = 20) {
+  // Run history (and its outputs) is sensitive — gate on the same access rules
+  // as reading the routine. Without this, any user could read any routine's runs.
   const routine = await prisma.routine.findUnique({ where: { id: routineId } });
   if (!routine) return null;
+  if (!canAccessRoutine(routine, user, 'view')) return null;
 
   const skip = (page - 1) * pageSize;
   const [runs, total] = await Promise.all([

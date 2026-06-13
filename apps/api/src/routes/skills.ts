@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { SkillScope, SkillStatus } from '@prisma/client';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import * as skillService from '../services/skill-service.js';
 import * as proposalService from '../services/skill-proposal-service.js';
 import { logger } from '../lib/logger.js';
@@ -41,7 +41,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       scope,
       status,
       installedByUser: req.user!.id,
-    });
+    }, { userId: req.user!.id, teamId: req.user!.teamId ?? null });
     res.json({ data: skills });
   } catch (err) {
     next(err);
@@ -158,6 +158,12 @@ router.post('/', requireAuth, async (req, res, next) => {
       teamId?: string;
     };
 
+    // Only team leads / admins may publish team- or org-scoped skills.
+    if ((scope === 'org' || scope === 'team') && !['admin', 'team_lead'].includes(req.user!.role)) {
+      res.status(403).json({ error: 'Only team leads or admins can create team- or org-scoped skills' });
+      return;
+    }
+
     // Personal skills are published immediately; team/org skills need review
     const effectiveStatus = !scope || scope === 'personal' ? 'published' : 'pending_review';
 
@@ -266,7 +272,7 @@ router.delete('/:id/proposal', requireAuth, async (req, res, next) => {
 /**
  * POST /seed — seeds skills from agent-skills/skills/ into the database (admin only)
  */
-router.post('/seed', requireAuth, async (req, res, next) => {
+router.post('/seed', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
     if (!req.user!.orgId) {
       res.status(400).json({ error: 'User must belong to an organization' });

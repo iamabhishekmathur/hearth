@@ -23,10 +23,16 @@ router.post('/sessions/:sessionId/artifacts', requireAuth, async (req, res, next
   try {
     const sessionId = req.params.sessionId as string;
 
-    // Verify session access
+    // Verify session access, then require WRITE access — viewers / org-readers
+    // can see a session but must not create artifacts in it.
     const session = await chatService.getSession(sessionId, req.user!.id);
     if (!session) {
       res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+    const writeAccess = await chatService.getSessionWriteAccess(sessionId, req.user!.id);
+    if (!writeAccess) {
+      res.status(403).json({ error: 'Write access required to create artifacts' });
       return;
     }
 
@@ -222,10 +228,16 @@ router.patch('/artifacts/:id', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Verify session access
+    // Verify session access, then require WRITE access — a read-only viewer
+    // can see a session's artifact but must not edit it (mirrors create/delete).
     const session = await chatService.getSession(existing.sessionId, req.user!.id);
     if (!session) {
       res.status(404).json({ error: 'Artifact not found' });
+      return;
+    }
+    const writeAccess = await chatService.getSessionWriteAccess(existing.sessionId, req.user!.id);
+    if (!writeAccess) {
+      res.status(403).json({ error: 'Write access required to edit artifacts' });
       return;
     }
 
@@ -267,10 +279,16 @@ router.delete('/artifacts/:id', requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Verify session access
+    // Verify session access, then require WRITE access — a read-only viewer
+    // must not delete artifacts.
     const session = await chatService.getSession(existing.sessionId, req.user!.id);
     if (!session) {
       res.status(404).json({ error: 'Artifact not found' });
+      return;
+    }
+    const writeAccess = await chatService.getSessionWriteAccess(existing.sessionId, req.user!.id);
+    if (!writeAccess) {
+      res.status(403).json({ error: 'Write access required to delete artifacts' });
       return;
     }
 
