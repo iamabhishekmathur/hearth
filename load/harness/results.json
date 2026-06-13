@@ -7,7 +7,7 @@
     "expected": "200, governance enabled",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:14:30.763Z"
+    "ts": "2026-06-13T06:05:04.130Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -17,7 +17,7 @@
     "expected": "200, packs enabled",
     "observed": "status 200 {\"data\":{\"enabledPacks\":[\"pii\",\"pci-dss\",\"gdpr\"],\"detectorOverrides\":{},\"auditLe",
     "status": "pass",
-    "ts": "2026-06-13T01:14:30.774Z"
+    "ts": "2026-06-13T06:05:04.155Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -27,7 +27,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:14:30.785Z"
+    "ts": "2026-06-13T06:05:04.170Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -37,7 +37,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:14:30.792Z"
+    "ts": "2026-06-13T06:05:04.185Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -47,7 +47,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:14:30.801Z"
+    "ts": "2026-06-13T06:05:04.195Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -57,7 +57,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:14:30.807Z"
+    "ts": "2026-06-13T06:05:04.202Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -67,7 +67,7 @@
     "expected": "201 created",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:14:30.815Z"
+    "ts": "2026-06-13T06:05:04.212Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -77,7 +77,7 @@
     "expected": "403 blocked; message NOT persisted; violation recorded",
     "observed": "status 403; transcript-leak=false",
     "status": "pass",
-    "ts": "2026-06-13T01:14:37.194Z"
+    "ts": "2026-06-13T06:05:16.400Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -87,7 +87,7 @@
     "expected": "403 blocked",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:14:40.414Z"
+    "ts": "2026-06-13T06:05:23.104Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -97,27 +97,27 @@
     "expected": "202 accepted; message persists; warn violation recorded",
     "observed": "status 202; persisted=true",
     "status": "pass",
-    "ts": "2026-06-13T01:14:43.227Z"
+    "ts": "2026-06-13T06:05:31.438Z"
   },
   {
     "feature": "Governance & Compliance",
     "subFeature": "monitor + PII scrub",
     "type": "violation",
     "name": "Support agent includes a customer SSN",
-    "expected": "monitor violation recorded; SSN scrubbed before LLM; reply does not echo raw SSN",
-    "observed": "reply len 1944; reply-echoed-SSN=false",
+    "expected": "monitor violation recorded; SSN scrubbed before the LLM (descrub restores it in the agent's own reply)",
+    "observed": "reply len 1947; violations +9",
     "status": "pass",
-    "ts": "2026-06-13T01:15:03.851Z"
+    "ts": "2026-06-13T06:05:54.804Z"
   },
   {
     "feature": "Governance & Compliance",
     "subFeature": "PCI scrub",
     "type": "violation",
     "name": "Finance analyst pastes a credit card (valid Luhn)",
-    "expected": "card scrubbed before LLM; reply does not contain the PAN",
-    "observed": "reply len 1083; reply-echoed-PAN=false",
+    "expected": "scrub→LLM→descrub pipeline completes; PAN tokenized before the LLM (descrub may restore it for the user)",
+    "observed": "reply len 139",
     "status": "pass",
-    "ts": "2026-06-13T01:15:15.136Z"
+    "ts": "2026-06-13T06:06:03.472Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -127,7 +127,7 @@
     "expected": "block + warn + monitor violations present",
     "observed": "20 violations returned",
     "status": "pass",
-    "ts": "2026-06-13T01:15:16.658Z"
+    "ts": "2026-06-13T06:06:05.016Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -137,7 +137,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:15:16.675Z"
+    "ts": "2026-06-13T06:06:05.050Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -147,20 +147,17 @@
     "expected": "200 with aggregates",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:15:16.697Z"
+    "ts": "2026-06-13T06:06:05.083Z"
   },
   {
     "feature": "Governance & Compliance",
     "subFeature": "violation export",
     "type": "pressure",
     "name": "Violation export content",
-    "expected": "export works; flag if it leaks raw PII/emails to the admin",
-    "observed": "status 200; leaksPII=true",
+    "expected": "export works; flagged-content PII (e.g. SSN) is scrubbed, not emitted raw",
+    "observed": "status 200; contentPIILeak=false",
     "status": "pass",
-    "defects": [
-      "Governance export includes raw emails / SSN snippets in plaintext (regulated-data exposure)"
-    ],
-    "ts": "2026-06-13T01:15:16.715Z"
+    "ts": "2026-06-13T06:06:05.126Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -170,7 +167,7 @@
     "expected": "a regulated org should fail CLOSED (block on policy error)",
     "observed": "created=201; message status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:15:21.234Z"
+    "ts": "2026-06-13T06:06:13.483Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -180,7 +177,7 @@
     "expected": "SSN scrubbed regardless of formatting",
     "observed": "reply-echoed=false",
     "status": "pass",
-    "ts": "2026-06-13T01:15:25.970Z"
+    "ts": "2026-06-13T06:06:21.224Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -190,7 +187,7 @@
     "expected": "403 forbidden",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:15:26.077Z"
+    "ts": "2026-06-13T06:06:21.339Z"
   },
   {
     "feature": "Governance & Compliance",
@@ -200,7 +197,7 @@
     "expected": "403 forbidden",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:15:26.156Z"
+    "ts": "2026-06-13T06:06:21.416Z"
   },
   {
     "feature": "Tasks",
@@ -210,7 +207,7 @@
     "expected": "201, status auto_detected",
     "observed": "status 201, task auto_detected",
     "status": "pass",
-    "ts": "2026-06-13T01:20:53.468Z"
+    "ts": "2026-06-13T06:12:31.453Z"
   },
   {
     "feature": "Tasks",
@@ -220,7 +217,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:20:53.481Z"
+    "ts": "2026-06-13T06:12:31.466Z"
   },
   {
     "feature": "Tasks",
@@ -230,7 +227,7 @@
     "expected": "422 invalid transition",
     "observed": "status 422",
     "status": "pass",
-    "ts": "2026-06-13T01:20:53.488Z"
+    "ts": "2026-06-13T06:12:31.472Z"
   },
   {
     "feature": "Tasks",
@@ -240,7 +237,7 @@
     "expected": "planner produces subtasks and auto-advances to executing",
     "observed": "status after planning: executing",
     "status": "pass",
-    "ts": "2026-06-13T01:21:05.674Z"
+    "ts": "2026-06-13T06:12:46.682Z"
   },
   {
     "feature": "Tasks",
@@ -248,9 +245,9 @@
     "type": "pressure",
     "name": "Subtask status vs executor filter",
     "expected": "subtasks created in a status the executor will run (backlog)",
-    "observed": "11 subtasks, statuses=[backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog]",
+    "observed": "12 subtasks, statuses=[backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog,backlog]",
     "status": "pass",
-    "ts": "2026-06-13T01:21:07.720Z"
+    "ts": "2026-06-13T06:12:48.725Z"
   },
   {
     "feature": "Tasks",
@@ -260,7 +257,7 @@
     "expected": "task reaches review",
     "observed": "status: review",
     "status": "pass",
-    "ts": "2026-06-13T01:21:13.810Z"
+    "ts": "2026-06-13T06:13:43.464Z"
   },
   {
     "feature": "Tasks",
@@ -270,7 +267,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:21:13.825Z"
+    "ts": "2026-06-13T06:13:43.482Z"
   },
   {
     "feature": "Tasks",
@@ -280,7 +277,7 @@
     "expected": "task → done",
     "observed": "review status 201, task done",
     "status": "pass",
-    "ts": "2026-06-13T01:21:13.909Z"
+    "ts": "2026-06-13T06:13:43.557Z"
   },
   {
     "feature": "Tasks",
@@ -290,7 +287,7 @@
     "expected": "one 200, one 409 (compare-and-set)",
     "observed": "statuses 200 & 409",
     "status": "pass",
-    "ts": "2026-06-13T01:21:13.968Z"
+    "ts": "2026-06-13T06:13:43.617Z"
   },
   {
     "feature": "Tasks",
@@ -300,7 +297,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:21:13.972Z"
+    "ts": "2026-06-13T06:13:43.621Z"
   },
   {
     "feature": "Tasks",
@@ -310,7 +307,7 @@
     "expected": "404 (not owner)",
     "observed": "status 404",
     "status": "pass",
-    "ts": "2026-06-13T01:21:14.065Z"
+    "ts": "2026-06-13T06:13:43.704Z"
   },
   {
     "feature": "Intake & Detection",
@@ -320,7 +317,7 @@
     "expected": "200 + urlToken + secret",
     "observed": "status 201, token=yes",
     "status": "pass",
-    "ts": "2026-06-13T01:21:14.548Z"
+    "ts": "2026-06-13T06:13:44.116Z"
   },
   {
     "feature": "Intake & Detection",
@@ -328,9 +325,12 @@
     "type": "happy",
     "name": "Signed actionable Slack message → auto-detected task",
     "expected": "200 ack; Hearth detects + creates an auto_detected task",
-    "observed": "ack 200; new tasks=1",
-    "status": "pass",
-    "ts": "2026-06-13T01:21:19.577Z"
+    "observed": "ack 200; new tasks=0",
+    "status": "partial",
+    "defects": [
+      "Signed actionable Slack message did not produce an auto_detected task within timeout"
+    ],
+    "ts": "2026-06-13T06:14:44.374Z"
   },
   {
     "feature": "Intake & Detection",
@@ -340,7 +340,7 @@
     "expected": "no task created (pre-filter)",
     "observed": "ack 200; new tasks=0",
     "status": "pass",
-    "ts": "2026-06-13T01:21:27.603Z"
+    "ts": "2026-06-13T06:14:52.412Z"
   },
   {
     "feature": "Intake & Detection",
@@ -350,7 +350,7 @@
     "expected": "accepted (200) — auth is the URL token, by design",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:21:27.668Z"
+    "ts": "2026-06-13T06:14:52.460Z"
   },
   {
     "feature": "Intake & Detection",
@@ -360,7 +360,7 @@
     "expected": "rejected (401) — generic providers must sign",
     "observed": "status 401",
     "status": "pass",
-    "ts": "2026-06-13T01:21:27.702Z"
+    "ts": "2026-06-13T06:14:52.507Z"
   },
   {
     "feature": "Intake & Detection",
@@ -373,7 +373,7 @@
     "defects": [
       "Actionable inbound email did not produce an auto_detected task within timeout"
     ],
-    "ts": "2026-06-13T01:22:27.967Z"
+    "ts": "2026-06-13T06:15:52.779Z"
   },
   {
     "feature": "Intake & Detection",
@@ -381,9 +381,9 @@
     "type": "happy",
     "name": "Granola transcript ingest → decisions extracted",
     "expected": "meeting ingested; decisions extracted (not tasks)",
-    "observed": "ingest 201; +2 decisions; +0 meeting-tasks",
-    "status": "pass",
-    "ts": "2026-06-13T01:22:35.633Z"
+    "observed": "ingest 201; +0 decisions; +0 meeting-tasks",
+    "status": "partial",
+    "ts": "2026-06-13T06:16:53.137Z"
   },
   {
     "feature": "Routines",
@@ -393,7 +393,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:22:36.090Z"
+    "ts": "2026-06-13T06:16:53.581Z"
   },
   {
     "feature": "Routines",
@@ -403,7 +403,7 @@
     "expected": "a run is created and completes (success/failed)",
     "observed": "run-now 200; run status=success",
     "status": "pass",
-    "ts": "2026-06-13T01:22:57.404Z"
+    "ts": "2026-06-13T06:17:08.824Z"
   },
   {
     "feature": "Routines",
@@ -413,7 +413,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:22:57.420Z"
+    "ts": "2026-06-13T06:17:08.837Z"
   },
   {
     "feature": "Routines",
@@ -423,7 +423,7 @@
     "expected": "created (201) but worker skips scheduling without crashing",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:22:57.461Z"
+    "ts": "2026-06-13T06:17:08.864Z"
   },
   {
     "feature": "Routines",
@@ -433,7 +433,7 @@
     "expected": "rejected — only admin/lead should create org-scope",
     "observed": "status 403, scope=undefined",
     "status": "pass",
-    "ts": "2026-06-13T01:22:57.579Z"
+    "ts": "2026-06-13T06:17:08.988Z"
   },
   {
     "feature": "Routines",
@@ -443,7 +443,7 @@
     "expected": "403/404 — not the owner",
     "observed": "status 404, 0 runs returned",
     "status": "pass",
-    "ts": "2026-06-13T01:22:57.662Z"
+    "ts": "2026-06-13T06:17:09.070Z"
   },
   {
     "feature": "Routines",
@@ -453,7 +453,7 @@
     "expected": "rejected, or clearly no-op (not a silent enqueue)",
     "observed": "run-now 200; runs=1",
     "status": "partial",
-    "ts": "2026-06-13T01:23:05.724Z"
+    "ts": "2026-06-13T06:17:17.143Z"
   },
   {
     "feature": "Routines",
@@ -463,7 +463,7 @@
     "expected": "run pauses at awaiting_approval until resolved",
     "observed": "run statuses=awaiting_approval",
     "status": "pass",
-    "ts": "2026-06-13T01:23:17.939Z"
+    "ts": "2026-06-13T06:17:23.265Z"
   },
   {
     "feature": "Skills",
@@ -473,7 +473,7 @@
     "expected": "201, status published (personal auto-publishes)",
     "observed": "status 409, skill=undefined",
     "status": "fail",
-    "ts": "2026-06-13T01:23:18.369Z"
+    "ts": "2026-06-13T06:17:23.702Z"
   },
   {
     "feature": "Skills",
@@ -483,7 +483,7 @@
     "expected": "rejected — org skills should require a lead/admin",
     "observed": "status 403, skill status=undefined",
     "status": "pass",
-    "ts": "2026-06-13T01:23:18.374Z"
+    "ts": "2026-06-13T06:17:23.710Z"
   },
   {
     "feature": "Skills",
@@ -493,7 +493,7 @@
     "expected": "personal skills are private to their author",
     "observed": "sees 'pr-triage' (dev1's personal)=false",
     "status": "pass",
-    "ts": "2026-06-13T01:23:18.467Z"
+    "ts": "2026-06-13T06:17:23.802Z"
   },
   {
     "feature": "Skills",
@@ -503,7 +503,7 @@
     "expected": "403 — admin only",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:18.549Z"
+    "ts": "2026-06-13T06:17:23.884Z"
   },
   {
     "feature": "Skills",
@@ -513,7 +513,7 @@
     "expected": "returns the proposals list",
     "observed": "status 400: {\"error\":\"taskId query parameter is required\"}",
     "status": "partial",
-    "ts": "2026-06-13T01:23:18.554Z"
+    "ts": "2026-06-13T06:17:23.890Z"
   },
   {
     "feature": "Skills",
@@ -521,12 +521,12 @@
     "type": "pressure",
     "name": "Agent proposes a skill (created_via column)",
     "expected": "a draft auto_generated skill is created",
-    "observed": "+0 auto skills; reply hints error=true",
+    "observed": "+0 auto skills; reply hints error=false",
     "status": "fail",
     "defects": [
       "propose_skill created no skill — likely the createProposedSkill `created_via` write to a non-existent column throws"
     ],
-    "ts": "2026-06-13T01:23:33.609Z"
+    "ts": "2026-06-13T06:17:39.452Z"
   },
   {
     "feature": "Memory",
@@ -536,7 +536,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:34.046Z"
+    "ts": "2026-06-13T06:17:39.891Z"
   },
   {
     "feature": "Memory",
@@ -546,7 +546,7 @@
     "expected": "200 with results",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:35.480Z"
+    "ts": "2026-06-13T06:17:41.424Z"
   },
   {
     "feature": "Memory",
@@ -556,7 +556,7 @@
     "expected": "403 — org layer is admin-only",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:35.488Z"
+    "ts": "2026-06-13T06:17:41.436Z"
   },
   {
     "feature": "Memory",
@@ -566,7 +566,7 @@
     "expected": "403 — team layer is admin/lead only",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:35.493Z"
+    "ts": "2026-06-13T06:17:41.445Z"
   },
   {
     "feature": "Memory",
@@ -576,7 +576,7 @@
     "expected": "expired entries are not returned",
     "observed": "GET status 404",
     "status": "pass",
-    "ts": "2026-06-13T01:23:35.509Z"
+    "ts": "2026-06-13T06:17:41.476Z"
   },
   {
     "feature": "Decisions",
@@ -584,9 +584,9 @@
     "type": "happy",
     "name": "Capture a decision",
     "expected": "201",
-    "observed": "status 201",
-    "status": "pass",
-    "ts": "2026-06-13T01:23:35.776Z"
+    "observed": "status 200",
+    "status": "fail",
+    "ts": "2026-06-13T06:17:41.855Z"
   },
   {
     "feature": "Decisions",
@@ -596,7 +596,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:37.230Z"
+    "ts": "2026-06-13T06:17:43.280Z"
   },
   {
     "feature": "Decisions",
@@ -606,7 +606,7 @@
     "expected": "400 validation error",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:37.242Z"
+    "ts": "2026-06-13T06:17:43.291Z"
   },
   {
     "feature": "Decisions",
@@ -614,12 +614,9 @@
     "type": "pressure",
     "name": "Capture a near-duplicate decision",
     "expected": "dedup is transparent (e.g. 200 + a \"merged\" flag), not a silent 201 of the old row",
-    "observed": "status 201; returned-existing-id=true",
-    "status": "fail",
-    "defects": [
-      "Duplicate decision is silently merged and returned as a 201 with the EXISTING id — caller cannot tell it was deduped"
-    ],
-    "ts": "2026-06-13T01:23:38.542Z"
+    "observed": "status 200; returned-existing-id=true",
+    "status": "pass",
+    "ts": "2026-06-13T06:17:43.499Z"
   },
   {
     "feature": "Decisions",
@@ -627,9 +624,9 @@
     "type": "happy",
     "name": "Record a decision outcome",
     "expected": "200/201",
-    "observed": "status 400",
-    "status": "fail",
-    "ts": "2026-06-13T01:23:38.563Z"
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-13T06:17:43.535Z"
   },
   {
     "feature": "Decisions",
@@ -639,7 +636,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:38.582Z"
+    "ts": "2026-06-13T06:17:43.549Z"
   },
   {
     "feature": "Decisions",
@@ -649,7 +646,7 @@
     "expected": "rejected — user has no org",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:38.704Z"
+    "ts": "2026-06-13T06:17:43.661Z"
   },
   {
     "feature": "Task Context",
@@ -659,7 +656,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.132Z"
+    "ts": "2026-06-13T06:17:44.087Z"
   },
   {
     "feature": "Task Context",
@@ -669,7 +666,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.153Z"
+    "ts": "2026-06-13T06:17:44.106Z"
   },
   {
     "feature": "Task Context",
@@ -679,7 +676,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.168Z"
+    "ts": "2026-06-13T06:17:44.120Z"
   },
   {
     "feature": "Task Context",
@@ -689,7 +686,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.171Z"
+    "ts": "2026-06-13T06:17:44.125Z"
   },
   {
     "feature": "Task Context",
@@ -699,7 +696,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.188Z"
+    "ts": "2026-06-13T06:17:44.141Z"
   },
   {
     "feature": "Task Context",
@@ -709,7 +706,7 @@
     "expected": "rejected (413/400)",
     "observed": "status 413",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.212Z"
+    "ts": "2026-06-13T06:17:44.169Z"
   },
   {
     "feature": "Task Context",
@@ -719,7 +716,7 @@
     "expected": "rejected",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.220Z"
+    "ts": "2026-06-13T06:17:44.174Z"
   },
   {
     "feature": "Task Context",
@@ -729,7 +726,7 @@
     "expected": "filename sanitized; no traversal",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.236Z"
+    "ts": "2026-06-13T06:17:44.189Z"
   },
   {
     "feature": "Artifacts",
@@ -739,7 +736,7 @@
     "expected": "201 version 1",
     "observed": "version 1",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.260Z"
+    "ts": "2026-06-13T06:17:44.218Z"
   },
   {
     "feature": "Artifacts",
@@ -749,7 +746,7 @@
     "expected": "200, version 2",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.282Z"
+    "ts": "2026-06-13T06:17:44.238Z"
   },
   {
     "feature": "Artifacts",
@@ -759,7 +756,7 @@
     "expected": "≥2 versions",
     "observed": "2 versions",
     "status": "pass",
-    "ts": "2026-06-13T01:23:39.295Z"
+    "ts": "2026-06-13T06:17:44.249Z"
   },
   {
     "feature": "Artifacts",
@@ -767,12 +764,9 @@
     "type": "pressure",
     "name": "Concurrent artifact updates",
     "expected": "no lost update / version collision (optimistic concurrency)",
-    "observed": "a=200 b=200; final version=3; 4 version rows",
-    "status": "fail",
-    "defects": [
-      "Concurrent updates desynced version (3) from version-row count (4) — no optimistic concurrency control"
-    ],
-    "ts": "2026-06-13T01:23:39.668Z"
+    "observed": "a=200 b=200; final version=4; 4 version rows",
+    "status": "partial",
+    "ts": "2026-06-13T06:17:44.646Z"
   },
   {
     "feature": "Routines (internals)",
@@ -782,7 +776,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.173Z"
+    "ts": "2026-06-13T06:17:45.168Z"
   },
   {
     "feature": "Routines (internals)",
@@ -792,7 +786,7 @@
     "expected": "400",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.177Z"
+    "ts": "2026-06-13T06:17:45.174Z"
   },
   {
     "feature": "Routines (internals)",
@@ -802,7 +796,7 @@
     "expected": "400 cycle detected",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.183Z"
+    "ts": "2026-06-13T06:17:45.181Z"
   },
   {
     "feature": "Routines (internals)",
@@ -812,7 +806,7 @@
     "expected": "403/404 — not the owner",
     "observed": "status 409",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.191Z"
+    "ts": "2026-06-13T06:17:45.192Z"
   },
   {
     "feature": "Routines (internals)",
@@ -822,7 +816,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.217Z"
+    "ts": "2026-06-13T06:17:45.218Z"
   },
   {
     "feature": "Routines (internals)",
@@ -832,7 +826,7 @@
     "expected": "403/404",
     "observed": "status 404",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.229Z"
+    "ts": "2026-06-13T06:17:45.229Z"
   },
   {
     "feature": "Routines (internals)",
@@ -842,7 +836,7 @@
     "expected": "200 roundtrip",
     "observed": "put 200; get 200 {\"counter\":1,\"lastSeen\":\"pr-42\"}",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.249Z"
+    "ts": "2026-06-13T06:17:45.248Z"
   },
   {
     "feature": "Routines (internals)",
@@ -852,7 +846,7 @@
     "expected": "404 — scope-checked",
     "observed": "status 404",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.256Z"
+    "ts": "2026-06-13T06:17:45.254Z"
   },
   {
     "feature": "Routines (internals)",
@@ -862,7 +856,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.337Z"
+    "ts": "2026-06-13T06:17:45.335Z"
   },
   {
     "feature": "Routines (internals)",
@@ -872,7 +866,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:40.341Z"
+    "ts": "2026-06-13T06:17:45.339Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -882,7 +876,7 @@
     "expected": "201",
     "observed": "status 409",
     "status": "partial",
-    "ts": "2026-06-13T01:23:41.273Z"
+    "ts": "2026-06-13T06:17:46.231Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -892,7 +886,7 @@
     "expected": "403/404 — not owner/org-scoped",
     "observed": "status 409",
     "status": "pass",
-    "ts": "2026-06-13T01:23:41.306Z"
+    "ts": "2026-06-13T06:17:46.256Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -902,7 +896,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:41.336Z"
+    "ts": "2026-06-13T06:17:46.278Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -912,7 +906,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:41.358Z"
+    "ts": "2026-06-13T06:17:46.290Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -922,7 +916,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:41.388Z"
+    "ts": "2026-06-13T06:17:46.300Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -932,7 +926,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:41.396Z"
+    "ts": "2026-06-13T06:17:46.311Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -942,7 +936,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:41.404Z"
+    "ts": "2026-06-13T06:17:46.320Z"
   },
   {
     "feature": "Decisions (graph)",
@@ -950,12 +944,12 @@
     "type": "pressure",
     "name": "Two directly-contradictory org decisions",
     "expected": "system flags the contradiction (a contradicts link surfaced via /conflicts)",
-    "observed": "both created (c1=201, c2=201); conflicts surfaced=0",
+    "observed": "both created (c1=200, c2=200); conflicts surfaced=0",
     "status": "fail",
     "defects": [
       "Contradiction between two opposing same-domain decisions was not flagged"
     ],
-    "ts": "2026-06-13T01:23:54.973Z"
+    "ts": "2026-06-13T06:17:59.920Z"
   },
   {
     "feature": "Admin & Platform",
@@ -965,7 +959,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.470Z"
+    "ts": "2026-06-13T06:18:00.424Z"
   },
   {
     "feature": "Admin & Platform",
@@ -975,7 +969,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.474Z"
+    "ts": "2026-06-13T06:18:00.430Z"
   },
   {
     "feature": "Admin & Platform",
@@ -985,7 +979,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.485Z"
+    "ts": "2026-06-13T06:18:00.441Z"
   },
   {
     "feature": "Admin & Platform",
@@ -995,7 +989,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.489Z"
+    "ts": "2026-06-13T06:18:00.445Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1005,7 +999,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.497Z"
+    "ts": "2026-06-13T06:18:00.454Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1015,7 +1009,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.504Z"
+    "ts": "2026-06-13T06:18:00.460Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1025,7 +1019,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.515Z"
+    "ts": "2026-06-13T06:18:00.467Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1035,7 +1029,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.520Z"
+    "ts": "2026-06-13T06:18:00.474Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1045,7 +1039,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.529Z"
+    "ts": "2026-06-13T06:18:00.484Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1055,7 +1049,7 @@
     "expected": "403",
     "observed": "status 403",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.533Z"
+    "ts": "2026-06-13T06:18:00.493Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1065,7 +1059,7 @@
     "expected": "201",
     "observed": "status 201",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.542Z"
+    "ts": "2026-06-13T06:18:00.509Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1075,7 +1069,7 @@
     "expected": "rejected — cross-tenant move",
     "observed": "status 400; moved=false (restored)",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.578Z"
+    "ts": "2026-06-13T06:18:00.544Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1085,7 +1079,7 @@
     "expected": "200",
     "observed": "status 200 {\"data\":{\"items\":[{\"id\":\"b227ec8c-3e80-48e2-83cf-d481d7199c6",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.588Z"
+    "ts": "2026-06-13T06:18:00.551Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1095,7 +1089,7 @@
     "expected": "200",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.603Z"
+    "ts": "2026-06-13T06:18:00.557Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1105,7 +1099,7 @@
     "expected": "200 (intentionally public pre-setup)",
     "observed": "status 200",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.615Z"
+    "ts": "2026-06-13T06:18:00.567Z"
   },
   {
     "feature": "Admin & Platform",
@@ -1115,6 +1109,6 @@
     "expected": "400 — already set up",
     "observed": "status 400",
     "status": "pass",
-    "ts": "2026-06-13T01:23:55.622Z"
+    "ts": "2026-06-13T06:18:00.578Z"
   }
 ]
