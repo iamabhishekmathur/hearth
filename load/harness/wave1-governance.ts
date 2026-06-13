@@ -160,6 +160,12 @@ async function main() {
       expected: 'a regulated org should fail CLOSED (block on policy error)', observed: `created=${bad.status}; message status ${r.status}`,
       status: r.status === 403 ? 'pass' : 'fail',
       defects: r.status !== 403 ? ['Invalid-regex block policy fails OPEN — message passes through (regulated orgs expect fail-closed)'] : undefined });
+    // CLEANUP: this broken-regex BLOCK policy fails closed on every evaluation,
+    // so leaving it active would poison every later wave (all chat → 403). Delete
+    // it now that the fail-closed assertion is recorded.
+    if (bad.body.data?.id) {
+      await lena.req('DELETE', `/admin/governance/policies/${bad.body.data.id}`);
+    }
   }
 
   // D2 — undashed SSN may evade the PII scrub

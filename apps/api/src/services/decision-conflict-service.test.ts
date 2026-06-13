@@ -92,32 +92,36 @@ describe('detectConflicts', () => {
     expect(asMock(emitToOrg)).not.toHaveBeenCalled();
   });
 
-  it('skips the LLM entirely when nothing is in the same-topic band', async () => {
+  it('judges a LEXICALLY-dissimilar same-domain contradiction (low embedding sim)', async () => {
+    // "gRPC instead of REST" vs "Standardize on REST" embed at ~0.56 — below any
+    // high floor, but within the same domain the LLM still gets to judge.
+    mockCandidates([{ id: 'd-rest', title: 'Standardize on REST APIs', similarity: 0.56, domain: 'engineering' }]);
+    mockJudge('[{"id":"d-rest","rationale":"gRPC explicitly replaces REST — incompatible API standards."}]');
+
+    const conflicts = await detectConflicts({
+      decisionId: 'd-grpc', orgId: 'org-1', title: 'Standardize on gRPC instead of REST',
+      reasoning: 'Performance + typed contracts; replaces REST.', domain: 'engineering', embedding: EMBED,
+    });
+
+    expect(conflicts.map((c) => c.decisionId)).toEqual(['d-rest']);
+  });
+
+  it('scopes the candidate query to the decision domain (SQL-level filter)', async () => {
+    mockCandidates([]);
+    await detectConflicts({
+      decisionId: 'd-new', orgId: 'org-1', title: 'x', reasoning: 'r', domain: 'infra', embedding: EMBED,
+    });
+    const call = asMock(prisma.$queryRawUnsafe).mock.calls[0];
+    expect(String(call[0])).toContain('domain = $4');
+    expect(call).toContain('infra'); // domain passed as a bound param
+  });
+
+  it('skips the LLM when an UNTAGGED decision has nothing in the higher no-domain band', async () => {
+    // No domain → higher floor (0.75); a 0.42 look-alike is not a candidate.
     mockCandidates([{ id: 'd-far', title: 'Office snacks', similarity: 0.42 }]);
 
     const conflicts = await detectConflicts({
-      decisionId: 'd-new',
-      orgId: 'org-1',
-      title: 'Standardize on Postgres',
-      reasoning: 'r',
-      embedding: EMBED,
-    });
-
-    expect(conflicts).toHaveLength(0);
-    expect(asMock(providerRegistry.chatWithFallback)).not.toHaveBeenCalled();
-  });
-
-  it('ignores same-topic look-alikes from a different domain', async () => {
-    // High similarity but a different domain → not compared (filtered pre-LLM).
-    mockCandidates([{ id: 'd-other', title: 'Migrate the office', similarity: 0.9, domain: 'facilities' }]);
-
-    const conflicts = await detectConflicts({
-      decisionId: 'd-new',
-      orgId: 'org-1',
-      title: 'Migrate the database',
-      reasoning: 'r',
-      domain: 'infra',
-      embedding: EMBED,
+      decisionId: 'd-new', orgId: 'org-1', title: 'Standardize on Postgres', reasoning: 'r', embedding: EMBED,
     });
 
     expect(conflicts).toHaveLength(0);

@@ -20,11 +20,16 @@ import { emitToOrg } from '../ws/socket-manager.js';
 import { logAudit } from './audit-service.js';
 
 /**
- * Similarity floor for "same topic". Below the 0.90 dedup-merge threshold (those
- * are treated as the same decision) but high enough to exclude loosely-related
- * ones. Candidates in [floor, 0.90) are the conflict-suspect band.
+ * Similarity floors for surfacing conflict candidates. Contradictions are often
+ * LEXICALLY dissimilar ("standardize on gRPC" vs "standardize on REST" embed at
+ * ~0.56), so a high floor misses them. Strategy:
+ *   - Domain-tagged decisions: the DOMAIN is the primary filter, so use a LOW
+ *     floor and let the LLM judge contradiction within that domain.
+ *   - Untagged decisions: no domain to constrain the pool, so require higher
+ *     topical similarity to avoid judging unrelated pairs.
  */
-const CONFLICT_SIMILARITY_FLOOR = 0.8;
+const CONFLICT_FLOOR_WITH_DOMAIN = 0.4;
+const CONFLICT_FLOOR_NO_DOMAIN = 0.75;
 const MAX_CANDIDATES = 5;
 
 export interface DetectedConflict {
@@ -121,25 +126,23 @@ async function findSameTopicCandidates(
   embedding: number[],
 ): Promise<Candidate[]> {
   const embeddingStr = `[${embedding.join(',')}]`;
+  // When a domain is given, restrict the SQL pool to that domain so a low
+  // similarity floor stays cheap and on-topic; otherwise scan org-wide.
   const rows = await prisma.$queryRawUnsafe<
     Array<{ id: string; title: string; reasoning: string; similarity: number; domain: string | null }>
   >(
     `SELECT id, title, reasoning, domain, 1 - (embedding <=> $1::vector) AS similarity
      FROM decisions
      WHERE org_id = $2 AND id != $3 AND status = 'active' AND embedding IS NOT NULL
+       ${domain ? 'AND domain = $4' : ''}
      ORDER BY embedding <=> $1::vector
      LIMIT ${MAX_CANDIDATES}`,
-    embeddingStr,
-    orgId,
-    decisionId,
+    ...(domain ? [embeddingStr, orgId, decisionId, domain] : [embeddingStr, orgId, decisionId]),
   );
 
+  const floor = domain ? CONFLICT_FLOOR_WITH_DOMAIN : CONFLICT_FLOOR_NO_DOMAIN;
   return rows
-    .filter((r) => r.similarity >= CONFLICT_SIMILARITY_FLOOR)
-    // If the new decision is domain-tagged, only compare within that domain —
-    // cross-domain look-alikes ("migrate the DB" vs "migrate the office") aren't
-    // conflicts. Untagged decisions compare broadly.
-    .filter((r) => !domain || !r.domain || r.domain === domain)
+    .filter((r) => r.similarity >= floor)
     .map((r) => ({ id: r.id, title: r.title, reasoning: r.reasoning, similarity: r.similarity }));
 }
 

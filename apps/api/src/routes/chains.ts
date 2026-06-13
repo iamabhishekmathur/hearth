@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import * as chainService from '../services/chain-service.js';
+import { isUniqueViolation } from '../lib/prisma-errors.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -43,6 +44,11 @@ router.post('/:id/chains', requireAuth, async (req, res, next) => {
   } catch (err) {
     if (err instanceof Error && (err.message.includes('cycle') || err.message.includes('itself'))) {
       res.status(400).json({ error: err.message });
+      return;
+    }
+    // This source→target chain already exists — 409, not 500.
+    if (isUniqueViolation(err)) {
+      res.status(409).json({ error: 'A chain between these routines already exists' });
       return;
     }
     next(err);

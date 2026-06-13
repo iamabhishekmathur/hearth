@@ -121,13 +121,17 @@ async function main() {
     }
   }
   {
-    // listCollaborators info-leak: an UNRELATED user reads collaborators of a private session
-    const stranger = await loginAs('sales-rep@hearth.local');
-    const leak = await stranger.req<{ data?: any[] }>('GET', `/chat/sessions/${sharedSid}/collaborators`);
-    rec.record({ feature: F, subFeature: 'info leak', type: 'permission', name: 'Unrelated user lists a session\'s collaborators',
-      expected: '403/404 — no access', observed: `status ${leak.status}, ${Array.isArray(leak.body.data) ? leak.body.data.length : 0} names returned`,
+    // listCollaborators IDOR: a same-org user with NO access to a PRIVATE session
+    // must not read its collaborator list. (Reading an ORG-VISIBLE session's
+    // collaborators is by design — that's not the boundary being tested here.)
+    const owner = await loginAs('eng@hearth.local');
+    const privSid = await owner.newSession('Private 1:1 notes'); // default visibility = private
+    const stranger = await loginAs('sales-rep@hearth.local');    // same org, no access
+    const leak = await stranger.req<{ data?: any[] }>('GET', `/chat/sessions/${privSid}/collaborators`);
+    rec.record({ feature: F, subFeature: 'info leak', type: 'permission', name: 'No-access user lists a PRIVATE session\'s collaborators',
+      expected: '403/404 — no access to a private session', observed: `status ${leak.status}, ${Array.isArray(leak.body.data) ? leak.body.data.length : 0} names returned`,
       status: leak.status >= 400 ? 'pass' : 'fail',
-      defects: leak.status < 300 ? ['Any authenticated user can list collaborators (names+emails) of a session by id — no access check'] : undefined });
+      defects: leak.status < 300 ? ['Any authenticated user can list collaborators (names+emails) of a PRIVATE session by id — no access check'] : undefined });
   }
   {
     // Cross-org collaborator add: owner adds a RIVAL-CORP user → tenancy bypass

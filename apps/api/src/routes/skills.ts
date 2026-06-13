@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import * as skillService from '../services/skill-service.js';
 import * as proposalService from '../services/skill-proposal-service.js';
 import { logger } from '../lib/logger.js';
+import { isUniqueViolation } from '../lib/prisma-errors.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -43,6 +44,24 @@ router.get('/', requireAuth, async (req, res, next) => {
       installedByUser: req.user!.id,
     }, { userId: req.user!.id, teamId: req.user!.teamId ?? null });
     res.json({ data: skills });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /proposals — list skill proposals for a task.
+ * MUST precede GET /:id, else '/proposals' is captured as an :id lookup (404).
+ */
+router.get('/proposals', requireAuth, async (req, res, next) => {
+  try {
+    const taskId = req.query.taskId as string;
+    if (!taskId) {
+      res.status(400).json({ error: 'taskId query parameter is required' });
+      return;
+    }
+    const proposals = await proposalService.getProposalsByTask(taskId);
+    res.json({ data: proposals });
   } catch (err) {
     next(err);
   }
@@ -184,6 +203,11 @@ router.post('/', requireAuth, async (req, res, next) => {
       res.status(400).json({ error: err.message });
       return;
     }
+    // A skill name must be unique per org — surface the collision as 409, not 500.
+    if (isUniqueViolation(err)) {
+      res.status(409).json({ error: 'A skill with this name already exists in your organization' });
+      return;
+    }
     next(err);
   }
 });
@@ -216,23 +240,6 @@ router.delete('/:id/install', requireAuth, async (req, res, next) => {
       res.status(404).json({ error: err.message });
       return;
     }
-    next(err);
-  }
-});
-
-/**
- * GET /proposals — list skill proposals for a task
- */
-router.get('/proposals', requireAuth, async (req, res, next) => {
-  try {
-    const taskId = req.query.taskId as string;
-    if (!taskId) {
-      res.status(400).json({ error: 'taskId query parameter is required' });
-      return;
-    }
-    const proposals = await proposalService.getProposalsByTask(taskId);
-    res.json({ data: proposals });
-  } catch (err) {
     next(err);
   }
 });

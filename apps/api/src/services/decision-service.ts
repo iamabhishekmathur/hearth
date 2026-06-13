@@ -417,7 +417,9 @@ export async function findPrecedents(
   }
 
   const results = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-    `SELECT d.*, 1 - (d.embedding <=> $1::vector) AS similarity
+    // Explicit columns — `d.*` would include the `embedding vector` column,
+    // which prisma.$queryRawUnsafe cannot deserialize (same bug as searchDecisions).
+    `SELECT ${DECISION_SELECT_COLUMNS}, 1 - (d.embedding <=> $1::vector) AS similarity
      FROM decisions d
      WHERE d.org_id = $2
        AND d.status IN ('active')

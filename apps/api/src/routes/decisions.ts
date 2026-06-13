@@ -2,6 +2,7 @@ import { Router, type Router as RouterType } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { prisma } from '../lib/prisma.js';
 import * as decisionService from '../services/decision-service.js';
+import { isUniqueViolation } from '../lib/prisma-errors.js';
 import type { CreateDecisionRequest, UpdateDecisionRequest, DecisionSearchRequest, RecordOutcomeRequest, CreateDecisionLinkRequest } from '@hearth/shared';
 
 const router: RouterType = Router();
@@ -188,6 +189,10 @@ router.post('/:id/dependencies', async (req, res) => {
     if (!link) return res.status(404).json({ error: 'Decision not found in your organization' });
     res.status(201).json({ data: link });
   } catch (err) {
+    // This link (same from/to/relationship) already exists — 409, not 500.
+    if (isUniqueViolation(err)) {
+      return res.status(409).json({ error: 'This link already exists' });
+    }
     res.status(500).json({ error: 'Failed to add link' });
   }
 });

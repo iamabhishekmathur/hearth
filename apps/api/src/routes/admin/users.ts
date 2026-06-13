@@ -52,7 +52,17 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res, next) =
 
     let user;
     if (teamId) {
-      user = await userService.updateUserTeam(req.params.id as string, teamId);
+      try {
+        user = await userService.updateUserTeam(req.params.id as string, teamId);
+      } catch (err) {
+        // Tenancy guard: the target team must be in the same org as the user.
+        // A cross-org team is a bad request, not a server error.
+        if (err instanceof Error && err.message.includes("organization")) {
+          res.status(400).json({ error: 'Target team is not in this organization' });
+          return;
+        }
+        throw err;
+      }
     }
     if (name || role) {
       user = await userService.updateUser(req.params.id as string, { name, role });

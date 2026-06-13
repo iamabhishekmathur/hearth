@@ -91,13 +91,44 @@ export async function deliverRoutineOutput(
 
 /**
  * Return the approval gate (checkpoint) a routine's run must pass before its
- * output is delivered, or null if the routine is ungated. The earliest
- * checkpoint by position is the active gate.
+ * output is delivered, or null if the routine is ungated.
+ *
+ * Checkpoints are authored on the routine as a `checkpoints` JSON array (the
+ * routine create/update API), but an ApprovalRequest needs a real
+ * ApprovalCheckpoint row to reference (FK). So the gate is resolved in two
+ * steps: prefer an existing ApprovalCheckpoint row; otherwise MATERIALIZE one
+ * from the first JSON checkpoint def. This bridges the authoring shape (JSON)
+ * to the runtime shape (row) — without it, JSON-authored gates never fired.
  */
 export async function findApprovalGate(routineId: string) {
-  return prisma.approvalCheckpoint.findFirst({
+  const existing = await prisma.approvalCheckpoint.findFirst({
     where: { routineId },
     orderBy: { position: 'asc' },
+  });
+  if (existing) return existing;
+
+  const routine = await prisma.routine.findUnique({
+    where: { id: routineId },
+    select: { checkpoints: true },
+  });
+  const defs = (routine?.checkpoints as Array<Record<string, unknown>> | null) ?? [];
+  if (!Array.isArray(defs) || defs.length === 0) return null;
+
+  // Materialize the earliest checkpoint def into a row. Defensive about the def
+  // shape (the authoring UI may omit position/approverPolicy/timeout).
+  const first = [...defs].sort(
+    (a, b) => (Number(a.position) || 0) - (Number(b.position) || 0),
+  )[0];
+  return prisma.approvalCheckpoint.create({
+    data: {
+      routineId,
+      name: typeof first.name === 'string' ? first.name : 'Approval gate',
+      description: typeof first.description === 'string' ? first.description : null,
+      position: Number(first.position) || 0,
+      approverPolicy: (first.approverPolicy as Prisma.InputJsonValue) ?? {},
+      timeoutMinutes: typeof first.timeoutMinutes === 'number' ? first.timeoutMinutes : null,
+      timeoutAction: typeof first.timeoutAction === 'string' ? (first.timeoutAction as string) : null,
+    },
   });
 }
 

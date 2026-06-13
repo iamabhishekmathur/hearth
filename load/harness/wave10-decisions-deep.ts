@@ -47,16 +47,28 @@ async function main() {
   rec.record({ feature: F, subFeature: 'lifecycle', type: 'happy', name: 'Confirm a decision',
     expected: '200', observed: `status ${confirm.status}`, status: confirm.status === 200 ? 'pass' : 'partial' });
 
-  // ── Conflict detection (audit: not implemented) ───────────────────────────
+  // ── Conflict detection ────────────────────────────────────────────────────
+  // Two opposing decisions in the same domain should be flagged as contradictory.
+  // NOTE: contradictions are often LEXICALLY dissimilar ("gRPC instead of REST"
+  // vs "Standardize on REST" embed ~0.56), so detection leans on domain + LLM
+  // judgement, and runs async after capture — poll the /conflicts endpoint.
   console.log('\n══ Conflict ══');
   {
     const c1 = await lead.req<{ data?: { id: string } }>('POST', '/decisions', { title: 'Standardize on REST APIs', reasoning: 'Simplicity and ubiquity.', domain: 'engineering', scope: 'org', confidence: 'high' });
     await sleep(800);
     const c2 = await lead.req<{ data?: { id: string; status?: string } }>('POST', '/decisions', { title: 'Standardize on gRPC instead of REST for all services', reasoning: 'Performance and typed contracts — replaces REST.', domain: 'engineering', scope: 'org', confidence: 'high' });
-    // No conflict surface exists; record the gap (the two opposing decisions both stay 'active', unlinked-as-contradiction)
+    let conflicts: Array<{ decision?: { id?: string } }> = [];
+    for (let i = 0; i < 8; i++) {
+      await sleep(1500);
+      const res = await lead.req<{ data?: Array<{ decision?: { id?: string } }> }>('GET', `/decisions/${c2.body.data?.id}/conflicts`);
+      conflicts = res.body.data ?? [];
+      if (conflicts.length > 0) break;
+    }
+    const flagged = conflicts.some((k) => k.decision?.id === c1.body.data?.id);
     rec.record({ feature: F, subFeature: 'conflict detection', type: 'pressure', name: 'Two directly-contradictory org decisions',
-      expected: 'system flags the contradiction', observed: `both created (c1=${c1.status}, c2=${c2.status}); no conflict surfaced`,
-      status: 'fail', defects: ['No conflict detection — two directly-contradictory decisions are both stored as active with no contradiction flag/alert'] });
+      expected: 'system flags the contradiction (a contradicts link surfaced via /conflicts)', observed: `both created (c1=${c1.status}, c2=${c2.status}); conflicts surfaced=${conflicts.length}`,
+      status: flagged ? 'pass' : 'fail',
+      defects: !flagged ? ['Contradiction between two opposing same-domain decisions was not flagged'] : undefined });
   }
 
   rec.save();

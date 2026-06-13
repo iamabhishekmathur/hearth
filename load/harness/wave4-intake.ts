@@ -20,7 +20,7 @@ function slackSign(secret: string, body: string): { sig: string; ts: string } {
   return { sig, ts };
 }
 
-async function postIngest(urlToken: string, provider: 'slack' | 'jira', body: string, secret?: string) {
+async function postIngest(urlToken: string, provider: string, body: string, secret?: string) {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (provider === 'slack' && secret) {
     const { sig, ts } = slackSign(secret, body);
@@ -73,23 +73,55 @@ async function main() {
       status: r.status === 200 && created === 0 ? 'pass' : 'partial' });
   }
 
-  // ── Forged webhook (signature bypass) ─────────────────────────────────────
-  console.log('\n══ Security: forged webhook ══');
+  // ── Webhook auth posture ──────────────────────────────────────────────────
+  // Chosen posture (2026-06-11): Jira/Notion/Email authenticate via the
+  // unguessable urlToken (they don't sign bodies); generic/unknown providers
+  // MUST present a valid HMAC and fail closed when unsigned.
+  console.log('\n══ Security: webhook auth posture ══');
   {
+    // Jira: a valid URL token is accepted by design (URL-token trust).
     const jep = await admin.req<{ data?: { urlToken: string } }>('POST', '/routines/webhook-endpoints', { provider: 'jira' });
     const jToken = jep.body.data?.urlToken!;
-    const r = await postIngest(jToken, 'jira', JSON.stringify({ issue: { fields: { summary: 'forged' } } })); // NO signature
-    rec.record({ feature: F, subFeature: 'signature bypass', type: 'violation', name: 'Unsigned forged JIRA webhook',
-      expected: 'rejected (401) — no valid signature', observed: `status ${r.status}`,
+    const r = await postIngest(jToken, 'jira', JSON.stringify({ issue: { fields: { summary: 'real jira event' } } }));
+    rec.record({ feature: F, subFeature: 'webhook auth: jira', type: 'permission', name: 'Jira accepts the unguessable URL token (no body HMAC)',
+      expected: 'accepted (200) — auth is the URL token, by design', observed: `status ${r.status}`,
+      status: r.status === 200 ? 'pass' : 'fail' });
+  }
+  {
+    // Generic/unknown provider: an unsigned payload must be rejected (fail closed).
+    const gep = await admin.req<{ data?: { urlToken: string } }>('POST', '/routines/webhook-endpoints', { provider: 'custom' });
+    const gToken = gep.body.data?.urlToken!;
+    const r = await postIngest(gToken, 'custom', JSON.stringify({ event: 'forged' })); // NO signature
+    rec.record({ feature: F, subFeature: 'webhook auth: generic', type: 'violation', name: 'Unsigned generic webhook is rejected',
+      expected: 'rejected (401) — generic providers must sign', observed: `status ${r.status}`,
       status: r.status === 401 ? 'pass' : 'fail',
-      defects: r.status === 200 ? ['JIRA webhook signature verification is a no-op — forged/unsigned payloads are accepted'] : undefined });
+      defects: r.status === 200 ? ['Generic webhook accepts unsigned payloads — fail-open signature bypass'] : undefined });
   }
 
-  // ── Email intake (stub / gap) ─────────────────────────────────────────────
+  // ── Email intake → real detection ─────────────────────────────────────────
+  console.log('\n══ Email detection ══');
   {
-    rec.record({ feature: F, subFeature: 'email intake', type: 'error', name: 'Email → task detection',
-      expected: 'inbound email is detected into a task', observed: 'poll_email worker is a stub — no Gmail connector / no email→task path exists',
-      status: 'fail', defects: ['Email intake is unimplemented (poll_email returns skipped) — inbound emails never become tasks despite being an advertised source'] });
+    const eep = await admin.req<{ data?: { urlToken: string } }>('POST', '/routines/webhook-endpoints', { provider: 'email' });
+    const emailToken = eep.body.data?.urlToken!;
+    const base = await prisma.task.count({ where: { source: 'email', org: { slug: 'hearth-sim' } } });
+    const emailBody = JSON.stringify({
+      from: 'Dana Patel <dana.patel@partner-vendor.com>',
+      to: 'intake@hearth-sim.com',
+      subject: 'Please update the SOC2 access-review evidence before the audit',
+      text: 'The auditors flagged that our quarterly access-review export is stale. Can someone regenerate it and attach it to the evidence folder before Friday?',
+      messageId: `<email-${Date.now()}@partner-vendor.com>`,
+    });
+    const r = await postIngest(emailToken, 'email', emailBody);
+    let created = 0;
+    for (let i = 0; i < 24; i++) {
+      await sleep(2500);
+      created = (await prisma.task.count({ where: { source: 'email', status: 'auto_detected', org: { slug: 'hearth-sim' } } })) - base;
+      if (created > 0) break;
+    }
+    rec.record({ feature: F, subFeature: 'email detection', type: 'happy', name: 'Inbound email (subject+body) → auto-detected task',
+      expected: '200 ack; Hearth detects the ask and creates an email-sourced auto_detected task', observed: `ack ${r.status}; new tasks=${created}`,
+      status: r.status === 200 && created > 0 ? 'pass' : r.status === 200 ? 'partial' : 'fail',
+      defects: r.status === 200 && created === 0 ? ['Actionable inbound email did not produce an auto_detected task within timeout'] : (r.status !== 200 ? [`Email ingest rejected the payload (status ${r.status})`] : undefined) });
   }
 
   // ── Granola / meeting ingest → decisions (not tasks) ──────────────────────
