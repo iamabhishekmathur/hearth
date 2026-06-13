@@ -28,7 +28,7 @@ interface DecisionScope {
 export async function createDecision(
   scope: DecisionScope,
   data: CreateDecisionRequest & { sessionId?: string },
-): Promise<Decision> {
+): Promise<Decision & { deduped?: boolean }> {
   // Generate embedding from title + reasoning
   const embeddingText = `${data.title}. ${data.reasoning}`;
   const embedding = await generateEmbedding(embeddingText);
@@ -61,7 +61,9 @@ export async function createDecision(
         logger.info({ existingId: similar[0].id, score: bestScore }, 'Decision dedup: merging');
         const existing = await prisma.decision.findUnique({ where: { id: similar[0].id } });
         if (existing) {
-          return formatDecision(existing);
+          // Transparent dedup: tell the caller this was merged into an existing
+          // decision (the route returns 200 + deduped:true, not a silent 201).
+          return { ...formatDecision(existing), deduped: true };
         }
       }
     }

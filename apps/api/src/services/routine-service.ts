@@ -173,6 +173,7 @@ export async function updateRoutine(
     teamId?: string;
     parameters?: RoutineParameter[];
     checkpoints?: ApprovalCheckpointDef[];
+    enabled?: boolean;
   },
 ) {
   const routine = await prisma.routine.findUnique({ where: { id } });
@@ -182,6 +183,7 @@ export async function updateRoutine(
   return prisma.routine.update({
     where: { id },
     data: {
+      ...(data.enabled !== undefined && { enabled: data.enabled }),
       ...(data.name !== undefined && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
       ...(data.prompt !== undefined && { prompt: data.prompt }),

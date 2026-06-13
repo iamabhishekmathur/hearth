@@ -166,3 +166,16 @@ describe('decision conflicts — GET /:id/conflicts', () => {
     expect(res.body.data).toEqual([]);
   });
 });
+
+describe('decision outcomes — validation', () => {
+  it('records a valid outcome (201) and rejects bad input with 400 (not 500)', async () => {
+    const id = await seedDecision({ title: 'Adopt trunk-based dev', reasoning: 'fewer long-lived branches', withEmbedding: false });
+    const admin = await loginAgent('admin');
+
+    expect((await admin.post(`/api/v1/decisions/${id}/outcomes`, { verdict: 'positive', description: 'merge times dropped' })).status).toBe(201);
+    // Missing description → 400
+    expect((await admin.post(`/api/v1/decisions/${id}/outcomes`, { verdict: 'positive' })).status).toBe(400);
+    // Invalid verdict enum → 400 (previously an unvalidated value hit a 500)
+    expect((await admin.post(`/api/v1/decisions/${id}/outcomes`, { verdict: 'amazing', description: 'x' })).status).toBe(400);
+  });
+});

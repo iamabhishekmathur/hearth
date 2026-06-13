@@ -1051,4 +1051,34 @@ describe('Compliance Export (Phase 3)', () => {
     expect(parsed[0].userEmail).toBe('alice@example.com');
     expect(parsed[0].policyName).toBe('No PII');
   });
+
+  it('scrubs PII out of the content snippet + match details (no raw SSN in the export)', async () => {
+    // The org enabled no packs — the export must still floor at `pii` because a
+    // downloadable file leaves the compliance boundary (regulated-data egress).
+    (prisma.org.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ settings: {} });
+    (prisma.governanceViolation.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ...makeViolation(),
+        contentSnippet: 'Customer SSN is 123-45-6789, please verify identity.',
+        matchDetails: { matched: true, matchedText: '123-45-6789' },
+        policy: { name: 'PII guard' },
+        user: { name: 'Alice', email: 'alice@example.com' },
+        reviewer: null,
+      },
+    ]);
+
+    const json = await exportViolations(ORG_ID, undefined, undefined, 'json');
+    // The raw SSN must NOT appear anywhere in the export...
+    expect(json.data).not.toContain('123-45-6789');
+    const parsed = JSON.parse(json.data);
+    // ...but a redaction placeholder should, and non-PII context is preserved.
+    expect(parsed[0].contentSnippet).toMatch(/\[SSN/);
+    expect(parsed[0].contentSnippet).toContain('please verify identity');
+    expect(JSON.stringify(parsed[0].matchDetails)).not.toContain('123-45-6789');
+    // The actor's identity (who violated) is still reported — that's the point.
+    expect(parsed[0].userEmail).toBe('alice@example.com');
+
+    const csv = await exportViolations(ORG_ID, undefined, undefined, 'csv');
+    expect(csv.data).not.toContain('123-45-6789');
+  });
 });

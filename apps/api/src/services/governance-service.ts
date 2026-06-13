@@ -13,6 +13,9 @@ import { logger } from '../lib/logger.js';
 import { logAudit } from './audit-service.js';
 import { emitToOrg, emitToSessionEvent } from '../ws/socket-manager.js';
 import { providerRegistry } from '../llm/provider-registry.js';
+import { getComplianceConfig } from '../compliance/config-cache.js';
+import { resolveDetectors } from '../compliance/packs/index.js';
+import { scrubText, createTokenMap } from '../compliance/scrubber.js';
 
 // ── In-memory policy cache ──
 
@@ -626,6 +629,30 @@ export async function exportViolations(
     },
   });
 
+  // A violation's contentSnippet/matchDetails store the RAW flagged text, which
+  // for a regulated org routinely contains the very PII the policy caught. An
+  // export is a downloadable file leaving the compliance boundary, so scrub it.
+  // Floor at the base `pii` pack so PII is redacted even if the org enabled only
+  // narrower packs; union in whatever else the org has on.
+  const cfg = await getComplianceConfig(orgId);
+  const detectors = resolveDetectors(
+    Array.from(new Set(['pii', ...cfg.enabledPacks])),
+    cfg.detectorOverrides,
+  );
+  const tokenMap = createTokenMap();
+  const scrub = (s: string | null | undefined): string | null => {
+    if (!s) return s ?? null;
+    return scrubText(s, detectors, tokenMap).scrubbedText;
+  };
+  const scrubJson = (v: unknown): unknown => {
+    if (v == null) return v;
+    try {
+      return JSON.parse(scrubText(JSON.stringify(v), detectors, tokenMap).scrubbedText);
+    } catch {
+      return null; // never emit unscrubbed evidence if re-parse fails
+    }
+  };
+
   if (format === 'json') {
     return {
       contentType: 'application/json',
@@ -635,8 +662,8 @@ export async function exportViolations(
         userName: r.user.name,
         policyName: r.policy.name,
         severity: r.severity,
-        contentSnippet: r.contentSnippet,
-        matchDetails: r.matchDetails,
+        contentSnippet: scrub(r.contentSnippet),
+        matchDetails: scrubJson(r.matchDetails),
         enforcement: r.enforcement,
         status: r.status,
         reviewerName: r.reviewer?.name ?? null,
@@ -656,7 +683,7 @@ export async function exportViolations(
       escape(r.user.name),
       escape(r.policy.name),
       r.severity,
-      escape(r.contentSnippet),
+      escape(scrub(r.contentSnippet)),
       r.enforcement,
       r.status,
       escape(r.reviewer?.name ?? null),

@@ -359,7 +359,7 @@ async function callReflectionLLM(transcript: string): Promise<ReflectionResult |
     let result = '';
 
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       systemPrompt: REFLECTION_PROMPT,
       maxTokens: 1024,
@@ -386,7 +386,7 @@ async function callSkillProposalLLM(approachSummary: string): Promise<string | n
     let result = '';
 
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       systemPrompt: SKILL_PROPOSAL_PROMPT,
       maxTokens: 2048,

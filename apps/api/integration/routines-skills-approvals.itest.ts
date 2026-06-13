@@ -61,6 +61,17 @@ describe('routines — CRUD', () => {
     expect(res.status).toBe(400);
   });
 
+  it('run-now on a disabled routine is rejected (409), not a silent enqueue', async () => {
+    const member = await loginAgent('member');
+    const id = (await member.post('/api/v1/routines', { name: 'Paused', prompt: 'p' })).body.data.id;
+    await member.patch(`/api/v1/routines/${id}`, { enabled: false });
+    const res = await member.post(`/api/v1/routines/${id}/run-now`, {});
+    expect(res.status).toBe(409);
+    // Enabling it again makes run-now succeed.
+    await member.patch(`/api/v1/routines/${id}`, { enabled: true });
+    expect((await member.post(`/api/v1/routines/${id}/run-now`, {})).status).toBe(200);
+  });
+
   it('owner can GET / PATCH / DELETE its routine', async () => {
     const member = await loginAgent('member');
     const made = await member.post('/api/v1/routines', { name: 'R', prompt: 'p' });

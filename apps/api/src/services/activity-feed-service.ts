@@ -244,7 +244,7 @@ export async function generateDigest(
       // Lightweight summarization — use a concrete fast model id. Previously this
       // passed the literal string 'default', which is not a real model and made
       // every digest 404 ("model: default") and silently fall back to a template.
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 400,
     })) {

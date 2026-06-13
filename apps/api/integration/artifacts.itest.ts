@@ -24,6 +24,7 @@ import {
   disconnect,
   type AuthFixture,
 } from './setup.js';
+import { updateArtifact } from '../src/services/artifact-service.js';
 
 let fx: AuthFixture;
 
@@ -44,6 +45,39 @@ async function orgVisibleSession(): Promise<{ adminId: string; sessionId: string
   await admin.patch(`/api/v1/chat/sessions/${sessionId}/visibility`, { visibility: 'org' });
   return { adminId: fx.users.admin.id, sessionId };
 }
+
+describe('artifacts — optimistic concurrency (ARTIFACT concurrency defect)', () => {
+  it('concurrent updates do not desync version from the version-row count', async () => {
+    const admin = await loginAgent('admin');
+    const sid = (await admin.post('/api/v1/chat/sessions', {})).body.data.id;
+    const id = (await admin.post(`/api/v1/chat/sessions/${sid}/artifacts`, {
+      type: 'document', title: 'Doc', content: 'v1',
+    })).body.data.id;
+
+    // Fire several updates concurrently. With compare-and-set, each successful
+    // update increments the version by exactly 1 and writes exactly one matching
+    // version row — no lost updates, no duplicate version numbers.
+    const N = 5;
+    const results = await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        updateArtifact({ artifactId: id, content: `edit ${i}`, editedBy: fx.users.admin.id }),
+      ),
+    );
+    expect(results.every(Boolean)).toBe(true);
+
+    const finalRow = await prisma.artifact.findUnique({ where: { id } });
+    const versionRows = await prisma.artifactVersion.findMany({ where: { artifactId: id } });
+    const versions = versionRows.map((v) => v.version).sort((a, b) => a - b);
+
+    // createArtifact wrote the v1 snapshot; N updates → final version = 1 + N,
+    // with exactly one version row per version (the v1 row + one per bump).
+    expect(finalRow?.version).toBe(1 + N);
+    expect(versionRows.length).toBe(1 + N);
+    // No duplicate version numbers, and they form a contiguous 1..1+N run.
+    expect(new Set(versions).size).toBe(versions.length);
+    expect(versions).toEqual(Array.from({ length: 1 + N }, (_, i) => i + 1));
+  });
+});
 
 describe('artifacts — create / version / delete (owner happy path)', () => {
   it('owner creates an artifact (201) and lists it', async () => {

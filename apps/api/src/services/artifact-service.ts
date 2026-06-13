@@ -1,5 +1,6 @@
 import type { ArtifactType } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { isUniqueViolation } from '../lib/prisma-errors.js';
 
 /**
  * Creates a new artifact in a session, saving the v1 snapshot atomically.
@@ -67,43 +68,64 @@ export async function updateArtifact(params: {
 }) {
   const { artifactId, title, content, language, editedBy } = params;
 
-  const current = await prisma.artifact.findUnique({
-    where: { id: artifactId },
-  });
+  // Optimistic concurrency: read the current version, then bump it with a
+  // compare-and-set (update WHERE id AND version=current). If a concurrent
+  // writer already bumped it, our CAS matches 0 rows — we re-read and retry, so
+  // each successful update increments by exactly 1 and writes exactly one
+  // matching version row. Without this, two readers both saw v1 → both wrote v2
+  // (a lost update + a duplicate version row / desynced count).
+  const MAX_ATTEMPTS = 10;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const current = await prisma.artifact.findUnique({ where: { id: artifactId } });
+    if (!current) return null;
 
-  if (!current) return null;
+    const nextVersion = current.version + 1;
+    const updatedTitle = title ?? current.title;
+    const updatedContent = content ?? current.content;
+    const updatedLanguage = language !== undefined ? language : current.language;
 
-  const nextVersion = current.version + 1;
-  const updatedTitle = title ?? current.title;
-  const updatedContent = content ?? current.content;
+    try {
+      const artifact = await prisma.$transaction(async (tx) => {
+        // CAS guard: only succeeds if no one else bumped the version meanwhile.
+        const cas = await tx.artifact.updateMany({
+          where: { id: artifactId, version: current.version },
+          data: {
+            title: updatedTitle,
+            content: updatedContent,
+            language: updatedLanguage,
+            version: nextVersion,
+          },
+        });
+        if (cas.count === 0) return null; // lost the race — retry from a fresh read
 
-  return prisma.$transaction(async (tx) => {
-    const artifact = await tx.artifact.update({
-      where: { id: artifactId },
-      data: {
-        title: updatedTitle,
-        content: updatedContent,
-        language: language !== undefined ? language : current.language,
-        version: nextVersion,
-      },
-      include: {
-        author: { select: { id: true, name: true } },
-      },
-    });
+        await tx.artifactVersion.create({
+          data: {
+            orgId: current.orgId,
+            artifactId,
+            version: nextVersion,
+            title: updatedTitle,
+            content: updatedContent,
+            editedBy,
+          },
+        });
 
-    await tx.artifactVersion.create({
-      data: {
-        orgId: current.orgId,
-        artifactId,
-        version: nextVersion,
-        title: updatedTitle,
-        content: updatedContent,
-        editedBy,
-      },
-    });
+        return tx.artifact.findUnique({
+          where: { id: artifactId },
+          include: { author: { select: { id: true, name: true } } },
+        });
+      });
 
-    return artifact;
-  });
+      if (artifact) return artifact;
+      // else: CAS conflict → loop and retry with the new current version
+    } catch (err) {
+      // A unique (artifactId, version) collision means a concurrent writer took
+      // our target version — retry rather than surfacing a 500.
+      if (isUniqueViolation(err)) continue;
+      throw err;
+    }
+  }
+
+  throw new Error('Artifact update failed after repeated concurrent-write conflicts');
 }
 
 /**

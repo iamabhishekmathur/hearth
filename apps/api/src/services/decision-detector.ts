@@ -72,7 +72,7 @@ Respond with ONLY a JSON object:
 
     let result = '';
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       maxTokens: 100,
     });

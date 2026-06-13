@@ -48,7 +48,7 @@ export async function extractDecision(text: string): Promise<ExtractedDecision |
 
     let result = '';
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       maxTokens: 500,
     });
@@ -112,7 +112,7 @@ ${transcript.slice(0, 8000)}`,
 
     let result = '';
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       maxTokens: 2000,
     });

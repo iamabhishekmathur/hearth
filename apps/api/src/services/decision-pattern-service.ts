@@ -47,7 +47,7 @@ Only include patterns supported by 2+ decisions. Return [] if no clear patterns.
 
     let result = '';
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       maxTokens: 1500,
     });

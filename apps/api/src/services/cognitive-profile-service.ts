@@ -481,7 +481,7 @@ async function callExtractionLLM(transcript: string): Promise<ExtractionResult |
     let result = '';
 
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       systemPrompt: EXTRACTION_PROMPT,
       maxTokens: 2048,
@@ -539,7 +539,7 @@ async function callProfileRebuildLLM(
     let result = '';
 
     const stream = providerRegistry.chatWithFallback({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       messages,
       systemPrompt: PROFILE_REBUILD_PROMPT,
       maxTokens: 2048,

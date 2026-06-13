@@ -270,7 +270,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     const {
       name, description, prompt, schedule, context, delivery,
-      stateConfig, state, scope, teamId, parameters, checkpoints,
+      stateConfig, state, scope, teamId, parameters, checkpoints, enabled,
     } = req.body as {
       name?: string;
       description?: string;
@@ -284,6 +284,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       teamId?: string;
       parameters?: RoutineParameter[];
       checkpoints?: ApprovalCheckpointDef[];
+      enabled?: boolean;
     };
 
     if (schedule && !isValidCron(schedule)) {
@@ -301,7 +302,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     const routine = await routineService.updateRoutine(req.params.id as string, permCtx(req), {
       name, description, prompt, schedule, context, delivery,
-      stateConfig, state, scope, teamId, parameters, checkpoints,
+      stateConfig, state, scope, teamId, parameters, checkpoints, enabled,
     });
 
     if (!routine) {
@@ -358,6 +359,13 @@ router.post('/:id/run-now', requireAuth, async (req, res, next) => {
     const routine = await routineService.getRoutine(req.params.id as string, permCtx(req));
     if (!routine) {
       res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
+
+    // A disabled routine must not be manually triggered — the worker would just
+    // skip the job, so enqueuing it is a silent no-op that misleads the caller.
+    if (!routine.enabled) {
+      res.status(409).json({ error: 'Routine is disabled; enable it before running' });
       return;
     }
 

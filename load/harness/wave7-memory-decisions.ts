@@ -85,10 +85,10 @@ async function main() {
 
   // Outcomes
   if (did) {
-    const oc = await dev.req('POST', `/decisions/${did}/outcomes`, { verdict: 'positive', note: 'Tracing coverage is up.' });
+    const oc = await dev.req('POST', `/decisions/${did}/outcomes`, { verdict: 'positive', description: 'Tracing coverage is up.' });
     rec.record({ feature: F2, subFeature: 'outcomes', type: 'happy', name: 'Record a decision outcome',
       expected: '200/201', observed: `status ${oc.status}`, status: oc.status < 300 ? 'pass' : 'fail' });
-    const badOc = await dev.req('POST', `/decisions/${did}/outcomes`, { verdict: 'amazing' });
+    const badOc = await dev.req('POST', `/decisions/${did}/outcomes`, { verdict: 'amazing', description: 'should be rejected for the verdict' });
     rec.record({ feature: F2, subFeature: 'outcomes', type: 'user_error', name: 'Record an outcome with an invalid verdict',
       expected: '400', observed: `status ${badOc.status}`,
       status: badOc.status === 400 ? 'pass' : 'fail',

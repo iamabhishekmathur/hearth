@@ -58,7 +58,11 @@ router.post('/', async (req, res) => {
     const enumErr = validateDecisionEnums(data);
     if (enumErr) return res.status(400).json({ error: enumErr });
     const decision = await decisionService.createDecision(scope, data);
-    res.status(201).json({ data: decision });
+    // Dedup is transparent: a near-duplicate is merged into the existing
+    // decision and returned as 200 with deduped:true (not a silent 201 that
+    // hides the fact the caller's new row was never created).
+    const { deduped, ...rest } = decision as typeof decision & { deduped?: boolean };
+    res.status(deduped ? 200 : 201).json({ data: rest, deduped: deduped ?? false });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create decision' });
   }
@@ -214,6 +218,10 @@ router.post('/:id/outcomes', async (req, res) => {
     const data = req.body as RecordOutcomeRequest;
     if (!data.verdict || !data.description) {
       return res.status(400).json({ error: 'verdict and description are required' });
+    }
+    const VERDICTS = ['positive', 'negative', 'mixed', 'neutral', 'too_early'];
+    if (!VERDICTS.includes(data.verdict)) {
+      return res.status(400).json({ error: `verdict must be one of: ${VERDICTS.join(', ')}` });
     }
     const outcome = await decisionService.recordOutcome(req.params.id, req.user!.id, orgId, data);
     if (!outcome) return res.status(404).json({ error: 'Decision not found' });
