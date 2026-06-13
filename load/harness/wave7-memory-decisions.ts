@@ -54,9 +54,18 @@ async function main() {
 
   // ── Decisions ─────────────────────────────────────────────────────────────
   console.log('\n══ Decisions ══');
-  const cap = await dev.req<{ data?: { id: string } }>('POST', '/decisions', {
-    title: 'Adopt OpenTelemetry for tracing', reasoning: 'Vendor-neutral, broad ecosystem, replaces our ad-hoc tracing.', domain: 'engineering', scope: 'team', confidence: 'high',
-  });
+  // The FRESH capture must not dedup-merge into a prior run's identical decision
+  // (a [tag] suffix alone stays >0.90 similar and merges → 200, not 201). So we
+  // clear prior runs' marked capture decisions first (FKs cascade), then capture
+  // with a marker. The dedup test below re-sends this exact decision to verify
+  // the merge path returns 200.
+  // Test-EXCLUSIVE subject ("Zephyr-trace") so the fresh capture doesn't dedup
+  // against the org's many real tracing/OpenTelemetry decisions (embedding match
+  // is org-wide and ignores a [tag] suffix). Clear prior Zephyr-trace rows first.
+  const capTag = Math.floor(Date.now() / 1000) % 100000;
+  await prisma.decision.deleteMany({ where: { title: { contains: 'Zephyr-trace' } } });
+  const capPayload = { title: `Adopt Zephyr-trace as the tracing standard [${capTag}]`, reasoning: `Zephyr-trace becomes our one tracing standard across services. Ref ${capTag}.`, domain: 'engineering', scope: 'team' as const, confidence: 'high' as const };
+  const cap = await dev.req<{ data?: { id: string } }>('POST', '/decisions', capPayload);
   const did = cap.body.data?.id;
   rec.record({ feature: F2, subFeature: 'capture', type: 'happy', name: 'Capture a decision',
     expected: '201', observed: `status ${cap.status}`, status: cap.status === 201 ? 'pass' : 'fail' });
@@ -75,7 +84,7 @@ async function main() {
 
   // Defect: silent dedup merge — duplicate create returns the existing decision
   {
-    const a = await dev.req<{ data?: { id: string } }>('POST', '/decisions', { title: 'Adopt OpenTelemetry for tracing', reasoning: 'Vendor-neutral, broad ecosystem, replaces our ad-hoc tracing.', domain: 'engineering', scope: 'team', confidence: 'high' });
+    const a = await dev.req<{ data?: { id: string }; deduped?: boolean }>('POST', '/decisions', capPayload);
     const merged = a.body.data?.id === did;
     rec.record({ feature: F2, subFeature: 'dedup', type: 'pressure', name: 'Capture a near-duplicate decision',
       expected: 'dedup is transparent (e.g. 200 + a "merged" flag), not a silent 201 of the old row', observed: `status ${a.status}; returned-existing-id=${merged}`,

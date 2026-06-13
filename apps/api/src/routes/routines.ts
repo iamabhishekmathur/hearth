@@ -198,7 +198,7 @@ router.post('/', requireAuth, async (req, res, next) => {
   try {
     const {
       name, description, prompt, schedule, context, delivery,
-      stateConfig, scope, teamId, parameters, checkpoints,
+      stateConfig, scope, teamId, parameters, checkpoints, enabled,
     } = req.body as {
       name?: string;
       description?: string;
@@ -211,6 +211,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       teamId?: string;
       parameters?: RoutineParameter[];
       checkpoints?: ApprovalCheckpointDef[];
+      enabled?: boolean;
     };
 
     if (!name || !prompt) {
@@ -252,6 +253,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       orgId: req.user!.orgId ?? undefined,
       parameters,
       checkpoints,
+      enabled,
     });
 
     if (routine.schedule) {

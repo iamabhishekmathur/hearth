@@ -137,6 +137,12 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     res.json({ data: task });
   } catch (err) {
+    // A concurrent compare-and-set loss is a conflict (retryable) — distinct
+    // from a genuinely invalid transition request (422).
+    if (err instanceof taskService.TaskTransitionConflictError) {
+      res.status(409).json({ error: (err as Error).message });
+      return;
+    }
     if ((err as Error).message.includes('Invalid status transition')) {
       res.status(422).json({ error: (err as Error).message });
       return;
@@ -331,6 +337,12 @@ router.post('/:id/reviews', requireAuth, async (req, res, next) => {
 
     res.status(201).json({ data: review });
   } catch (err) {
+    // A concurrent compare-and-set loss is a conflict (retryable) — distinct
+    // from a genuinely invalid transition request (422).
+    if (err instanceof taskService.TaskTransitionConflictError) {
+      res.status(409).json({ error: (err as Error).message });
+      return;
+    }
     if ((err as Error).message.includes('Invalid status transition')) {
       res.status(422).json({ error: (err as Error).message });
       return;

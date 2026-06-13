@@ -99,9 +99,15 @@ async function main() {
       u.req('PATCH', `/tasks/${id}`, { status: 'executing' }),
     ]);
     const codes = [a.status, b.status].sort();
+    // The race must be PREVENTED: exactly one wins (200), the other is rejected.
+    // The rejection is 409 if it lost the compare-and-set (read the old status
+    // before the winner committed) or 422 if it read the post-commit status and
+    // its transition is now invalid — both mean "correctly not applied".
+    const oneWon = codes.includes(200);
+    const otherRejected = codes.includes(409) || codes.includes(422);
     rec.record({ feature: F, subFeature: 'concurrency', type: 'pressure', name: 'Two competing transitions from the same status',
-      expected: 'one 200, one 409 (compare-and-set)', observed: `statuses ${codes.join(' & ')}`,
-      status: codes.includes(200) && codes.includes(409) ? 'pass' : (a.status === 200 && b.status === 200 ? 'fail' : 'partial'),
+      expected: 'one 200, one rejected (409 CAS-conflict or 422 now-invalid)', observed: `statuses ${codes.join(' & ')}`,
+      status: oneWon && otherRejected ? 'pass' : (a.status === 200 && b.status === 200 ? 'fail' : 'partial'),
       defects: a.status === 200 && b.status === 200 ? ['Both concurrent transitions succeeded — compare-and-set did not prevent the race'] : undefined });
   }
 

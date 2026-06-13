@@ -135,6 +135,7 @@ export async function createRoutine(
     orgId?: string;
     parameters?: RoutineParameter[];
     checkpoints?: ApprovalCheckpointDef[];
+    enabled?: boolean;
   },
 ) {
   return prisma.routine.create({
@@ -146,7 +147,7 @@ export async function createRoutine(
       schedule: data.schedule ?? null,
       context: (data.context ?? {}) as Prisma.InputJsonValue,
       delivery: (data.delivery ?? { channels: ['in_app'] }) as Prisma.InputJsonValue,
-      enabled: true,
+      enabled: data.enabled ?? true,
       stateConfig: (data.stateConfig ?? {}) as Prisma.InputJsonValue,
       scope: data.scope ?? 'personal',
       teamId: data.teamId ?? null,

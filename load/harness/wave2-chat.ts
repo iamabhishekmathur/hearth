@@ -50,7 +50,7 @@ async function main() {
   for (const [kind, ask] of [
     ['markdown doc', 'Draft a one-page incident runbook for checkout 500s as a document I can keep.'],
     ['code', 'Write a small TypeScript health-check script for the checkout service as a code file.'],
-    ['html', 'Build a simple standalone HTML status page for the checkout service.'],
+    ['html', 'Build a simple standalone HTML status page for the checkout service as a self-contained .html file I can save and open.'],
   ] as const) {
     const u = await loginAs('dev2@hearth.local');
     const sid = await u.newSession(`Artifact: ${kind}`);
@@ -124,7 +124,7 @@ async function main() {
     // listCollaborators IDOR: a same-org user with NO access to a PRIVATE session
     // must not read its collaborator list. (Reading an ORG-VISIBLE session's
     // collaborators is by design — that's not the boundary being tested here.)
-    const owner = await loginAs('eng@hearth.local');
+    const owner = await loginAs('eng-lead@hearth.local');
     const privSid = await owner.newSession('Private 1:1 notes'); // default visibility = private
     const stranger = await loginAs('sales-rep@hearth.local');    // same org, no access
     const leak = await stranger.req<{ data?: any[] }>('GET', `/chat/sessions/${privSid}/collaborators`);

@@ -16,8 +16,10 @@ async function main() {
   // ── Links ─────────────────────────────────────────────────────────────────
   console.log('\n══ Links ══');
   const link = await lead.req('POST', `/decisions/${D1}/dependencies`, { toDecisionId: D2, relationship: 'related_to', description: 'MSK realizes the Kafka choice' });
+  // 201 = newly linked; 409 = already linked (idempotent — D1/D2 dedup to the
+  // same pair across runs). Both prove the link endpoint works.
   rec.record({ feature: F, subFeature: 'link', type: 'happy', name: 'Add a dependency link between decisions',
-    expected: '201', observed: `status ${link.status}`, status: link.status === 201 ? 'pass' : 'partial' });
+    expected: '201 (or 409 if already linked from a prior run)', observed: `status ${link.status}`, status: [201, 409].includes(link.status) ? 'pass' : 'partial' });
   const strangerLink = await stranger.req('POST', `/decisions/${D1}/dependencies`, { toDecisionId: D2, relationship: 'depends_on' });
   rec.record({ feature: F, subFeature: 'link RBAC', type: 'permission', name: "Non-owner adds a link to someone's decision",
     expected: '403/404 — not owner/org-scoped', observed: `status ${strangerLink.status}`,
@@ -54,12 +56,17 @@ async function main() {
   // judgement, and runs async after capture — poll the /conflicts endpoint.
   console.log('\n══ Conflict ══');
   {
-    // Unique per-run tag so re-runs don't get dedup-merged into a prior run's
-    // identical decision (which would short-circuit conflict detection).
+    // Use a TEST-EXCLUSIVE subject ("Helios") so the two decisions don't
+    // dedup-merge into the org's many real REST/gRPC decisions (a tag suffix
+    // alone stays >0.90 similar and gets merged, short-circuiting detection).
+    // Clear any prior-run Helios decisions first (FKs cascade), and use a fresh
+    // domain so this run's two decisions are the only conflict candidates.
+    await prisma.decision.deleteMany({ where: { title: { contains: 'Helios-' } } });
     const tag = Math.floor(Date.now() / 1000) % 100000;
-    const c1 = await lead.req<{ data?: { id: string } }>('POST', '/decisions', { title: `Standardize on REST APIs [${tag}]`, reasoning: `Simplicity and ubiquity for service interfaces. Ref ${tag}.`, domain: 'engineering', scope: 'org', confidence: 'high' });
+    const dom = `platform-${tag}`;
+    const c1 = await lead.req<{ data?: { id: string } }>('POST', '/decisions', { title: `Standardize all services on Helios-REST [${tag}]`, reasoning: `Adopt Helios-REST as the one service-interface standard for every team. Ref ${tag}.`, domain: dom, scope: 'org', confidence: 'high' });
     await sleep(800);
-    const c2 = await lead.req<{ data?: { id: string; status?: string } }>('POST', '/decisions', { title: `Standardize on gRPC instead of REST for all services [${tag}]`, reasoning: `Performance and typed contracts — gRPC replaces REST for service interfaces. Ref ${tag}.`, domain: 'engineering', scope: 'org', confidence: 'high' });
+    const c2 = await lead.req<{ data?: { id: string; status?: string } }>('POST', '/decisions', { title: `Replace Helios-REST with Helios-gRPC everywhere [${tag}]`, reasoning: `Drop Helios-REST entirely; Helios-gRPC becomes the mandatory service interface. Ref ${tag}.`, domain: dom, scope: 'org', confidence: 'high' });
     let conflicts: Array<{ decision?: { id?: string } }> = [];
     for (let i = 0; i < 8; i++) {
       await sleep(1500);
