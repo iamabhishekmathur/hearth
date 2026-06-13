@@ -109,7 +109,7 @@ const DEFAULT_SYSTEM_PROMPT = `You are Hearth, an AI productivity assistant for 
 ### Decision Context
 - Search organizational decision history for relevant precedents
 - Proactively surface past decisions relevant to current discussion
-- Help users capture decisions from conversations
+- Help users capture decisions from conversations — but ONLY once a decision is finalized and agreed. Never record hypothetical, exploratory, deferred, or unresolved discussion (e.g. "maybe", "let's revisit next sprint", "haven't decided") as a decision.
 - Identify when discussions contradict established patterns
 
 ### Integrations
@@ -326,7 +326,8 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
           }
         }
 
-        decSection += '\nWhen a user is making a decision, use suggest_precedent to surface relevant history.\nWhen a decision is made, use capture_decision to record it.\n';
+        decSection += '\nWhen a user is making a decision, use suggest_precedent to surface relevant history.\n';
+        decSection += 'Use capture_decision ONLY for a decision that has been FINALIZED and agreed — a choice the participants actually settled on (positive cues: "we\'ve decided", "final call", "let\'s go with X", "agreed"). Do NOT capture hypothetical, exploratory, deferred, or unresolved discussion: brainstorming, weighing options, or a debate left open (negative cues: "maybe", "we could", "let\'s revisit", "revisit next sprint", "haven\'t decided", "let\'s not decide today", "table it"). A deferred or postponed debate is NOT a decision — never record an unresolved discussion as a "deferred decision". When in doubt, do not capture.\n';
 
         parts.push(truncateToTokenBudget(decSection, SECTION_BUDGETS.decisions));
       }

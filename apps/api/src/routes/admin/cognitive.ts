@@ -20,8 +20,10 @@ router.get('/settings', async (req, res, next) => {
       select: { settings: true },
     });
     const settings = (org?.settings as Record<string, unknown>) ?? {};
+    // Default ON: a fresh org with no explicit setting personalizes by default.
+    // Only an explicit `enabled: false` disables it org-wide.
     const cognitive: OrgCognitiveSettings = {
-      enabled: false,
+      enabled: true,
       ...(settings.cognitiveProfiles as Record<string, unknown> ?? {}),
     };
     res.json({ data: cognitive });

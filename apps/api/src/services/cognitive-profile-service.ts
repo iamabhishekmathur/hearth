@@ -72,7 +72,11 @@ Rules:
 // ─── Org/User Gate ───────────────────────────────────────────────────
 
 /**
- * Checks whether cognitive profiles are enabled at the org level.
+ * Checks whether cognitive personalization is enabled at the org level.
+ *
+ * Org-governed toggle, DEFAULT ON: a fresh org with no explicit setting
+ * personalizes by default. An admin can disable it org-wide by writing an
+ * explicit `enabled: false`, which is always honored.
  */
 export async function isCognitiveEnabledForOrg(orgId: string): Promise<boolean> {
   const org = await prisma.org.findUnique({
@@ -81,7 +85,8 @@ export async function isCognitiveEnabledForOrg(orgId: string): Promise<boolean> 
   });
   const settings = (org?.settings as Record<string, unknown>) ?? {};
   const cognitive = (settings.cognitiveProfiles ?? {}) as Record<string, unknown>;
-  return cognitive.enabled === true;
+  // Default ON: only an explicit `false` disables it.
+  return cognitive.enabled !== false;
 }
 
 /**
@@ -495,11 +500,40 @@ async function callExtractionLLM(transcript: string): Promise<ExtractionResult |
       }
     }
 
-    return JSON.parse(result.trim()) as ExtractionResult;
+    // Tolerate fenced / prose-wrapped JSON: strip ```json ... ``` fences, then
+    // fall back to extracting the first {...} object. Mirrors task-detector /
+    // decision-extractor hardening so models that wrap output in markdown don't
+    // crash the extraction worker.
+    const jsonStr = extractJsonObject(result);
+    if (!jsonStr) {
+      logger.error(
+        { raw: result.slice(0, 200) },
+        'Cognitive extraction LLM response contained no JSON object',
+      );
+      return null;
+    }
+
+    return JSON.parse(jsonStr) as ExtractionResult;
   } catch (err) {
     logger.error({ err }, 'Failed to parse cognitive extraction LLM response');
     return null;
   }
+}
+
+/**
+ * Extract a JSON object string from a raw LLM response that may be wrapped in
+ * markdown code fences or surrounding prose. Returns null when no object is found.
+ */
+function extractJsonObject(raw: string): string | null {
+  const trimmed = raw.trim();
+
+  // 1. Prefer the contents of a ```json ... ``` (or bare ``` ... ```) fence.
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1].trim() : trimmed;
+
+  // 2. Narrow to the first balanced-ish {...} span in case of leading/trailing prose.
+  const objectMatch = candidate.match(/\{[\s\S]*\}/);
+  return objectMatch ? objectMatch[0] : null;
 }
 
 const PROFILE_REBUILD_PROMPT = `Given these observed thought patterns about a person, synthesize a cognitive profile summary.

@@ -82,14 +82,22 @@ beforeEach(() => {
 // ── Gating Tests ──
 
 describe('isCognitiveEnabledForOrg', () => {
-  it('returns false when org has no cognitive settings', async () => {
+  it('returns true (default ON) when org has no cognitive settings', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
-    expect(await isCognitiveEnabledForOrg('org-1')).toBe(false);
+    expect(await isCognitiveEnabledForOrg('org-1')).toBe(true);
   });
 
-  it('returns false when cognitive profiles are explicitly disabled', async () => {
+  it('returns true (default ON) when cognitiveProfiles object exists but enabled is unset', async () => {
+    vi.mocked(prisma.org.findUnique).mockResolvedValue({
+      id: 'org-1', settings: { cognitiveProfiles: {} },
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
+    });
+    expect(await isCognitiveEnabledForOrg('org-1')).toBe(true);
+  });
+
+  it('returns false when admin has explicitly disabled it org-wide', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: { cognitiveProfiles: { enabled: false } },
       name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
@@ -107,11 +115,20 @@ describe('isCognitiveEnabledForOrg', () => {
 });
 
 describe('isCognitiveEnabledForUser', () => {
-  it('returns false when org feature is disabled', async () => {
+  it('returns false when org feature is explicitly disabled', async () => {
+    vi.mocked(prisma.org.findUnique).mockResolvedValue({
+      id: 'org-1', settings: { cognitiveProfiles: { enabled: false } },
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
+    });
+    expect(await isCognitiveEnabledForUser('org-1', 'user-1')).toBe(false);
+  });
+
+  it('returns true for a fresh org (default ON) with no user opt-out', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
       id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
-    expect(await isCognitiveEnabledForUser('org-1', 'user-1')).toBe(false);
+    vi.mocked(prisma.cognitiveProfile.findUnique).mockResolvedValue(null);
+    expect(await isCognitiveEnabledForUser('org-1', 'user-1')).toBe(true);
   });
 
   it('returns true when org enabled and no user profile record (default opt-in)', async () => {
@@ -139,9 +156,10 @@ describe('isCognitiveEnabledForUser', () => {
 // ── Extraction Tests ──
 
 describe('extractCognitivePatterns', () => {
-  it('skips extraction when feature is disabled', async () => {
+  it('skips extraction when feature is explicitly disabled', async () => {
     vi.mocked(prisma.org.findUnique).mockResolvedValue({
-      id: 'org-1', settings: {}, name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
+      id: 'org-1', settings: { cognitiveProfiles: { enabled: false } },
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
     });
 
     await extractCognitivePatterns({
@@ -225,6 +243,70 @@ describe('extractCognitivePatterns', () => {
     });
 
     expect(providerRegistry.chatWithFallback).toHaveBeenCalled();
+    expect(prisma.thoughtPattern.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          category: 'preference',
+          orgId: 'org-1',
+          userId: 'user-1',
+        }),
+      }),
+    );
+  });
+
+  it('parses a markdown-fenced LLM response and still lands a pattern', async () => {
+    vi.mocked(prisma.org.findUnique).mockResolvedValue({
+      id: 'org-1', settings: { cognitiveProfiles: { enabled: true } },
+      name: '', slug: '', ssoConfig: null, status: 'active', deletionScheduledAt: null, plan: 'free', stripeCustomerId: null, stripeSubscriptionId: null, trialEndsAt: null, currentPeriodEnd: null, createdAt: new Date(),
+    });
+    vi.mocked(prisma.cognitiveProfile.findUnique).mockResolvedValue(null);
+
+    vi.mocked(prisma.chatMessage.findMany).mockResolvedValue([
+      { id: 'm1', orgId: 'org-1', sessionId: 'sess-1', role: 'user', content: 'I prefer React over Vue', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm2', orgId: 'org-1', sessionId: 'sess-1', role: 'assistant', content: 'Interesting choice', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm3', orgId: 'org-1', sessionId: 'sess-1', role: 'user', content: 'Hooks are just better', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm4', orgId: 'org-1', sessionId: 'sess-1', role: 'assistant', content: 'Makes sense', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+      { id: 'm5', orgId: 'org-1', sessionId: 'sess-1', role: 'user', content: 'Always choose simplicity', metadata: {}, createdBy: null, respondingToMessageId: null, producedTaskIds: [], createdAt: new Date() },
+    ]);
+
+    const innerJson = JSON.stringify({
+      patterns: [
+        {
+          pattern: 'When choosing frontend frameworks, prefers React over Vue due to hooks',
+          category: 'preference',
+          confidence: 0.8,
+          excerpt: 'I prefer React over Vue',
+        },
+      ],
+      profileUpdates: { expertiseMentioned: [], valuesRevealed: ['simplicity'], communicationTraits: {} },
+      contradictions: [],
+    });
+    // The exact failure shape from the live worker log: a ```json fence (plus prose).
+    const fencedResult = 'Here is the analysis:\n\n```json\n' + innerJson + '\n```\n';
+
+    vi.mocked(providerRegistry.chatWithFallback).mockReturnValue(
+      mockStream([
+        { type: 'text_delta', content: fencedResult },
+        { type: 'done' },
+      ]),
+    );
+
+    vi.mocked(generateEmbedding).mockResolvedValue(null);
+    vi.mocked(prisma.thoughtPattern.create).mockResolvedValue({
+      id: 'tp-1', orgId: 'org-1', userId: 'user-1',
+      pattern: 'test', category: 'preference',
+      sourceSessionId: 'sess-1', sourceExcerpt: 'test',
+      confidence: 0.8, observationCount: 1,
+      firstObserved: new Date(), lastReinforced: new Date(),
+      supersededById: null, supersededReason: null, createdAt: new Date(),
+    });
+    vi.mocked(prisma.thoughtPattern.count).mockResolvedValue(1);
+
+    await extractCognitivePatterns({
+      sessionId: 'sess-1', userId: 'user-1', orgId: 'org-1',
+    });
+
+    // The fenced response must ACTUALLY parse and persist a thought pattern row.
     expect(prisma.thoughtPattern.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

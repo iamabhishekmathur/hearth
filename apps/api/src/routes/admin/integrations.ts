@@ -54,6 +54,7 @@ router.post('/', async (req, res, next) => {
       credentials,
       serverUrl,
       label,
+      userId: req.user!.id,
     });
 
     res.status(201).json({ data: integration });

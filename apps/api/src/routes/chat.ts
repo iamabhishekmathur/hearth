@@ -12,6 +12,7 @@ import { evaluateMessage, getGovernanceSettings, hasBlockPolicies } from '../ser
 import { reflectOnSession } from '../services/experience-service.js';
 import { notify } from '../services/notification-service.js';
 import { enqueueCognitiveExtraction } from '../jobs/cognitive-extraction-scheduler.js';
+import { decisionExtractionQueue } from '../jobs/decision-extraction-scheduler.js';
 import {
   isCognitiveEnabledForOrg,
   getCognitiveEnabled,
@@ -295,6 +296,24 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
         logger.error({ err, sessionId }, 'Agent loop unhandled error');
       });
+
+      // Scan the conversation for an emergent decision ("we've decided to…") and
+      // auto-capture it (source: 'chat'). Debounce-to-LAST: each new message
+      // removes the pending delayed job and reschedules, so the extraction fires
+      // ~8s after the conversation settles and sees the full thread (not the
+      // first message). Without this producer the decision-extraction worker's
+      // chat path was dead code — chats were never scanned for decisions.
+      // Fire-and-forget; never block the message reply. (jobId has no ':' —
+      // BullMQ rejects colons in custom ids.)
+      void (async () => {
+        const jobId = `decision-extract-${sessionId}`;
+        await decisionExtractionQueue.remove(jobId).catch(() => {}); // reset debounce window
+        await decisionExtractionQueue.add(
+          'chat_session',
+          { sessionId, userId: session.userId, orgId: session.orgId },
+          { jobId, delay: 8000, removeOnComplete: true, removeOnFail: true },
+        );
+      })().catch((err) => logger.warn({ err, sessionId }, 'Failed to enqueue chat decision extraction'));
     }
   } catch (err) {
     next(err);

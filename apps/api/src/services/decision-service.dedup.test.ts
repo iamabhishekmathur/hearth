@@ -8,7 +8,7 @@ vi.mock('../lib/prisma.js', () => ({
   prisma: {
     $queryRawUnsafe: vi.fn(),
     $executeRawUnsafe: vi.fn(),
-    decision: { findUnique: vi.fn(), create: vi.fn() },
+    decision: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     decisionLink: { create: vi.fn() },
   },
 }));
@@ -57,11 +57,87 @@ describe('createDecision — transparent dedup', () => {
 
   it('a novel decision is created fresh (no deduped flag)', async () => {
     asMock(prisma.$queryRawUnsafe).mockResolvedValue([]); // nothing similar
+    asMock(prisma.decision.findFirst).mockResolvedValue(null); // no session/race collision
     asMock(prisma.decision.create).mockResolvedValue({ ...existingRow(), id: 'd-new', title: 'Brand new' });
 
     const result = await createDecision(SCOPE, { title: 'Brand new', reasoning: 'novel', domain: 'infra' });
 
     expect(result.id).toBe('d-new');
+    expect(result.deduped).toBeUndefined();
+    expect(asMock(prisma.decision.create)).toHaveBeenCalled();
+  });
+});
+
+// The real onboarding bug: two producers (agent capture_decision tool + the
+// background chat→decision-extraction worker) fire for ONE real decision in a
+// session and create two rows. Both pass `sessionId`. createDecision must
+// converge to one — deterministically, even when phrasings differ and the
+// embedding-similarity path can't see the racing row (NULL embedding window).
+describe('createDecision — session-scoped dedup (the duplicate-capture bug)', () => {
+  const SESSION = 'sess-abc';
+
+  it('skips inserting when the session already produced a decision (pre-insert)', async () => {
+    // Pre-insert session check finds an existing decision for this session.
+    asMock(prisma.decision.findFirst).mockResolvedValue({ ...existingRow(), sessionId: SESSION });
+
+    const result = await createDecision(SCOPE, {
+      title: 'Adopted Postgres for the new events store',
+      reasoning: 'second producer, same session',
+      domain: 'infra',
+      sourceRef: { sessionId: SESSION },
+      sessionId: SESSION,
+    });
+
+    expect(result.deduped).toBe(true);
+    expect(result.id).toBe('d-existing');
+    // The second producer must NOT insert a duplicate row.
+    expect(asMock(prisma.decision.create)).not.toHaveBeenCalled();
+    // It also short-circuits before the embedding-similarity query.
+    expect(asMock(prisma.$queryRawUnsafe)).not.toHaveBeenCalled();
+  });
+
+  it('archives its own insert if it loses the race (post-insert reconcile)', async () => {
+    // Pre-insert check: clear (both producers raced past it).
+    // Post-insert reconcile: an OLDER row for the session now exists → we lost.
+    asMock(prisma.decision.findFirst)
+      .mockResolvedValueOnce(null) // pre-insert: nothing yet
+      .mockResolvedValueOnce({ ...existingRow(), id: 'd-winner', sessionId: SESSION }); // reconcile: winner exists
+    asMock(prisma.$queryRawUnsafe).mockResolvedValue([]); // no embedding dup
+    asMock(prisma.decision.create).mockResolvedValue({
+      ...existingRow(), id: 'd-loser', sessionId: SESSION, createdAt: new Date('2026-06-02'),
+    });
+    asMock(prisma.decision.updateMany).mockResolvedValue({ count: 1 });
+
+    const result = await createDecision(SCOPE, {
+      title: 'Adopted Postgres for the new events store',
+      reasoning: 'racing producer',
+      domain: 'infra',
+      sourceRef: { sessionId: SESSION },
+      sessionId: SESSION,
+    });
+
+    // Converges to the winner, flagged deduped, and archives the loser row.
+    expect(result.id).toBe('d-winner');
+    expect(result.deduped).toBe(true);
+    expect(asMock(prisma.decision.updateMany)).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'archived' } }),
+    );
+  });
+
+  it('a genuinely first decision in a session is created normally', async () => {
+    asMock(prisma.decision.findFirst).mockResolvedValue(null); // pre-insert + reconcile both clear
+    asMock(prisma.$queryRawUnsafe).mockResolvedValue([]);
+    asMock(prisma.decision.create).mockResolvedValue({ ...existingRow(), id: 'd-first', sessionId: SESSION });
+
+    const result = await createDecision(SCOPE, {
+      title: 'Adopted Postgres for the new events store',
+      reasoning: 'first and only producer so far',
+      domain: 'infra',
+      sourceRef: { sessionId: SESSION },
+      sessionId: SESSION,
+    });
+
+    expect(result.id).toBe('d-first');
     expect(result.deduped).toBeUndefined();
     expect(asMock(prisma.decision.create)).toHaveBeenCalled();
   });

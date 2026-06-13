@@ -1417,7 +1417,10 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
   tools.set('capture_decision', {
     name: 'capture_decision',
     description:
-      'Capture a decision made during this conversation. Use when you detect that the user has made or is communicating a decision — e.g., choosing a technology, prioritizing work, setting a policy. Records the decision in the organizational decision graph for future reference.',
+      'Capture a decision that has been FINALIZED and committed during this conversation — a choice the participants have actually agreed on and settled (e.g., choosing a technology, prioritizing work, setting a policy). Records it in the organizational decision graph for future reference. ' +
+      'ONLY capture when the decision is resolved and agreed. Positive cues: "we\'ve decided", "final call", "let\'s go with X", "we\'re committing to X", "agreed, we\'ll do X". ' +
+      'Do NOT capture hypothetical, exploratory, deferred, or unresolved discussion — i.e. brainstorming, weighing options, or a debate that was explicitly left open. Negative cues that mean DO NOT capture: "maybe", "we could", "what if", "let\'s revisit", "revisit next sprint", "haven\'t decided", "let\'s not decide today", "table it", "still thinking about it", "leaning toward (but not sure)". ' +
+      'A deferred or postponed debate is NOT a decision — never record an unresolved discussion as a "deferred decision". When in doubt about whether something was truly settled, do not capture it.',
     inputSchema: {
       type: 'object',
       properties: {

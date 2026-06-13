@@ -35,8 +35,14 @@ async function batchWithConcurrency<T>(
  * 2. Chunks and embeds new content with bounded concurrency
  * 3. Deduplicates against existing memory (cosine > 0.95 = skip)
  * 4. Creates new entries in the user's personal memory layer
+ *
+ * When `integrationId` is provided (the on-connect backfill path), synthesis is
+ * SCOPED to that single just-connected integration instead of fanning out over
+ * every org integration. This both targets the source the user actually
+ * connected and avoids pulling from unrelated/seeded integrations whose stale
+ * creds would otherwise dominate the result with errors.
  */
-export async function synthesizeForUser(userId: string) {
+export async function synthesizeForUser(userId: string, integrationId?: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: { team: { select: { orgId: true } } },
@@ -50,7 +56,7 @@ export async function synthesizeForUser(userId: string) {
   const orgId = user.team.orgId;
 
   // Fetch recent content from connected integrations
-  const rawContent = await fetchIntegrationData(userId, orgId);
+  const rawContent = await fetchIntegrationData(userId, orgId, integrationId);
   if (!rawContent || rawContent.length === 0) {
     logger.info({ userId }, 'Synthesis: no new content from integrations');
     return { created: 0, skipped: 0 };
@@ -159,10 +165,10 @@ export async function synthesizeForUser(userId: string) {
 }
 
 /**
- * Per-provider strategy: which tool to call for recent content,
- * how to build its input, and how to extract text from the output.
+ * A single tool invocation: which tool to call, how to build its input,
+ * and how to extract text from the output.
  */
-interface FetchStrategy {
+interface FetchCall {
   toolName: string;
   buildInput: () => Record<string, unknown>;
   extractContent: (
@@ -170,106 +176,190 @@ interface FetchStrategy {
   ) => Array<{ text: string; sourceRef?: Record<string, unknown> }>;
 }
 
+/**
+ * Per-provider strategy. Most providers expose a single recent-content tool,
+ * but some (e.g. a generic/custom MCP source or Granola) expose several, so a
+ * strategy is one-or-more {@link FetchCall}s executed in sequence. The results
+ * are aggregated. A call whose tool the connector does not expose is skipped.
+ */
+type FetchStrategy = FetchCall[];
+
 function yesterdayDateStr(): string {
   const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
+/** Extract Slack messages from a slack_search_messages output. */
+const extractSlackMessages: FetchCall['extractContent'] = (output) => {
+  const messages = (output.messages as Array<Record<string, unknown>>) ?? [];
+  return messages
+    .filter((m) => typeof m.text === 'string' && (m.text as string).length > 0)
+    .map((m) => ({
+      text: m.text as string,
+      sourceRef: { ts: m.ts, channel: m.channel },
+    }));
+};
+
+/** Extract Gmail messages from a gmail_search output. */
+const extractGmailMessages: FetchCall['extractContent'] = (output) => {
+  const messages = (output.messages as Array<Record<string, unknown>>) ?? [];
+  return messages
+    .filter((m) => typeof m.snippet === 'string' && (m.snippet as string).length > 0)
+    .map((m) => ({
+      text: m.snippet as string,
+      sourceRef: { messageId: m.id, threadId: m.threadId },
+    }));
+};
+
+/**
+ * Extract Granola meeting transcripts. Each meeting carries a title plus a
+ * transcript (either a single string or an array of {speaker,text} segments);
+ * we flatten it into a readable block so it can be chunked + embedded.
+ */
+const extractGranolaTranscripts: FetchCall['extractContent'] = (output) => {
+  const meetings = (output.meetings as Array<Record<string, unknown>>) ?? [];
+  return meetings
+    .map((m) => {
+      const title = (m.title as string) ?? 'Meeting';
+      let body = '';
+      if (typeof m.transcript === 'string') {
+        body = m.transcript;
+      } else if (Array.isArray(m.transcript)) {
+        body = (m.transcript as Array<Record<string, unknown>>)
+          .map((seg) => {
+            const speaker = (seg.speaker as string) ?? '';
+            const text = (seg.text as string) ?? '';
+            return speaker ? `${speaker}: ${text}` : text;
+          })
+          .join('\n');
+      }
+      const text = body ? `${title}\n${body}` : title;
+      return {
+        text,
+        sourceRef: { meetingId: m.id, title, date: m.date },
+      };
+    })
+    .filter((r) => r.text.trim().length > 0);
+};
+
 const PROVIDER_STRATEGIES: Record<string, FetchStrategy> = {
-  slack: {
-    toolName: 'slack_search_messages',
-    buildInput: () => ({ query: `after:${yesterdayDateStr()}`, limit: 50 }),
-    extractContent: (output) => {
-      const messages = (output.messages as Array<Record<string, unknown>>) ?? [];
-      return messages
-        .filter((m) => typeof m.text === 'string' && (m.text as string).length > 0)
-        .map((m) => ({
-          text: m.text as string,
-          sourceRef: { ts: m.ts, channel: m.channel },
-        }));
+  slack: [
+    {
+      toolName: 'slack_search_messages',
+      buildInput: () => ({ query: `after:${yesterdayDateStr()}`, limit: 50 }),
+      extractContent: extractSlackMessages,
     },
-  },
+  ],
 
-  gmail: {
-    toolName: 'gmail_search',
-    buildInput: () => ({ query: 'newer_than:1d', maxResults: 20 }),
-    extractContent: (output) => {
-      const messages = (output.messages as Array<Record<string, unknown>>) ?? [];
-      return messages
-        .filter((m) => typeof m.snippet === 'string' && (m.snippet as string).length > 0)
-        .map((m) => ({
-          text: m.snippet as string,
-          sourceRef: { messageId: m.id, threadId: m.threadId },
-        }));
+  gmail: [
+    {
+      toolName: 'gmail_search',
+      buildInput: () => ({ query: 'newer_than:1d', maxResults: 20 }),
+      extractContent: extractGmailMessages,
     },
-  },
+  ],
 
-  notion: {
-    toolName: 'notion_search',
-    buildInput: () => ({ query: '' }), // empty query returns recently edited pages
-    extractContent: (output) => {
-      const results = (output.results as Array<Record<string, unknown>>) ?? [];
-      return results
-        .map((r) => {
-          const props = (r.properties as Record<string, unknown>) ?? {};
-          // Notion titles live under a "title" or "Name" property
-          const titleProp = (props.title ?? props.Name) as Record<string, unknown> | undefined;
-          let title = '';
-          if (titleProp) {
-            const titleArr = (titleProp.title as Array<Record<string, unknown>>) ?? [];
-            title = titleArr
-              .map((t) => ((t.text as Record<string, unknown>)?.content as string) ?? '')
-              .join('');
-          }
-          return {
-            text: title || `Notion page ${r.id}`,
-            sourceRef: { pageId: r.id, url: r.url },
-          };
-        })
-        .filter((r) => r.text.length > 0);
+  granola: [
+    {
+      toolName: 'granola_get_recent_transcripts',
+      buildInput: () => ({ since: yesterdayDateStr(), limit: 20 }),
+      extractContent: extractGranolaTranscripts,
     },
-  },
+  ],
 
-  jira: {
-    toolName: 'jira_search',
-    buildInput: () => ({ jql: 'updated >= -1d ORDER BY updated DESC', maxResults: 20 }),
-    extractContent: (output) => {
-      const issues = (output.issues as Array<Record<string, unknown>>) ?? [];
-      return issues
-        .map((i) => {
-          const fields = (i.fields as Record<string, unknown>) ?? {};
-          const summary = (fields.summary as string) ?? '';
-          const description = (fields.description as string) ?? '';
-          return {
-            text: `${i.key}: ${summary}${description ? '\n' + description : ''}`,
-            sourceRef: { issueKey: i.key },
-          };
-        })
-        .filter((r) => r.text.length > 0);
+  // Generic / custom MCP source (e.g. an aggregated work feed). We probe for
+  // each known recent-content tool; the connector only answers for the ones it
+  // actually exposes, so an unknown tool simply yields nothing.
+  custom: [
+    {
+      toolName: 'slack_search_messages',
+      buildInput: () => ({ query: `after:${yesterdayDateStr()}`, limit: 50 }),
+      extractContent: extractSlackMessages,
     },
-  },
+    {
+      toolName: 'gmail_search',
+      buildInput: () => ({ query: 'newer_than:1d', maxResults: 20 }),
+      extractContent: extractGmailMessages,
+    },
+    {
+      toolName: 'granola_get_recent_transcripts',
+      buildInput: () => ({ since: yesterdayDateStr(), limit: 20 }),
+      extractContent: extractGranolaTranscripts,
+    },
+  ],
 
-  gcalendar: {
-    toolName: 'gcalendar_list_events',
-    buildInput: () => {
-      const now = new Date();
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      return { timeMin: yesterday.toISOString(), timeMax: now.toISOString(), maxResults: 20 };
+  notion: [
+    {
+      toolName: 'notion_search',
+      buildInput: () => ({ query: '' }), // empty query returns recently edited pages
+      extractContent: (output) => {
+        const results = (output.results as Array<Record<string, unknown>>) ?? [];
+        return results
+          .map((r) => {
+            const props = (r.properties as Record<string, unknown>) ?? {};
+            // Notion titles live under a "title" or "Name" property
+            const titleProp = (props.title ?? props.Name) as Record<string, unknown> | undefined;
+            let title = '';
+            if (titleProp) {
+              const titleArr = (titleProp.title as Array<Record<string, unknown>>) ?? [];
+              title = titleArr
+                .map((t) => ((t.text as Record<string, unknown>)?.content as string) ?? '')
+                .join('');
+            }
+            return {
+              text: title || `Notion page ${r.id}`,
+              sourceRef: { pageId: r.id, url: r.url },
+            };
+          })
+          .filter((r) => r.text.length > 0);
+      },
     },
-    extractContent: (output) => {
-      const events = (output.events as Array<Record<string, unknown>>) ?? [];
-      return events
-        .map((e) => {
-          const summary = (e.summary as string) ?? '';
-          const description = (e.description as string) ?? '';
-          return {
-            text: `${summary}${description ? ': ' + description : ''}`,
-            sourceRef: { eventId: e.id },
-          };
-        })
-        .filter((r) => r.text.length > 0);
+  ],
+
+  jira: [
+    {
+      toolName: 'jira_search',
+      buildInput: () => ({ jql: 'updated >= -1d ORDER BY updated DESC', maxResults: 20 }),
+      extractContent: (output) => {
+        const issues = (output.issues as Array<Record<string, unknown>>) ?? [];
+        return issues
+          .map((i) => {
+            const fields = (i.fields as Record<string, unknown>) ?? {};
+            const summary = (fields.summary as string) ?? '';
+            const description = (fields.description as string) ?? '';
+            return {
+              text: `${i.key}: ${summary}${description ? '\n' + description : ''}`,
+              sourceRef: { issueKey: i.key },
+            };
+          })
+          .filter((r) => r.text.length > 0);
+      },
     },
-  },
+  ],
+
+  gcalendar: [
+    {
+      toolName: 'gcalendar_list_events',
+      buildInput: () => {
+        const now = new Date();
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        return { timeMin: yesterday.toISOString(), timeMax: now.toISOString(), maxResults: 20 };
+      },
+      extractContent: (output) => {
+        const events = (output.events as Array<Record<string, unknown>>) ?? [];
+        return events
+          .map((e) => {
+            const summary = (e.summary as string) ?? '';
+            const description = (e.description as string) ?? '';
+            return {
+              text: `${summary}${description ? ': ' + description : ''}`,
+              sourceRef: { eventId: e.id },
+            };
+          })
+          .filter((r) => r.text.length > 0);
+      },
+    },
+  ],
 };
 
 /**
@@ -280,23 +370,34 @@ const PROVIDER_STRATEGIES: Record<string, FetchStrategy> = {
 async function fetchIntegrationData(
   userId: string,
   orgId: string,
+  scopedIntegrationId?: string,
 ): Promise<
   Array<{ text: string; source: string; sourceRef?: Record<string, unknown> }>
 > {
   const integrations = await prisma.integration.findMany({
-    where: { orgId, status: 'active', enabled: true },
+    where: {
+      orgId,
+      status: 'active',
+      enabled: true,
+      // On-connect backfill: pull ONLY from the just-connected integration.
+      ...(scopedIntegrationId ? { id: scopedIntegrationId } : {}),
+    },
   });
 
   if (integrations.length === 0) return [];
 
-  const connectedIds = new Set(mcpGateway.getConnectedIntegrations());
   const results: Array<{ text: string; source: string; sourceRef?: Record<string, unknown> }> = [];
 
   for (const integration of integrations) {
-    if (!connectedIds.has(integration.id)) {
+    // mcpGateway connections are per-process and in-memory. In the worker
+    // process the just-connected integration may not have a live connection
+    // (it was connected in the API process). Connect it on-demand so the pull
+    // hits the real source instead of being silently skipped.
+    const connected = await mcpGateway.ensureConnected(integration.id);
+    if (!connected) {
       logger.debug(
         { integrationId: integration.id, provider: integration.provider },
-        'Synthesis: integration not connected to gateway, skipping',
+        'Synthesis: integration not connectable, skipping',
       );
       continue;
     }
@@ -307,34 +408,56 @@ async function fetchIntegrationData(
       continue;
     }
 
-    try {
-      const result = await mcpGateway.executeTool(
-        integration.id,
-        strategy.toolName,
-        strategy.buildInput(),
-      );
+    // Which tools does this connector actually expose? A strategy may probe for
+    // several tools (e.g. a custom MCP source) but the connector only answers
+    // for the ones it serves — skip the rest to avoid noisy "unknown tool" rows.
+    const availableTools = new Set(
+      (await mcpGateway.listTools(integration.id)).map((t) => t.name),
+    );
 
-      if (result.error) {
-        logger.warn(
-          { integrationId: integration.id, provider: integration.provider, error: result.error },
-          'Synthesis: tool execution returned error',
-        );
+    for (const call of strategy) {
+      if (availableTools.size > 0 && !availableTools.has(call.toolName)) {
         continue;
       }
+      try {
+        const result = await mcpGateway.executeTool(
+          integration.id,
+          call.toolName,
+          call.buildInput(),
+        );
 
-      const items = strategy.extractContent(result.output);
-      for (const item of items) {
-        results.push({
-          text: item.text,
-          source: integration.provider,
-          sourceRef: item.sourceRef,
-        });
+        if (result.error) {
+          logger.warn(
+            {
+              integrationId: integration.id,
+              provider: integration.provider,
+              tool: call.toolName,
+              error: result.error,
+            },
+            'Synthesis: tool execution returned error',
+          );
+          continue;
+        }
+
+        const items = call.extractContent(result.output);
+        for (const item of items) {
+          results.push({
+            text: item.text,
+            source: integration.provider,
+            sourceRef: item.sourceRef,
+          });
+        }
+      } catch (err) {
+        logger.error(
+          {
+            err,
+            integrationId: integration.id,
+            provider: integration.provider,
+            tool: call.toolName,
+          },
+          'Synthesis: failed to fetch from integration',
+        );
       }
-    } catch (err) {
-      logger.error(
-        { err, integrationId: integration.id, provider: integration.provider },
-        'Synthesis: failed to fetch from integration',
-      );
     }
   }
 

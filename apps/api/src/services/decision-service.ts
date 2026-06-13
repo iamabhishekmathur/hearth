@@ -25,10 +25,54 @@ interface DecisionScope {
 /**
  * Create a decision with embedding, dedup check, and auto-linking.
  */
+// A real decision in one chat session is captured by two independent producers:
+// (a) the agent's synchronous `capture_decision` tool, and (b) the background
+// chat→decision-extraction worker (debounced off the same session). Both pass
+// `sessionId`. We must converge to ONE decision per session — never two rows.
+//
+// The embedding dedup below can't catch this race: the background path stores
+// its embedding in a SEPARATE UPDATE *after* create(), so for a window the row
+// has `embedding IS NULL` and the similarity query (which filters
+// `embedding IS NOT NULL`) literally cannot see it. Different phrasings between
+// the two producers can also miss the 0.90 threshold. So we add a deterministic,
+// phrasing-independent guard first: if an active/draft decision already exists
+// for the same session in this org, merge into it instead of inserting a second
+// row. Whichever producer ran first wins; the later one is folded in.
+const SESSION_DEDUP_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+async function findSessionDecision(orgId: string, sessionId: string) {
+  return prisma.decision.findFirst({
+    where: {
+      orgId,
+      sessionId,
+      status: { notIn: ['archived', 'superseded'] },
+      createdAt: { gte: new Date(Date.now() - SESSION_DEDUP_WINDOW_MS) },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+/**
+ * Create a decision with embedding, dedup check, and auto-linking.
+ */
 export async function createDecision(
   scope: DecisionScope,
   data: CreateDecisionRequest & { sessionId?: string },
 ): Promise<Decision & { deduped?: boolean }> {
+  // Session-scoped dedup (deterministic). If this session already produced a
+  // decision recently, the two producers (agent tool + background worker) are
+  // racing on the SAME real decision — return the existing row instead of a dup.
+  if (data.sessionId) {
+    const existingForSession = await findSessionDecision(scope.orgId, data.sessionId);
+    if (existingForSession) {
+      logger.info(
+        { existingId: existingForSession.id, sessionId: data.sessionId },
+        'Decision dedup: session already has a decision, merging',
+      );
+      return { ...formatDecision(existingForSession), deduped: true };
+    }
+  }
+
   // Generate embedding from title + reasoning
   const embeddingText = `${data.title}. ${data.reasoning}`;
   const embedding = await generateEmbedding(embeddingText);
@@ -95,6 +139,38 @@ export async function createDecision(
       importance: 0.5,
     },
   });
+
+  // Race-safe reconciliation: two producers can both clear the pre-insert
+  // session check before either commits, then both insert. If an OLDER decision
+  // for this session now exists, the other producer won the race — archive the
+  // row we just created and return theirs, so the session converges to one.
+  if (data.sessionId) {
+    const earlier = await prisma.decision.findFirst({
+      where: {
+        orgId: scope.orgId,
+        sessionId: data.sessionId,
+        status: { notIn: ['archived', 'superseded'] },
+        id: { not: decision.id },
+        OR: [
+          { createdAt: { lt: decision.createdAt } },
+          // Tie-break deterministically on identical timestamps so both racers
+          // pick the SAME survivor (lower id) rather than archiving each other.
+          { createdAt: decision.createdAt, id: { lt: decision.id } },
+        ],
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    if (earlier) {
+      logger.info(
+        { keptId: earlier.id, archivedId: decision.id, sessionId: data.sessionId },
+        'Decision dedup: lost insert race, archiving duplicate',
+      );
+      await prisma.decision
+        .updateMany({ where: { id: decision.id, status: { not: 'archived' } }, data: { status: 'archived' } })
+        .catch(() => {});
+      return { ...formatDecision(earlier), deduped: true };
+    }
+  }
 
   // Store embedding
   if (embedding) {
