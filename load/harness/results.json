@@ -1,0 +1,1379 @@
+[
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "admin setup",
+    "type": "happy",
+    "name": "Enable governance (checkUserMessages + checkAiResponses + notifyAdmins)",
+    "expected": "200, governance enabled",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:25.997Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "admin setup",
+    "type": "happy",
+    "name": "Enable compliance packs PII + PCI-DSS + GDPR",
+    "expected": "200, packs enabled",
+    "observed": "status 200 {\"data\":{\"enabledPacks\":[\"pii\",\"pci-dss\",\"gdpr\"],\"detectorOverrides\":{},\"auditLe",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:26.010Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "policy create",
+    "type": "happy",
+    "name": "Create block policy: \"Secrets & credentials\" (keyword)",
+    "expected": "201 created",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:26.024Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "policy create",
+    "type": "happy",
+    "name": "Create block policy: \"Confidential codename (Project Titan)\" (keyword)",
+    "expected": "201 created",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:26.034Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "policy create",
+    "type": "happy",
+    "name": "Create warn policy: \"Competitor mentions\" (keyword)",
+    "expected": "201 created",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:26.042Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "policy create",
+    "type": "happy",
+    "name": "Create monitor policy: \"SSN exposure (monitor)\" (regex)",
+    "expected": "201 created",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:26.052Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "policy create",
+    "type": "happy",
+    "name": "Create block policy: \"External data exfiltration\" (llm_evaluation)",
+    "expected": "201 created",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:26.062Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "block enforcement",
+    "type": "violation",
+    "name": "Dev pastes an AWS secret into chat",
+    "expected": "403 blocked; message NOT persisted; violation recorded",
+    "observed": "status 403; transcript-leak=false",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:28.765Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "block enforcement",
+    "type": "violation",
+    "name": "PM references confidential codename \"Project Titan\"",
+    "expected": "403 blocked",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:29.394Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "warn enforcement",
+    "type": "violation",
+    "name": "Sales rep mentions a competitor",
+    "expected": "202 accepted; message persists; warn violation recorded",
+    "observed": "status 202; persisted=true",
+    "status": "pass",
+    "ts": "2026-06-12T06:18:30.890Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "monitor + PII scrub",
+    "type": "violation",
+    "name": "Support agent includes a customer SSN",
+    "expected": "monitor violation recorded; SSN scrubbed before LLM; reply does not echo raw SSN",
+    "observed": "reply len 2137; reply-echoed-SSN=true",
+    "status": "partial",
+    "defects": [
+      "Raw SSN appeared in the AI reply — egress scrub likely missed it"
+    ],
+    "ts": "2026-06-12T06:18:49.255Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "PCI scrub",
+    "type": "violation",
+    "name": "Finance analyst pastes a credit card (valid Luhn)",
+    "expected": "card scrubbed before LLM; reply does not contain the PAN",
+    "observed": "reply len 1160; reply-echoed-PAN=false",
+    "status": "pass",
+    "ts": "2026-06-12T06:19:00.148Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "violation review",
+    "type": "happy",
+    "name": "Admin lists violations",
+    "expected": "block + warn + monitor violations present",
+    "observed": "12 violations returned",
+    "status": "pass",
+    "ts": "2026-06-12T06:19:01.679Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "violation review",
+    "type": "happy",
+    "name": "Admin acknowledges a violation",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T06:19:01.701Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "violation review",
+    "type": "happy",
+    "name": "Admin governance stats",
+    "expected": "200 with aggregates",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T06:19:01.725Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "violation export",
+    "type": "pressure",
+    "name": "Violation export content",
+    "expected": "export works; flag if it leaks raw PII/emails to the admin",
+    "observed": "status 200; leaksPII=true",
+    "status": "pass",
+    "defects": [
+      "Governance export includes raw emails / SSN snippets in plaintext (regulated-data exposure)"
+    ],
+    "ts": "2026-06-12T06:19:01.735Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "fail-open",
+    "type": "pressure",
+    "name": "Block policy with an invalid regex",
+    "expected": "a regulated org should fail CLOSED (block on policy error)",
+    "observed": "created=201; message status 202",
+    "status": "fail",
+    "defects": [
+      "Invalid-regex block policy fails OPEN — message passes through (regulated orgs expect fail-closed)"
+    ],
+    "ts": "2026-06-12T06:19:03.626Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "scrub coverage",
+    "type": "pressure",
+    "name": "Undashed SSN egress",
+    "expected": "SSN scrubbed regardless of formatting",
+    "observed": "reply-echoed=false",
+    "status": "pass",
+    "ts": "2026-06-12T06:19:04.535Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "RBAC",
+    "type": "permission",
+    "name": "Member tries to create a governance policy",
+    "expected": "403 forbidden",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T06:19:04.623Z"
+  },
+  {
+    "feature": "Governance & Compliance",
+    "subFeature": "RBAC",
+    "type": "permission",
+    "name": "Viewer tries to disable governance",
+    "expected": "403 forbidden",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T06:19:04.704Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "regular chat",
+    "type": "happy",
+    "name": "Multi-turn 1:1 chat with the agent",
+    "expected": "agent replies substantively each turn",
+    "observed": "1 replies",
+    "status": "pass",
+    "ts": "2026-06-12T06:22:14.168Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "shared session",
+    "type": "happy",
+    "name": "Owner shares session org-wide + adds a contributor",
+    "expected": "visibility org; collaborator added",
+    "observed": "add status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:22:14.371Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "shared session",
+    "type": "happy",
+    "name": "Contributor posts into the shared session",
+    "expected": "202 accepted",
+    "observed": "status 202",
+    "status": "pass",
+    "ts": "2026-06-12T06:22:26.129Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "chat→artifact (markdown doc)",
+    "type": "happy",
+    "name": "Agent produces a markdown doc artifact",
+    "expected": "artifact created + linked to its message (card renders)",
+    "observed": "1 artifact(s), types=document, linked=true",
+    "status": "pass",
+    "ts": "2026-06-12T06:23:04.346Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "chat→artifact (code)",
+    "type": "happy",
+    "name": "Agent produces a code artifact",
+    "expected": "artifact created + linked to its message (card renders)",
+    "observed": "1 artifact(s), types=code, linked=true",
+    "status": "pass",
+    "ts": "2026-06-12T06:24:05.121Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "chat→artifact (html)",
+    "type": "happy",
+    "name": "Agent produces a html artifact",
+    "expected": "artifact created + linked to its message (card renders)",
+    "observed": "1 artifact(s), types=html, linked=true",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:08.816Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "chat→task",
+    "type": "happy",
+    "name": "Promote a chat message to a task",
+    "expected": "201 task created, back-linked to the message",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:22.314Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "share link",
+    "type": "happy",
+    "name": "Owner creates a public share link",
+    "expected": "200 + token",
+    "observed": "status 201, token=yes",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:28.147Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "share link",
+    "type": "happy",
+    "name": "Public (unauthenticated) view of the share link",
+    "expected": "200 renders shared transcript",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:28.163Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "share link",
+    "type": "happy",
+    "name": "Revoked share link is dead",
+    "expected": "404 after revoke",
+    "observed": "status 404",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:28.201Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "artifact RBAC",
+    "type": "permission",
+    "name": "Viewer-collaborator creates an artifact",
+    "expected": "viewers should not write; expect 403",
+    "observed": "status 201",
+    "status": "fail",
+    "defects": [
+      "A viewer (read-only collaborator) can CREATE artifacts — write gated on read access"
+    ],
+    "ts": "2026-06-12T06:25:28.405Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "artifact RBAC",
+    "type": "permission",
+    "name": "Viewer deletes the owner's artifact",
+    "expected": "non-creator should not delete; expect 403",
+    "observed": "status 200",
+    "status": "fail",
+    "defects": [
+      "A viewer can DELETE another user's artifact (no creator check)"
+    ],
+    "ts": "2026-06-12T06:25:28.438Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "info leak",
+    "type": "permission",
+    "name": "Unrelated user lists a session's collaborators",
+    "expected": "403/404 — no access",
+    "observed": "status 200, 1 names returned",
+    "status": "fail",
+    "defects": [
+      "Any authenticated user can list collaborators (names+emails) of a session by id — no access check"
+    ],
+    "ts": "2026-06-12T06:25:28.515Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "tenancy",
+    "type": "permission",
+    "name": "Owner adds a cross-org user as collaborator",
+    "expected": "rejected — cross-tenant",
+    "observed": "status 201",
+    "status": "fail",
+    "defects": [
+      "Owner can add a user from ANOTHER org as a collaborator (tenancy bypass — grants cross-org read)"
+    ],
+    "ts": "2026-06-12T06:25:28.617Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "validation",
+    "type": "user_error",
+    "name": "Send an empty message",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:28.696Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "validation",
+    "type": "user_error",
+    "name": "Create artifact with an invalid type",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:28.704Z"
+  },
+  {
+    "feature": "Chat & Artifacts",
+    "subFeature": "validation",
+    "type": "error",
+    "name": "Public view of an unknown share token",
+    "expected": "404",
+    "observed": "status 404",
+    "status": "pass",
+    "ts": "2026-06-12T06:25:28.710Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "create",
+    "type": "happy",
+    "name": "Create a task (manual)",
+    "expected": "201, status auto_detected",
+    "observed": "status 201, task auto_detected",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:07.912Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "kanban",
+    "type": "happy",
+    "name": "Transition auto_detected → backlog",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:07.924Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "transition validation",
+    "type": "user_error",
+    "name": "Illegal transition backlog → done",
+    "expected": "422 invalid transition",
+    "observed": "status 422",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:07.931Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "planning",
+    "type": "happy",
+    "name": "Planner runs and advances the task",
+    "expected": "planner produces subtasks and auto-advances to executing",
+    "observed": "status after planning: executing",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:26.176Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "decomposition",
+    "type": "pressure",
+    "name": "Subtask status vs executor filter",
+    "expected": "subtasks created in a status the executor will run (backlog)",
+    "observed": "13 subtasks, statuses=[auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected,auto_detected]",
+    "status": "fail",
+    "defects": [
+      "13 subtask(s) created as 'auto_detected' — executor only runs 'backlog', so they may never execute (planner/executor status mismatch)"
+    ],
+    "ts": "2026-06-12T06:27:28.195Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "execution",
+    "type": "happy",
+    "name": "Executor runs and advances to review",
+    "expected": "task reaches review",
+    "observed": "status: review",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:34.269Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "review validation",
+    "type": "user_error",
+    "name": "changes_requested without feedback",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:34.280Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "review",
+    "type": "happy",
+    "name": "Approve review → done",
+    "expected": "task → done",
+    "observed": "review status 201, task done",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:34.360Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "concurrency",
+    "type": "pressure",
+    "name": "Two competing transitions from the same status",
+    "expected": "one 200, one 409 (compare-and-set)",
+    "observed": "statuses 200 & 422",
+    "status": "partial",
+    "ts": "2026-06-12T06:27:34.429Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "validation",
+    "type": "user_error",
+    "name": "Create task without a title",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:34.433Z"
+  },
+  {
+    "feature": "Tasks",
+    "subFeature": "ownership",
+    "type": "permission",
+    "name": "Patch another user's task",
+    "expected": "404 (not owner)",
+    "observed": "status 404",
+    "status": "pass",
+    "ts": "2026-06-12T06:27:34.509Z"
+  },
+  {
+    "feature": "Intake & Detection",
+    "subFeature": "setup",
+    "type": "happy",
+    "name": "Create a Slack ingest webhook endpoint",
+    "expected": "200 + urlToken + secret",
+    "observed": "status 201, token=yes",
+    "status": "pass",
+    "ts": "2026-06-12T06:30:25.593Z"
+  },
+  {
+    "feature": "Intake & Detection",
+    "subFeature": "slack detection",
+    "type": "happy",
+    "name": "Signed actionable Slack message → auto-detected task",
+    "expected": "200 ack; Hearth detects + creates an auto_detected task",
+    "observed": "ack 200; new tasks=1",
+    "status": "pass",
+    "ts": "2026-06-12T06:30:30.623Z"
+  },
+  {
+    "feature": "Intake & Detection",
+    "subFeature": "non-actionable filter",
+    "type": "happy",
+    "name": "Non-actionable Slack chatter (\"thanks!\") is ignored",
+    "expected": "no task created (pre-filter)",
+    "observed": "ack 200; new tasks=0",
+    "status": "pass",
+    "ts": "2026-06-12T06:30:38.645Z"
+  },
+  {
+    "feature": "Intake & Detection",
+    "subFeature": "signature bypass",
+    "type": "violation",
+    "name": "Unsigned forged JIRA webhook",
+    "expected": "rejected (401) — no valid signature",
+    "observed": "status 200",
+    "status": "fail",
+    "defects": [
+      "JIRA webhook signature verification is a no-op — forged/unsigned payloads are accepted"
+    ],
+    "ts": "2026-06-12T06:30:38.672Z"
+  },
+  {
+    "feature": "Intake & Detection",
+    "subFeature": "email intake",
+    "type": "error",
+    "name": "Email → task detection",
+    "expected": "inbound email is detected into a task",
+    "observed": "poll_email worker is a stub — no Gmail connector / no email→task path exists",
+    "status": "fail",
+    "defects": [
+      "Email intake is unimplemented (poll_email returns skipped) — inbound emails never become tasks despite being an advertised source"
+    ],
+    "ts": "2026-06-12T06:30:38.672Z"
+  },
+  {
+    "feature": "Intake & Detection",
+    "subFeature": "granola/meeting",
+    "type": "happy",
+    "name": "Granola transcript ingest → decisions extracted",
+    "expected": "meeting ingested; decisions extracted (not tasks)",
+    "observed": "ingest 201; +3 decisions; +0 meeting-tasks",
+    "status": "pass",
+    "ts": "2026-06-12T06:30:46.323Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "create",
+    "type": "happy",
+    "name": "Create a scheduled routine (valid cron)",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:32:20.673Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "run-now",
+    "type": "happy",
+    "name": "Run-now executes the routine",
+    "expected": "a run is created and completes (success/failed)",
+    "observed": "run-now 200; run status=success",
+    "status": "pass",
+    "ts": "2026-06-12T06:32:44.921Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "cron validation",
+    "type": "user_error",
+    "name": "Invalid cron string",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T06:32:44.929Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "cron validation",
+    "type": "pressure",
+    "name": "Impossible-but-valid-shape cron (Feb 31)",
+    "expected": "created (201) but worker skips scheduling without crashing",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T06:32:44.946Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "scope RBAC",
+    "type": "permission",
+    "name": "Member creates an org-scoped routine",
+    "expected": "rejected — only admin/lead should create org-scope",
+    "observed": "status 201, scope=org",
+    "status": "fail",
+    "defects": [
+      "A member can create an ORG-scoped routine — no role check on scope"
+    ],
+    "ts": "2026-06-12T06:32:45.039Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "run-history leak",
+    "type": "permission",
+    "name": "Unrelated user reads another user's routine run history",
+    "expected": "403/404 — not the owner",
+    "observed": "status 200, 1 runs returned",
+    "status": "fail",
+    "defects": [
+      "listRuns has no permission check — any user can read another routine's run history/outputs by id"
+    ],
+    "ts": "2026-06-12T06:32:45.116Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "disabled run-now",
+    "type": "pressure",
+    "name": "Run-now on a disabled routine",
+    "expected": "rejected, or clearly no-op (not a silent enqueue)",
+    "observed": "run-now 200; runs=1",
+    "status": "partial",
+    "ts": "2026-06-12T06:32:53.159Z"
+  },
+  {
+    "feature": "Routines",
+    "subFeature": "approval gate",
+    "type": "pressure",
+    "name": "Routine with an approval checkpoint",
+    "expected": "run pauses at awaiting_approval until resolved",
+    "observed": "run statuses=success",
+    "status": "fail",
+    "defects": [
+      "Approval checkpoint never pauses the run (awaiting_approval never set) — checkpoint gating is dead code"
+    ],
+    "ts": "2026-06-12T06:32:59.256Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "create",
+    "type": "happy",
+    "name": "Member creates a personal skill",
+    "expected": "201, status published (personal auto-publishes)",
+    "observed": "status 201, skill=published",
+    "status": "pass",
+    "ts": "2026-06-12T12:38:03.964Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "scope RBAC",
+    "type": "permission",
+    "name": "Member creates an org-scoped skill",
+    "expected": "rejected — org skills should require a lead/admin",
+    "observed": "status 201, skill status=pending_review",
+    "status": "fail",
+    "defects": [
+      "A member can create an ORG-scoped skill (goes to pending_review) — no role gate on scope"
+    ],
+    "ts": "2026-06-12T12:38:03.976Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "cross-scope leak",
+    "type": "permission",
+    "name": "A user lists skills and sees another user's personal skill",
+    "expected": "personal skills are private to their author",
+    "observed": "sees 'pr-triage' (dev1's personal)=true",
+    "status": "fail",
+    "defects": [
+      "listSkills filters org-only — a user sees every other user's personal skills (cross-scope leak)"
+    ],
+    "ts": "2026-06-12T12:38:04.058Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "install count",
+    "type": "pressure",
+    "name": "Double-install the same skill",
+    "expected": "installCount counts the user once (idempotent)",
+    "observed": "i1=201 i2=201; installCount=2",
+    "status": "fail",
+    "defects": [
+      "Double-install inflates installCount (now 2) — increment runs unconditionally on idempotent upsert"
+    ],
+    "ts": "2026-06-12T12:38:04.697Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "publish RBAC",
+    "type": "permission",
+    "name": "Team lead tries to publish a pending skill",
+    "expected": "publish is a review action; lead either can (proper) or 403",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T12:38:04.805Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "publish RBAC",
+    "type": "happy",
+    "name": "Admin publishes a pending skill",
+    "expected": "admin can publish",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T12:38:04.890Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "seed RBAC",
+    "type": "permission",
+    "name": "Member calls /skills/seed",
+    "expected": "403 — admin only",
+    "observed": "status 200",
+    "status": "fail",
+    "defects": [
+      "POST /skills/seed has no role gate — any member can seed org skills (comment says admin only)"
+    ],
+    "ts": "2026-06-12T12:38:04.964Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "route shadowing",
+    "type": "error",
+    "name": "GET /skills/proposals",
+    "expected": "returns the proposals list",
+    "observed": "status 404: {\"error\":\"Skill not found\"}",
+    "status": "partial",
+    "defects": [
+      "GET /skills/proposals is shadowed by GET /skills/:id (id=\"proposals\")"
+    ],
+    "ts": "2026-06-12T12:38:04.971Z"
+  },
+  {
+    "feature": "Skills",
+    "subFeature": "propose_skill",
+    "type": "pressure",
+    "name": "Agent proposes a skill (created_via column)",
+    "expected": "a draft auto_generated skill is created",
+    "observed": "+0 auto skills; reply hints error=true",
+    "status": "fail",
+    "defects": [
+      "propose_skill created no skill — likely the createProposedSkill `created_via` write to a non-existent column throws"
+    ],
+    "ts": "2026-06-12T12:38:25.503Z"
+  },
+  {
+    "feature": "Memory",
+    "subFeature": "create",
+    "type": "happy",
+    "name": "Create a user-layer memory",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T12:39:46.380Z"
+  },
+  {
+    "feature": "Memory",
+    "subFeature": "search",
+    "type": "happy",
+    "name": "Search memory (hybrid)",
+    "expected": "200 with results",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T12:39:47.830Z"
+  },
+  {
+    "feature": "Memory",
+    "subFeature": "layer RBAC",
+    "type": "permission",
+    "name": "Member writes an ORG-layer memory",
+    "expected": "403 — org layer is admin-only",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T12:39:47.837Z"
+  },
+  {
+    "feature": "Memory",
+    "subFeature": "layer RBAC",
+    "type": "permission",
+    "name": "Member writes a TEAM-layer memory",
+    "expected": "403 — team layer is admin/lead only",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T12:39:47.844Z"
+  },
+  {
+    "feature": "Memory",
+    "subFeature": "expiry",
+    "type": "pressure",
+    "name": "Fetch an already-expired memory by id",
+    "expected": "expired entries are not returned",
+    "observed": "GET status 200",
+    "status": "fail",
+    "defects": [
+      "GET /memory/:id returns an EXPIRED entry (no expiry filter on the by-id read — inconsistent with listing/search)"
+    ],
+    "ts": "2026-06-12T12:39:47.862Z"
+  },
+  {
+    "feature": "Decisions",
+    "subFeature": "capture",
+    "type": "happy",
+    "name": "Capture a decision",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T12:39:48.137Z"
+  },
+  {
+    "feature": "Decisions",
+    "subFeature": "search",
+    "type": "happy",
+    "name": "Search decisions (hybrid)",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T12:39:49.578Z"
+  },
+  {
+    "feature": "Decisions",
+    "subFeature": "validation",
+    "type": "user_error",
+    "name": "Capture decision with invalid enum values",
+    "expected": "400 validation error",
+    "observed": "status 500",
+    "status": "fail",
+    "defects": [
+      "Invalid enum (confidence/scope) returns 500 — no request-body validation (Zod) on decisions"
+    ],
+    "ts": "2026-06-12T12:39:49.963Z"
+  },
+  {
+    "feature": "Decisions",
+    "subFeature": "dedup",
+    "type": "pressure",
+    "name": "Capture a near-duplicate decision",
+    "expected": "dedup is transparent (e.g. 200 + a \"merged\" flag), not a silent 201 of the old row",
+    "observed": "status 201; returned-existing-id=true",
+    "status": "fail",
+    "defects": [
+      "Duplicate decision is silently merged and returned as a 201 with the EXISTING id — caller cannot tell it was deduped"
+    ],
+    "ts": "2026-06-12T12:39:50.191Z"
+  },
+  {
+    "feature": "Decisions",
+    "subFeature": "outcomes",
+    "type": "happy",
+    "name": "Record a decision outcome",
+    "expected": "200/201",
+    "observed": "status 400",
+    "status": "fail",
+    "ts": "2026-06-12T12:39:50.206Z"
+  },
+  {
+    "feature": "Decisions",
+    "subFeature": "outcomes",
+    "type": "user_error",
+    "name": "Record an outcome with an invalid verdict",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T12:39:50.218Z"
+  },
+  {
+    "feature": "Decisions",
+    "subFeature": "tenancy",
+    "type": "permission",
+    "name": "Teamless user captures a decision",
+    "expected": "rejected — user has no org",
+    "observed": "status 201",
+    "status": "fail",
+    "defects": [
+      "A teamless user can create a decision — getOrgId falls back to the OLDEST org in the DB (cross-tenant write)"
+    ],
+    "ts": "2026-06-12T12:39:50.820Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "add",
+    "type": "happy",
+    "name": "Add a note context item",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.774Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "add",
+    "type": "happy",
+    "name": "Add a link context item",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.796Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "add",
+    "type": "happy",
+    "name": "Add a text_block context item",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.812Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "validation",
+    "type": "user_error",
+    "name": "Add context item without rawValue",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.816Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "upload",
+    "type": "happy",
+    "name": "Upload a small text file",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.835Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "upload limits",
+    "type": "pressure",
+    "name": "Upload a file over the 10MB limit",
+    "expected": "rejected (413/400)",
+    "observed": "status 500",
+    "status": "fail",
+    "defects": [
+      "Oversize upload returns 500 instead of a clean 413/400"
+    ],
+    "ts": "2026-06-12T12:59:14.865Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "upload MIME",
+    "type": "user_error",
+    "name": "Upload a disallowed MIME (application/zip)",
+    "expected": "rejected",
+    "observed": "status 500",
+    "status": "fail",
+    "ts": "2026-06-12T12:59:14.873Z"
+  },
+  {
+    "feature": "Task Context",
+    "subFeature": "upload traversal",
+    "type": "violation",
+    "name": "Upload with a path-traversal filename",
+    "expected": "filename sanitized; no traversal",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.888Z"
+  },
+  {
+    "feature": "Artifacts",
+    "subFeature": "versioning",
+    "type": "happy",
+    "name": "Create artifact (v1)",
+    "expected": "201 version 1",
+    "observed": "version 1",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.919Z"
+  },
+  {
+    "feature": "Artifacts",
+    "subFeature": "versioning",
+    "type": "happy",
+    "name": "Update artifact bumps version",
+    "expected": "200, version 2",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.936Z"
+  },
+  {
+    "feature": "Artifacts",
+    "subFeature": "versioning",
+    "type": "happy",
+    "name": "List version history",
+    "expected": "≥2 versions",
+    "observed": "2 versions",
+    "status": "pass",
+    "ts": "2026-06-12T12:59:14.948Z"
+  },
+  {
+    "feature": "Artifacts",
+    "subFeature": "concurrency",
+    "type": "pressure",
+    "name": "Concurrent artifact updates",
+    "expected": "no lost update / version collision (optimistic concurrency)",
+    "observed": "a=200 b=200; final version=3; 4 version rows",
+    "status": "fail",
+    "defects": [
+      "Concurrent updates desynced version (3) from version-row count (4) — no optimistic concurrency control"
+    ],
+    "ts": "2026-06-12T12:59:15.326Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "chain",
+    "type": "happy",
+    "name": "Chain A → B on success",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.293Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "chain validation",
+    "type": "user_error",
+    "name": "Self-chain A → A",
+    "expected": "400",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.298Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "chain validation",
+    "type": "pressure",
+    "name": "Cycle B → A (A→B already exists)",
+    "expected": "400 cycle detected",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.304Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "chain RBAC",
+    "type": "permission",
+    "name": "Non-owner adds a chain to someone's routine",
+    "expected": "403/404 — not the owner",
+    "observed": "status 500",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.313Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "trigger",
+    "type": "happy",
+    "name": "Attach an event trigger to a routine",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.327Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "trigger RBAC",
+    "type": "permission",
+    "name": "Non-owner attaches a trigger to someone's routine",
+    "expected": "403/404",
+    "observed": "status 201",
+    "status": "fail",
+    "defects": [
+      "Trigger CRUD has no permission/org check — cross-user trigger injection"
+    ],
+    "ts": "2026-06-12T13:01:02.332Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "state",
+    "type": "happy",
+    "name": "Put + get run-to-run state",
+    "expected": "200 roundtrip",
+    "observed": "put 200; get 200 {\"counter\":1,\"lastSeen\":\"pr-42\"}",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.346Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "state RBAC",
+    "type": "permission",
+    "name": "Non-owner reads another routine's state",
+    "expected": "404 — scope-checked",
+    "observed": "status 404",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.352Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "alerts",
+    "type": "happy",
+    "name": "Admin creates a routine health alert",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.434Z"
+  },
+  {
+    "feature": "Routines (internals)",
+    "subFeature": "alerts RBAC",
+    "type": "permission",
+    "name": "Non-admin creates a health alert",
+    "expected": "403",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T13:01:02.438Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "link",
+    "type": "happy",
+    "name": "Add a dependency link between decisions",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:07.078Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "link RBAC",
+    "type": "permission",
+    "name": "Non-owner adds a link to someone's decision",
+    "expected": "403/404 — not owner/org-scoped",
+    "observed": "status 201",
+    "status": "fail",
+    "defects": [
+      "Decision link endpoints have no org/ownership validation — cross-user/cross-org linking"
+    ],
+    "ts": "2026-06-12T13:03:07.093Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "graph",
+    "type": "happy",
+    "name": "Read the decision graph",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:07.111Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "patterns",
+    "type": "happy",
+    "name": "GET /decisions/patterns",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:07.124Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "patterns",
+    "type": "happy",
+    "name": "GET /decisions/principles",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:07.137Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "lifecycle",
+    "type": "happy",
+    "name": "List pending-review decisions",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:07.150Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "lifecycle",
+    "type": "happy",
+    "name": "Confirm a decision",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:07.165Z"
+  },
+  {
+    "feature": "Decisions (graph)",
+    "subFeature": "conflict detection",
+    "type": "pressure",
+    "name": "Two directly-contradictory org decisions",
+    "expected": "system flags the contradiction",
+    "observed": "both created (c1=201, c2=201); no conflict surfaced",
+    "status": "fail",
+    "defects": [
+      "No conflict detection — two directly-contradictory decisions are both stored as active with no contradiction flag/alert"
+    ],
+    "ts": "2026-06-12T13:03:08.773Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin read",
+    "type": "happy",
+    "name": "Admin GET /admin/audit-logs",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.377Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin RBAC",
+    "type": "permission",
+    "name": "Member GET /admin/audit-logs",
+    "expected": "403",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.389Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin read",
+    "type": "happy",
+    "name": "Admin GET /admin/analytics",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.414Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin RBAC",
+    "type": "permission",
+    "name": "Member GET /admin/analytics",
+    "expected": "403",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.421Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin read",
+    "type": "happy",
+    "name": "Admin GET /admin/users",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.440Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin RBAC",
+    "type": "permission",
+    "name": "Member GET /admin/users",
+    "expected": "403",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.446Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin read",
+    "type": "happy",
+    "name": "Admin GET /admin/teams",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.456Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin RBAC",
+    "type": "permission",
+    "name": "Member GET /admin/teams",
+    "expected": "403",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.464Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin read",
+    "type": "happy",
+    "name": "Admin GET /admin/sso",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.475Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "admin RBAC",
+    "type": "permission",
+    "name": "Member GET /admin/sso",
+    "expected": "403",
+    "observed": "status 403",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.482Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "teams",
+    "type": "happy",
+    "name": "Admin creates a team",
+    "expected": "201",
+    "observed": "status 201",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.490Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "tenancy",
+    "type": "permission",
+    "name": "Admin moves a user into ANOTHER org's team",
+    "expected": "rejected — cross-tenant move",
+    "observed": "status 200; moved=true (restored)",
+    "status": "fail",
+    "defects": [
+      "Admin can move a user into a DIFFERENT org's team — updateUserTeam connects a team by id with no org check (cross-tenant user exfiltration)"
+    ],
+    "ts": "2026-06-12T13:03:09.545Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "notifications",
+    "type": "happy",
+    "name": "List notifications",
+    "expected": "200",
+    "observed": "status 200 {\"data\":{\"items\":[{\"id\":\"b227ec8c-3e80-48e2-83cf-d481d7199c6",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.554Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "notifications",
+    "type": "happy",
+    "name": "Mark all notifications read",
+    "expected": "200",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.561Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "setup",
+    "type": "happy",
+    "name": "Public setup/status reachable",
+    "expected": "200 (intentionally public pre-setup)",
+    "observed": "status 200",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.569Z"
+  },
+  {
+    "feature": "Admin & Platform",
+    "subFeature": "setup",
+    "type": "violation",
+    "name": "Replay setup/init after org exists (admin seizure)",
+    "expected": "400 — already set up",
+    "observed": "status 400",
+    "status": "pass",
+    "ts": "2026-06-12T13:03:09.575Z"
+  }
+]
