@@ -14,17 +14,31 @@ const COMMON_FIRST_NAMES = new Set([
 
 const NAME_CONTEXT = /(?:(?:Mr|Mrs|Ms|Miss|Dr|Prof|Sr|Jr|Rev)\.?\s+|(?:name\s+is|called|known\s+as|contact|patient|client|employee|student|user|author|signed\s+by|from|dear|hi|hello|hey)\s+)/i;
 
+function validSsnArea(digits: string): boolean {
+  const area = parseInt(digits.substring(0, 3), 10);
+  // SSN area numbers 000, 666, and 900-999 are invalid
+  return area !== 0 && area !== 666 && area < 900;
+}
+
 const ssnDetector: EntityDetector = {
   id: 'pii.SSN',
   name: 'Social Security Number',
   entityType: 'SSN',
   patterns: [/\b\d{3}-\d{2}-\d{4}\b/g],
-  validate: (match) => {
-    const digits = match.replace(/-/g, '');
-    const area = parseInt(digits.substring(0, 3), 10);
-    // SSN area numbers 000, 666, and 900-999 are invalid
-    return area !== 0 && area !== 666 && area < 900;
-  },
+  validate: (match) => validSsnArea(match.replace(/-/g, '')),
+  priority: 10,
+};
+
+// Undashed 9-digit SSN. A bare 9-digit run is ambiguous (order ids, etc.), so
+// this only fires when an SSN/social-security keyword sits nearby — catches
+// "Customer SSN is 123456789" without scrubbing arbitrary 9-digit numbers.
+const ssnUndashedDetector: EntityDetector = {
+  id: 'pii.SSN_UNDASHED',
+  name: 'Social Security Number (undashed)',
+  entityType: 'SSN',
+  patterns: [/\b\d{9}\b/g],
+  contextPatterns: [/\bssn\b/i, /\bsocial security(?:\s+(?:number|no\.?|#))?\b/i],
+  validate: (match) => validSsnArea(match),
   priority: 10,
 };
 
@@ -92,6 +106,7 @@ const dobDetector: EntityDetector = {
 
 export const piiDetectors: EntityDetector[] = [
   ssnDetector,
+  ssnUndashedDetector,
   emailDetector,
   phoneDetector,
   personNameDetector,

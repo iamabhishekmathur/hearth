@@ -23,6 +23,22 @@ describe('PII Pack Detectors', () => {
       const entities = detectEntities('SSN: 900-12-3456', piiDetectors);
       expect(entities.some((e) => e.entityType === 'SSN')).toBe(false);
     });
+
+    it('detects an UNDASHED SSN when an SSN keyword is nearby', () => {
+      const entities = detectEntities('Customer SSN is 123456789 (no dashes)', piiDetectors);
+      const ssn = entities.find((e) => e.entityType === 'SSN');
+      expect(ssn?.originalValue).toBe('123456789');
+    });
+
+    it('detects an undashed SSN after "social security number"', () => {
+      const entities = detectEntities('social security number 123456789', piiDetectors);
+      expect(entities.some((e) => e.entityType === 'SSN')).toBe(true);
+    });
+
+    it('does NOT scrub a bare 9-digit number with no SSN context (avoids false positives on IDs)', () => {
+      const entities = detectEntities('Order reference 123456789 shipped today', piiDetectors);
+      expect(entities.some((e) => e.entityType === 'SSN')).toBe(false);
+    });
   });
 
   describe('Email', () => {

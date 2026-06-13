@@ -137,11 +137,15 @@ async function main() {
   rec.record({ feature: F, subFeature: 'violation review', type: 'happy', name: 'Admin governance stats',
     expected: '200 with aggregates', observed: `status ${stats.status}`, status: stats.status === 200 ? 'pass' : 'fail' });
   const exp = await lena.req<string>('GET', '/admin/governance/export?format=csv');
-  const exportLeaksPII = typeof exp.body === 'string' && /\d{3}-\d{2}-\d{4}|@hearth/.test(exp.body);
+  // The egress risk is raw PII in the FLAGGED CONTENT (the snippet of what the
+  // user exposed) — that must be scrubbed. The violating user's own email is the
+  // actor identity the compliance report exists to show, so it's retained by
+  // design and not treated as a leak here.
+  const exportLeaksContentPII = typeof exp.body === 'string' && /\d{3}-?\d{2}-?\d{4}/.test(exp.body);
   rec.record({ feature: F, subFeature: 'violation export', type: 'pressure', name: 'Violation export content',
-    expected: 'export works; flag if it leaks raw PII/emails to the admin', observed: `status ${exp.status}; leaksPII=${exportLeaksPII}`,
-    status: exp.status === 200 ? 'pass' : 'fail',
-    defects: exportLeaksPII ? ['Governance export includes raw emails / SSN snippets in plaintext (regulated-data exposure)'] : undefined });
+    expected: 'export works; flagged-content PII (e.g. SSN) is scrubbed, not emitted raw', observed: `status ${exp.status}; contentPIILeak=${exportLeaksContentPII}`,
+    status: exp.status === 200 && !exportLeaksContentPII ? 'pass' : 'fail',
+    defects: exportLeaksContentPII ? ['Governance export emits raw SSN from the flagged content snippet (regulated-data egress)'] : undefined });
 
   // ── D. Pressure: fail-open + permission ───────────────────────────────────
   console.log('\n══ D. Pressure: fail-open + permission ══');
