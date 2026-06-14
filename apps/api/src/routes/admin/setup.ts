@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { register } from '../../services/auth-service.js';
 import { logger } from '../../lib/logger.js';
+import { setCsrfCookie } from '../../middleware/csrf.js';
+import { env } from '../../config.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -68,10 +70,18 @@ router.post('/init', async (req, res, next) => {
 
     logger.info({ userId: user.id, email }, 'First-run setup completed');
 
+    // Log the new admin in immediately and issue a CSRF token. The setup
+    // wizard's very next step saves the LLM key via an admin-only, CSRF-checked
+    // route; without a session that 401s and without a CSRF cookie it 403s — so
+    // first-run setup cannot be completed through the UI unless init does both
+    // (init itself is CSRF-exempt, mirroring login/register).
+    req.session.userId = user.id;
+    setCsrfCookie(res, env.NODE_ENV === 'production');
+
     res.status(201).json({
       data: {
         user: { id: user.id, email: user.email, name: user.name, role: user.role },
-        message: 'Setup completed. You can now log in.',
+        message: 'Setup completed.',
       },
     });
   } catch (err) {
