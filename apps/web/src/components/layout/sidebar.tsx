@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { SessionUser } from '@hearth/shared';
 import { HRailItem, HAvatar } from '@/components/ui/primitives';
 import { getExtensionNavItems } from '@/extensions/register';
@@ -12,6 +13,7 @@ interface SidebarProps {
 export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarProps) {
   const active = (route: string) => currentRoute.startsWith(route);
   const initials = user.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
+  const [menuOpen, setMenuOpen] = useState(false);
   // Cloud / downstream consumers can register extra nav items via the
   // extension hook. Filtered by required role if specified.
   const extensionItems = getExtensionNavItems().filter((item) => {
@@ -59,14 +61,48 @@ export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarPro
           />
         ))}
         <HRailItem icon="settings" label="Settings" active={active('/settings')} onClick={() => onNavigate('/settings')} />
-        <button
-          type="button"
-          onClick={onLogout}
-          className="mt-2"
-          title="Sign out"
-        >
-          <HAvatar initials={initials} size={32} />
-        </button>
+        <div className="relative mt-2">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            title={user.name}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <HAvatar initials={initials} size={32} />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+              <div
+                role="menu"
+                className="absolute bottom-0 left-full z-40 ml-2 w-52 rounded-lg border border-hearth-border bg-hearth-bg p-1.5 shadow-lg animate-fade-in"
+              >
+                <div className="px-2.5 py-2">
+                  <p className="truncate text-sm font-medium text-hearth-text">{user.name}</p>
+                  <p className="truncate text-xs text-hearth-text-faint">{user.email}</p>
+                </div>
+                <div className="my-1 h-px bg-hearth-border" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); onNavigate('/settings'); }}
+                  className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-hearth-text hover:bg-hearth-chip"
+                >
+                  Settings
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); onLogout(); }}
+                  className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-hearth-text hover:bg-hearth-chip"
+                >
+                  Sign out
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </aside>
   );

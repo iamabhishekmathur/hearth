@@ -16,6 +16,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-fetch the current user (e.g. after the setup wizard establishes a session). */
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -72,9 +74,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refresh = useCallback(async () => {
+    try {
+      const me = await api.get<AuthResponse>('/auth/me');
+      setUser(me.data ? (me.data as SessionUser) : null);
+    } catch {
+      setUser(null);
+    }
+  }, []);
+
   return createElement(
     AuthContext.Provider,
-    { value: { user, loading, login, register, logout } },
+    { value: { user, loading, login, register, logout, refresh } },
     children,
   );
 }

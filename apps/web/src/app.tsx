@@ -57,7 +57,7 @@ function getHashRoute(): string {
 }
 
 function Router() {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
   const [route, setRoute] = useState(getHashRoute);
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
@@ -91,9 +91,18 @@ function Router() {
     );
   }
 
-  // First-run setup wizard (no users exist yet)
+  // First-run setup wizard (no users exist yet). setup/init establishes the
+  // session, so refresh the auth context before leaving the wizard — otherwise
+  // `user` is still null and the app would fall through to the sign-in page.
   if (needsSetup) {
-    return <SetupWizard onComplete={() => setNeedsSetup(false)} />;
+    return (
+      <SetupWizard
+        onComplete={async () => {
+          await refresh();
+          setNeedsSetup(false);
+        }}
+      />
+    );
   }
 
   // Public shared session page (no auth required)
