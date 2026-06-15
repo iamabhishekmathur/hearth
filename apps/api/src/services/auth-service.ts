@@ -11,19 +11,24 @@ interface OAuthProfile {
 }
 
 /**
- * Resolve the team a non-first self-service signup should join, scoped to the
- * bootstrap `default` org. The first-user path (above) creates that org, so any
- * later self-hosted signup lands in the same org's team — deterministically
- * (oldest team first), never in some other org's team.
+ * Resolve the team a non-first self-service signup should join: the bootstrap
+ * org's oldest team. Single-org self-hosted has exactly one org, so this is
+ * unambiguous; we pick the OLDEST org deterministically rather than by slug
+ * because the setup wizard renames the bootstrap org (its slug is no longer
+ * 'default' after the admin names their org). Cloud multi-tenant self-service
+ * signup goes through the OAuth provisioner (a new org per signup), so it never
+ * reaches this fallback — meaning "oldest org" is only ever the single
+ * self-hosted org in practice.
  *
- * Previously both call sites used an unscoped `prisma.team.findFirst()`, which
- * returned the first team in the ENTIRE database. That is a latent cross-org
- * leak in any multi-org deployment: a new member could be placed into an
- * unrelated org's team. Returning `null` when no `default` org exists is the
- * safe outcome — no team is better than a wrong-org team for tenant isolation.
+ * (Previously this used an unscoped `prisma.team.findFirst()` — first team in
+ * the ENTIRE db, a cross-org leak; then `slug: 'default'`, which broke teammate
+ * signup once the org was renamed. Oldest-org fixes both.)
  */
 async function resolveDefaultTeam(): Promise<{ id: string } | null> {
-  const org = await prisma.org.findUnique({ where: { slug: 'default' } });
+  const org = await prisma.org.findFirst({
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
   if (!org) return null;
   return prisma.team.findFirst({
     where: { orgId: org.id },
