@@ -18,6 +18,7 @@ import {
   getCognitiveEnabled,
   setCognitiveEnabled,
 } from '../services/cognitive-profile-service.js';
+import { markStepComplete, getState } from '../services/onboarding-service.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -246,6 +247,22 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
 
     // Save the user message with attribution (only reached when not blocked)
     const userMessage = await chatService.addMessage(session.orgId, sessionId, 'user', content, undefined, userId);
+
+    // Onboarding: a user sending a chat message completes the first_chat step.
+    // Driven by a real server-side action so we never trust the client.
+    // Best-effort + non-blocking: never fail the send on an onboarding write.
+    // We skip the write once the step is already complete to avoid a needless
+    // round-trip on every subsequent message (markStepComplete is idempotent).
+    void getState(userId)
+      .then((state) => {
+        if (!state.completedSteps.includes('first_chat')) {
+          return markStepComplete(userId, 'first_chat').then(() => undefined);
+        }
+        return undefined;
+      })
+      .catch((err) => {
+        logger.error({ err, userId, sessionId }, 'Failed to mark first_chat onboarding step (non-fatal)');
+      });
 
     // Link uploaded attachments to this message
     if (attachmentIds && attachmentIds.length > 0) {

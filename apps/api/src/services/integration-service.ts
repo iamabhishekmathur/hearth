@@ -4,6 +4,7 @@ import { mcpGateway } from '../mcp/gateway.js';
 import type { ConnectorConfig } from '../mcp/connectors/base-connector.js';
 import { logger } from '../lib/logger.js';
 import { enqueueConnectBackfill } from '../jobs/work-intake-scheduler.js';
+import { markStepComplete } from './onboarding-service.js';
 
 interface ConnectParams {
   provider: string;
@@ -105,6 +106,19 @@ export async function connectIntegration(orgId: string, params: ConnectParams) {
       'Failed to enqueue on-connect backfill (non-fatal)',
     );
   });
+
+  // Onboarding: connecting an integration is the activation AHA path. Mark the
+  // connect_integration step complete from this real server-side action so we
+  // never trust the client. Best-effort + non-blocking: a failure here must
+  // never fail the connect itself. Idempotent in onboarding-service.
+  if (params.userId) {
+    void markStepComplete(params.userId, 'connect_integration').catch((err) => {
+      logger.error(
+        { err, integrationId: integration.id, userId: params.userId },
+        'Failed to mark connect_integration onboarding step (non-fatal)',
+      );
+    });
+  }
 
   return {
     id: integration.id,

@@ -9,6 +9,7 @@ import { VALID_STATUS_TRANSITIONS } from '@hearth/shared';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+import { markStepComplete } from './onboarding-service.js';
 
 /**
  * Thrown when a concurrent status transition lost the compare-and-set race:
@@ -40,7 +41,7 @@ export async function createTask(
     sourceRef?: Record<string, unknown>;
   },
 ) {
-  return prisma.task.create({
+  const task = await prisma.task.create({
     data: {
       orgId,
       userId,
@@ -57,6 +58,16 @@ export async function createTask(
     },
     include: { subTasks: true, comments: true },
   });
+
+  // Onboarding: the user's first task (whether created by hand or surfaced by
+  // detection on their behalf) completes the first_task step. Real server-side
+  // signal — best-effort + non-blocking + idempotent. Never fail task creation
+  // on an onboarding write.
+  void markStepComplete(userId, 'first_task').catch((err) => {
+    logger.error({ err, userId, taskId: task.id }, 'Failed to mark first_task onboarding step (non-fatal)');
+  });
+
+  return task;
 }
 
 export async function listTasks(

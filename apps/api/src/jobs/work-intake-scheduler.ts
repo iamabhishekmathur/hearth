@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { detectAndCreateTask } from '../services/task-detector.js';
 import { synthesizeForUser } from '../services/synthesis-service.js';
 import { mcpGateway } from '../mcp/gateway.js';
+import { capture } from '../lib/analytics.js';
 import type { TaskSource } from '@hearth/shared';
 
 const QUEUE_NAME = 'work-intake';
@@ -150,6 +151,14 @@ export function createWorkIntakeWorker() {
           // Task-detection backfill from the same source.
           const backfill = await runConnectBackfill(userId, orgId, integrationId);
 
+          // AHA MOMENT — the integration-pull payoff. If pulling from the
+          // just-connected source produced real value for the user (>=1 memory
+          // entry OR >=1 task), fire the server-side aha_reached funnel event.
+          // Best-effort: analytics must never affect job outcome.
+          if (synthesis.created >= 1 || backfill.created >= 1) {
+            await captureAhaReached(userId, integrationId, synthesis.created, backfill.created);
+          }
+
           return { synthesis, backfill };
         }
 
@@ -254,6 +263,45 @@ async function runConnectBackfill(
 
   logger.info({ userId, integrationId, scanned, created }, 'Connect backfill completed');
   return { scanned, created };
+}
+
+/**
+ * Server-side AHA funnel event for the integration-pull aha moment. Fires once
+ * the on-connect backfill has produced real value (>=1 memory entry or >=1
+ * task) from the source the user just connected. `distinctId` is the user id so
+ * this stitches onto the same PostHog person as client-side events. Best-effort
+ * and fully guarded: no key => no-op, and any failure is swallowed so it can
+ * never affect the backfill job's outcome.
+ *
+ * Event name 'aha_reached' / via 'integration_pull' mirror the shared funnel
+ * taxonomy (AnalyticsEvent.AHA_REACHED). The api package does not import the web
+ * taxonomy module, so the canonical strings are used directly here.
+ */
+async function captureAhaReached(
+  userId: string,
+  integrationId: string,
+  memoryEntries: number,
+  tasks: number,
+): Promise<void> {
+  try {
+    const integration = await prisma.integration.findUnique({
+      where: { id: integrationId },
+      select: { provider: true },
+    });
+    await capture(userId, 'aha_reached', {
+      via: 'integration_pull',
+      provider: integration?.provider,
+      integrationId,
+      memoryEntries,
+      tasks,
+    });
+    logger.info(
+      { userId, integrationId, provider: integration?.provider, memoryEntries, tasks },
+      'AHA reached: integration-pull produced value',
+    );
+  } catch (err) {
+    logger.warn({ err, userId, integrationId }, 'Failed to capture aha_reached event (non-fatal)');
+  }
 }
 
 /**

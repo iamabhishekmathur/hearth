@@ -6,6 +6,7 @@ import type { CollaboratorAddedEvent } from '@hearth/shared';
 import { HButton } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { OnboardingSurface } from '@/components/onboarding/onboarding-surface';
 
 interface AppShellProps {
   currentRoute: string;
@@ -73,6 +74,10 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps) 
           </div>
         )}
         {children}
+
+        {/* Per-user onboarding (welcome takeover + persistent checklist).
+            Self-gates on needsOnboarding; renders nothing once dismissed/done. */}
+        <OnboardingSurface />
       </main>
     </div>
   );
