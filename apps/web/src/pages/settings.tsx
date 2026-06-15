@@ -12,14 +12,16 @@ import { GovernanceConfig } from '@/components/admin/governance-config';
 import { CognitiveConfig } from '@/components/admin/cognitive-config';
 import { api } from '@/lib/api-client';
 import { HButton, HCard, HEyebrow } from '@/components/ui/primitives';
+import { InviteTeammates } from '@/components/invitations/invite-teammates';
 
-type Tab = 'profile' | 'identity' | 'users' | 'teams' | 'integrations' | 'llm' | 'compliance' | 'analytics' | 'skills' | 'governance' | 'cognitive' | 'decisions';
+type Tab = 'profile' | 'identity' | 'invite' | 'users' | 'teams' | 'integrations' | 'llm' | 'compliance' | 'analytics' | 'skills' | 'governance' | 'cognitive' | 'decisions';
 
-const VALID_TABS = new Set<Tab>(['profile', 'identity', 'users', 'teams', 'integrations', 'llm', 'compliance', 'analytics', 'skills', 'governance', 'cognitive', 'decisions']);
+const VALID_TABS = new Set<Tab>(['profile', 'identity', 'invite', 'users', 'teams', 'integrations', 'llm', 'compliance', 'analytics', 'skills', 'governance', 'cognitive', 'decisions']);
 
 const ALL_USER_TABS: { value: Tab; label: string }[] = [
   { value: 'profile', label: 'Profile' },
   { value: 'identity', label: 'Soul & Identity' },
+  { value: 'invite', label: 'Invite Teammates' },
 ];
 
 const ADMIN_TABS: { value: Tab; label: string }[] = [
@@ -268,6 +270,26 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
         )}
 
         {activeTab === 'identity' && <IdentityEditor />}
+
+        {activeTab === 'invite' && (
+          <div className="mx-auto max-w-2xl">
+            <HCard padding="p-6">
+              <HEyebrow>Team</HEyebrow>
+              <h2 className="mt-1 text-base font-semibold text-hearth-text">Invite teammates</h2>
+              <p className="mb-4 text-sm text-hearth-text-muted">
+                Hearth is better together — invite teammates to share memory, tasks, and decisions.
+              </p>
+              <InviteTeammates
+                source="settings"
+                onInviteSent={() => {
+                  // The server marks invite_teammate complete on create; nudge the
+                  // onboarding surface to re-pull so the checklist ticks live.
+                  window.dispatchEvent(new CustomEvent('hearth:onboarding-refresh'));
+                }}
+              />
+            </HCard>
+          </div>
+        )}
 
         {activeTab === 'users' && isAdmin && (
           <HCard padding="p-6">

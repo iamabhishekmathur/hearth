@@ -279,6 +279,20 @@ enum Plan {
   enterprise
 }
 
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+// What artifact a CONTEXTUAL invite lands the invitee in. Null = plain invite.
+enum InvitationContextType {
+  decision
+  chat_session
+  task
+}
+
 // ──────────────────────────────────────────────
 // Core Models
 // ──────────────────────────────────────────────
@@ -340,6 +354,7 @@ model Org {
   userSkills           UserSkill[]
   notifications        Notification[]
   pipelineRuns         PipelineRun[]
+  invitations          Invitation[]
 
   @@map("orgs")
 }
@@ -380,6 +395,7 @@ model User {
   team             Team?                 @relation(fields: [teamId], references: [id])
   chatSessions     ChatSession[]
   tasks            Task[]
+  assignedTasks    Task[]                @relation("TaskAssignee")
   taskComments     TaskComment[]
   taskReviews      TaskReview[]
   memoryEntries    MemoryEntry[]
@@ -409,6 +425,8 @@ model User {
   notificationPreference NotificationPreference?
   taskSuggestions    TaskSuggestion[]
   integrations       Integration[]
+  invitationsSent     Invitation[]         @relation("InvitationInviter")
+  invitationsAccepted Invitation[]         @relation("InvitationAcceptedUser")
 
   @@map("users")
 }
@@ -614,6 +632,10 @@ model Task {
   id              String     @id @default(uuid())
   orgId           String     @map("org_id")
   userId          String     @map("user_id")
+  // Optional explicit assignee (growth loop: a teammate can be assigned a task,
+  // e.g. via a contextual invite). Nullable — most tasks are owned by `userId`
+  // (the creator) and have no separate assignee.
+  assigneeId      String?    @map("assignee_id")
   title           String
   description     String?
   status          TaskStatus @default(auto_detected)
@@ -630,6 +652,7 @@ model Task {
 
   org            Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user           User                @relation(fields: [userId], references: [id])
+  assignee       User?               @relation("TaskAssignee", fields: [assigneeId], references: [id])
   parentTask     Task?               @relation("SubTasks", fields: [parentTaskId], references: [id])
   subTasks       Task[]              @relation("SubTasks")
   comments       TaskComment[]
@@ -1618,4 +1641,45 @@ model Edge {
   @@index([orgId, fromType, fromId, kind])
   @@index([orgId, toType, toId, kind])
   @@map("edges")
+}
+
+// ──────────────────────────────────────────────
+// Invitations (growth loop)
+//
+// A pending invite to join an org. The unguessable `token` is the secret used
+// for the two PUBLIC endpoints (preview + accept) that run BEFORE any session
+// exists. Because those endpoints have no tenant context, this table is
+// intentionally NOT under Row-Level Security — access is gated by the token
+// (public flows) or by an explicit orgId filter in invitation-service (authed
+// flows). Do NOT add `invitations` to the RLS migration table list, or the
+// public token lookup would return zero rows.
+//
+// contextType/contextId nullable: null = a plain invite; set = a CONTEXTUAL
+// invite that lands the invitee directly in that artifact after accepting.
+// ──────────────────────────────────────────────
+model Invitation {
+  id              String                 @id @default(uuid())
+  orgId           String                 @map("org_id")
+  email           String
+  token           String                 @unique
+  invitedByUserId String                 @map("invited_by_user_id")
+  role            UserRole               @default(member)
+  status          InvitationStatus       @default(pending)
+  contextType     InvitationContextType? @map("context_type")
+  contextId       String?                @map("context_id")
+  expiresAt       DateTime               @map("expires_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  acceptedAt      DateTime?              @map("accepted_at")
+  acceptedUserId  String?                @map("accepted_user_id")
+
+  org           Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy     User  @relation("InvitationInviter", fields: [invitedByUserId], references: [id])
+  acceptedUser  User? @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id])
+
+  // One pending invite per (org, email) — enforces idempotent re-invite. Once
+  // an invite is accepted/revoked it stays in history; a partial unique index
+  // (in the migration) scopes uniqueness to status='pending' only.
+  @@index([orgId])
+  @@index([email])
+  @@map("invitations")
 }

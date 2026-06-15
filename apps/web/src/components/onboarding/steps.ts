@@ -58,8 +58,11 @@ export const STEP_META: Record<OnboardingStep, StepMeta> = {
     description:
       'Hearth is better together — shared memory and tasks across your team.',
     icon: 'team',
-    cta: 'Coming soon',
-    action: { kind: 'placeholder', note: 'Teammate invites land in a follow-up.' },
+    cta: 'Invite a teammate',
+    // The invite surface lives under Settings and is reachable by any member.
+    // Sending an invite completes this step server-side; the surface dispatches
+    // `hearth:onboarding-refresh` so the checklist ticks without a focus event.
+    action: { kind: 'navigate', hash: '/settings/invite' },
   },
   set_preferences: {
     title: 'Set your preferences',

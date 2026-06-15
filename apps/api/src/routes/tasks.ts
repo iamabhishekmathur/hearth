@@ -98,14 +98,46 @@ router.post('/', requireAuth, requireOrg, async (req, res, next) => {
  */
 router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
-    const { title, description, status, priority } = req.body as {
+    const { title, description, status, priority, assigneeId, assigneeEmail } = req.body as {
       title?: string;
       description?: string;
       status?: TaskStatus;
       priority?: number;
+      assigneeId?: string;
+      assigneeEmail?: string;
     };
 
-    const task = await taskService.updateTask(req.params.id as string, req.user!.id, {
+    const taskId = req.params.id as string;
+
+    // ── Assignment ──
+    // A PATCH carrying assigneeId/assigneeEmail assigns the task. Assigning to an
+    // existing org member notifies them; assigning to a not-yet-a-member email
+    // sends a contextual invite carrying this task (Track A primitives). Handled
+    // before the field update so a pure assignment PATCH (no title/status) still
+    // resolves the task and returns the assignment outcome.
+    if (assigneeId !== undefined || assigneeEmail !== undefined) {
+      const result = await taskService.assignTask(taskId, req.user!.id, {
+        userId: assigneeId,
+        email: assigneeEmail,
+      });
+      if (result.notFound || !result.task) {
+        res.status(404).json({ error: 'Task not found' });
+        return;
+      }
+      // No other fields to update → reply with the assignment outcome.
+      if (title === undefined && description === undefined && status === undefined && priority === undefined) {
+        const refreshed = await taskService.getTask(taskId, req.user!.id);
+        if (refreshed) emitToTask(taskId, { type: 'task:updated', task: refreshed });
+        res.json({
+          data: refreshed ?? result.task,
+          assignedUserId: result.assignedUserId,
+          invitedEmail: result.invitedEmail,
+        });
+        return;
+      }
+    }
+
+    const task = await taskService.updateTask(taskId, req.user!.id, {
       title,
       description,
       status,

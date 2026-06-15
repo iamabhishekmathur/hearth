@@ -18,6 +18,10 @@ const EXEMPT_PATHS: readonly string[] = [
   '/api/v1/auth/register',
   '/api/v1/auth/oauth/',
   '/api/v1/admin/setup/',
+  // Public invite acceptance: the invitee has no prior session/CSRF cookie,
+  // exactly like /register. Only token-scoped sub-routes live under this prefix
+  // (preview GET is non-state-changing; accept POST creates the user + session).
+  '/api/v1/invitations/token/',
   '/api/v1/webhooks/slack',
   // Generic webhook receiver: external providers authenticate by URL token +
   // HMAC signature (verifyWebhookSignature), not by a CSRF cookie they could

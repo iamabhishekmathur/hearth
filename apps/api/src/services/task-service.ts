@@ -9,7 +9,10 @@ import { VALID_STATUS_TRANSITIONS } from '@hearth/shared';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+import type { InvitationContext, UserRole } from '@hearth/shared';
 import { markStepComplete } from './onboarding-service.js';
+import { notify } from './notification-service.js';
+import { createInvite } from './invitation-service.js';
 
 /**
  * Thrown when a concurrent status transition lost the compare-and-set race:
@@ -195,6 +198,140 @@ export async function deleteTask(id: string, userId: string) {
 
   await prisma.task.delete({ where: { id } });
   return task;
+}
+
+// ── Invitation integration (Track A primitives) ──
+//
+// invitation-service (Track A) owns createInvite + the Invitation schema; we
+// CALL it. A "contextual" invite carries an artifact reference so the accepted
+// invitee lands directly in it (here: the task or chat session that triggered
+// the invite). All invite creation is best-effort and must never fail the
+// primary action (task assignment / message send).
+
+/**
+ * Create a contextual invite for a not-yet-a-member email. Returns the accept
+ * URL on success, or null when invite creation fails. Never throws. Sending any
+ * invite advances the inviter past the invite_teammate onboarding step
+ * (idempotent, fire-and-forget).
+ */
+export async function createContextualInvite(input: {
+  orgId: string;
+  email: string;
+  invitedByUserId: string;
+  role?: UserRole;
+  context?: InvitationContext;
+}): Promise<string | null> {
+  try {
+    const { acceptUrl } = await createInvite(input);
+    void markStepComplete(input.invitedByUserId, 'invite_teammate').catch((err) => {
+      logger.error(
+        { err, userId: input.invitedByUserId },
+        'Failed to mark invite_teammate onboarding step (non-fatal)',
+      );
+    });
+    return acceptUrl;
+  } catch (err) {
+    logger.error({ err, email: input.email }, 'createContextualInvite failed (non-fatal)');
+    return null;
+  }
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Find an active member of `orgId` by exact (case-insensitive) email. */
+export async function findOrgUserByEmail(orgId: string, email: string) {
+  return prisma.user.findFirst({
+    where: { team: { orgId }, email: { equals: email.trim(), mode: 'insensitive' } },
+    select: { id: true, name: true, email: true },
+  });
+}
+
+// ── Assignment ──
+//
+// Assigning a task to someone in the org notifies them; assigning to an email
+// that is not yet a member sends a CONTEXTUAL invite carrying the task, so the
+// accepted invitee lands on it. `assigneeId` (Track A's column) is always a real
+// org user id; an emailed invite leaves the task unassigned until the invitee
+// accepts (Track A's accept flow back-fills the assignee from the invite).
+
+export interface AssignResult {
+  task: { id: string; orgId: string; userId: string; title: string } | null;
+  /** Set when an existing org user was assigned and notified. */
+  assignedUserId?: string;
+  /** Set when a non-user email was invited with the task as context. */
+  invitedEmail?: string;
+  notFound?: boolean;
+}
+
+/**
+ * Assign a task to either an existing org user (by id or email) or a not-yet-a-
+ * member email (which triggers a contextual invite). Caller must own the task
+ * (mirrors updateTask's `{ id, userId }` scoping). All side effects after the
+ * assignee resolves are best-effort and never throw.
+ */
+export async function assignTask(
+  taskId: string,
+  callerUserId: string,
+  assignee: { userId?: string; email?: string },
+): Promise<AssignResult> {
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, userId: callerUserId },
+    select: { id: true, orgId: true, userId: true, title: true },
+  });
+  if (!task) return { task: null, notFound: true };
+
+  // Resolve the target org user, if any. An explicit userId wins; otherwise an
+  // email is matched against org membership.
+  let targetUser: { id: string; name: string; email: string } | null = null;
+  if (assignee.userId) {
+    targetUser = await prisma.user.findFirst({
+      where: { id: assignee.userId, team: { orgId: task.orgId } },
+      select: { id: true, name: true, email: true },
+    });
+    if (!targetUser) {
+      // userId given but not a member of this org → treat as not found.
+      return { task, notFound: true };
+    }
+  } else if (assignee.email && EMAIL_RE.test(assignee.email.trim())) {
+    targetUser = await findOrgUserByEmail(task.orgId, assignee.email);
+  }
+
+  if (targetUser) {
+    // Existing org user → set assigneeId + notify.
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { assigneeId: targetUser.id },
+    });
+
+    if (targetUser.id !== callerUserId) {
+      void notify({
+        orgId: task.orgId,
+        userId: targetUser.id,
+        type: 'task_assigned',
+        title: 'You were assigned a task',
+        body: task.title,
+        entityType: 'task',
+        entityId: task.id,
+      }).catch((err) => {
+        logger.error({ err, taskId: task.id }, 'task_assigned notify failed (non-fatal)');
+      });
+    }
+    return { task, assignedUserId: targetUser.id };
+  }
+
+  // Not yet a member → contextual invite carrying the task.
+  if (assignee.email && EMAIL_RE.test(assignee.email.trim())) {
+    await createContextualInvite({
+      orgId: task.orgId,
+      email: assignee.email.trim(),
+      invitedByUserId: callerUserId,
+      context: { type: 'task', id: task.id },
+    });
+    return { task, invitedEmail: assignee.email.trim() };
+  }
+
+  // Neither a resolvable user nor a valid email.
+  return { task };
 }
 
 // ── Comments ──

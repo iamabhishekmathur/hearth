@@ -22,8 +22,11 @@ describe('onboarding step metadata', () => {
     expect(meta.description.toLowerCase()).toContain('pull');
   });
 
-  it('renders invite_teammate as a placeholder (P2 wires real invites)', () => {
-    expect(STEP_META.invite_teammate.action.kind).toBe('placeholder');
+  it('routes invite_teammate to the real invite surface (P2)', () => {
+    expect(STEP_META.invite_teammate.action).toEqual({
+      kind: 'navigate',
+      hash: '/settings/invite',
+    });
   });
 });
 
@@ -51,9 +54,9 @@ describe('runStepAction', () => {
     window.removeEventListener('hearth:focus-composer', handler);
   });
 
-  it('does not navigate for the placeholder step', () => {
+  it('navigates invite_teammate to the invite surface', () => {
     const navigated = runStepAction('invite_teammate');
-    expect(navigated).toBe(false);
-    expect(window.location.hash).toBe('');
+    expect(navigated).toBe(true);
+    expect(window.location.hash).toBe('#/settings/invite');
   });
 });
