@@ -85,3 +85,4 @@ This file maps source code areas to their corresponding documentation pages. Whe
 | `apps/api/src/agent/*` | `docs/developers/architecture/agent.md` |
 | `apps/api/prisma/schema.prisma` | `docs/developers/architecture/database.md` |
 | `apps/api/src/services/*` | `docs/developers/architecture/services.md` |
+| `apps/web/src/lib/analytics.ts`, `apps/web/src/lib/analytics-events.ts`, `apps/api/src/lib/analytics.ts` | `docs/growth/EVENTS.md` |

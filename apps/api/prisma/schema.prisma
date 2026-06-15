@@ -370,6 +370,10 @@ model User {
   authProvider AuthProvider? @map("auth_provider")
   passwordHash String?       @map("password_hash")
   preferences  Json          @default("{}")
+  // Per-user onboarding progress (growth-loop activation). Shape documented in
+  // @hearth/shared OnboardingState. Empty object = not started. Merged into,
+  // never wholesale-replaced, by onboarding-service.
+  onboardingState Json       @default("{}") @map("onboarding_state")
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 

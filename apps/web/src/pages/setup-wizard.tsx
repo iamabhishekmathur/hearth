@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '@/lib/api-client';
+import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 
 interface SetupWizardProps {
   onComplete: () => void;
@@ -79,6 +80,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
     setError('');
     try {
       await api.post('/admin/setup/init', { email, password, name, orgName });
+      trackEvent(AnalyticsEvent.USER_SIGNED_UP, { method: 'setup', orgName });
       setStep('llm');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Setup failed');

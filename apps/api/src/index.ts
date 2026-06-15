@@ -50,6 +50,7 @@ import meetingsRouter from './routes/meetings.js';
 import notificationsRouter from './routes/notifications.js';
 import taskSuggestionsRouter from './routes/task-suggestions.js';
 import recurrenceRouter from './routes/recurrence.js';
+import onboardingRouter from './routes/onboarding.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { setupSocketManager } from './ws/socket-manager.js';
 import { loadProviders } from './llm/provider-loader.js';
@@ -167,6 +168,7 @@ app.use('/api/v1/meetings', meetingsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/task-suggestions', taskSuggestionsRouter);
 app.use('/api/v1/recurrence', recurrenceRouter);
+app.use('/api/v1/onboarding', onboardingRouter);
 
 // Apply extension routes (cloud and any other downstream registers them
 // via registerApiExtension before this point). No-op for OSS-only builds.

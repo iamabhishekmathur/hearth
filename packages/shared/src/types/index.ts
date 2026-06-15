@@ -5,6 +5,7 @@ export * from './memory.js';
 export * from './task.js';
 export * from './compliance.js';
 export * from './decision.js';
+export * from './onboarding.js';
 
 export type ChatMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 

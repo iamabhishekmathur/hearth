@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { api } from '@/lib/api-client';
+import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 import type {
   Routine, RoutineRun, CreateRoutineRequest, UpdateRoutineRequest,
   RoutineScope, RoutineChain, WebhookEndpoint,
@@ -24,6 +25,11 @@ export function useRoutines() {
 
   const createRoutine = useCallback(async (data: CreateRoutineRequest) => {
     const res = await api.post<{ data: Routine }>('/routines', data);
+    trackEvent(AnalyticsEvent.ROUTINE_CREATED, {
+      routineId: res.data?.id,
+      triggerType: data.schedule ? 'schedule' : 'manual',
+      scope: data.scope,
+    });
     return res.data;
   }, []);
 
