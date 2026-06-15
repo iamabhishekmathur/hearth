@@ -33,7 +33,9 @@ export const STEP_META: Record<OnboardingStep, StepMeta> = {
       'Connect Slack, Gmail, or Granola and watch Hearth pull your tasks and context into memory automatically.',
     icon: 'link',
     cta: 'Connect a tool',
-    action: { kind: 'navigate', hash: '/settings/integrations' },
+    // Member-usable per-user connect surface (any member, requireAuth) — NOT the
+    // admin-only /settings/integrations page, which 403s for members.
+    action: { kind: 'navigate', hash: '/integrations' },
   },
   first_chat: {
     title: 'Ask your first question',

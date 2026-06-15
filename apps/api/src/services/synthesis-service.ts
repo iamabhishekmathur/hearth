@@ -379,6 +379,9 @@ async function fetchIntegrationData(
       orgId,
       status: 'active',
       enabled: true,
+      // Visibility scope: this user's PERSONAL integrations plus org-level
+      // (null userId) ones — never another member's personal integration.
+      OR: [{ userId }, { userId: null }],
       // On-connect backfill: pull ONLY from the just-connected integration.
       ...(scopedIntegrationId ? { id: scopedIntegrationId } : {}),
     },

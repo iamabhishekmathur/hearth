@@ -18,7 +18,7 @@ describe('onboarding step metadata', () => {
 
   it('leads with the aha: connect_integration nudges pulling tasks + context', () => {
     const meta = STEP_META.connect_integration;
-    expect(meta.action).toEqual({ kind: 'navigate', hash: '/settings/integrations' });
+    expect(meta.action).toEqual({ kind: 'navigate', hash: '/integrations' });
     expect(meta.description.toLowerCase()).toContain('pull');
   });
 

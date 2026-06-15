@@ -33,11 +33,19 @@ export function OnboardingSurface() {
 
   // Re-pull onboarding state when the tab regains focus — step completions
   // happen on other pages (Track B) and we want the tick to appear on return.
+  // Also listen for an in-app refresh event: same-tab SPA actions (e.g. a
+  // member connecting a tool on the /integrations surface) complete steps
+  // server-side without ever firing a window focus, so the connect surface
+  // dispatches `hearth:onboarding-refresh` to make the tick appear live.
   useEffect(() => {
     if (!enabled) return;
-    const onFocus = () => void refresh();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    const onRefresh = () => void refresh();
+    window.addEventListener('focus', onRefresh);
+    window.addEventListener('hearth:onboarding-refresh', onRefresh);
+    return () => {
+      window.removeEventListener('focus', onRefresh);
+      window.removeEventListener('hearth:onboarding-refresh', onRefresh);
+    };
   }, [enabled, refresh]);
 
   // Detect newly-completed steps and emit analytics exactly once per step.

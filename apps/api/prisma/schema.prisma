@@ -408,6 +408,7 @@ model User {
   notifications      Notification[]
   notificationPreference NotificationPreference?
   taskSuggestions    TaskSuggestion[]
+  integrations       Integration[]
 
   @@map("users")
 }
@@ -1099,6 +1100,11 @@ model RoutineHealthAlert {
 model Integration {
   id              String            @id @default(uuid())
   orgId           String            @map("org_id")
+  // The user who connected this integration as a PERSONAL/user-connected source.
+  // null = org-level / admin-managed (the original behavior, visible org-wide);
+  // set = personal, scoped to and manageable only by that user. MCP connectors
+  // authenticate per-user, so members connect their own Slack/Gmail/Granola here.
+  userId          String?           @map("user_id")
   provider        String
   config          Json
   status          IntegrationStatus @default(active)
@@ -1108,8 +1114,10 @@ model Integration {
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
   org              Org               @relation(fields: [orgId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id])
   webhookEndpoints WebhookEndpoint[]
 
+  @@index([userId])
   @@map("integrations")
 }
 

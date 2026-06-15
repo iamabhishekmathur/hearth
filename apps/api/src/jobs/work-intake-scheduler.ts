@@ -143,6 +143,26 @@ export function createWorkIntakeWorker() {
         case 'connect_backfill': {
           if (!integrationId) return { skipped: true, reason: 'No integrationId' };
 
+          // Scope guard: only backfill from an integration this user is allowed
+          // to pull — their own PERSONAL integration (userId = them) or an
+          // org-level (null userId) one in their org. Never another member's
+          // personal source. Mirrors the synthesis fetch visibility rule.
+          const target = await prisma.integration.findUnique({
+            where: { id: integrationId },
+            select: { orgId: true, userId: true },
+          });
+          if (
+            !target ||
+            target.orgId !== orgId ||
+            (target.userId !== null && target.userId !== userId)
+          ) {
+            logger.warn(
+              { userId, integrationId },
+              'Connect backfill: integration not visible to user, skipping',
+            );
+            return { skipped: true, reason: 'Integration not visible to user' };
+          }
+
           // Memory synthesis SCOPED to the just-connected integration. Runs in
           // this worker (which owns the cross-process ensureConnected pull),
           // pulling THIS integration's content into the user's memory layer.

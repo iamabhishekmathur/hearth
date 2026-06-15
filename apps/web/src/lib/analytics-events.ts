@@ -52,6 +52,8 @@ export interface AnalyticsEventProps {
     provider: string;
     /** 'builtin' = catalog connector; 'custom' = user-supplied MCP server URL. */
     kind: 'builtin' | 'custom';
+    /** 'user' = member connected for themselves; 'org' = admin org-wide connect. */
+    scope?: 'user' | 'org';
   };
   [AnalyticsEvent.AHA_REACHED]: {
     /** What produced the aha (e.g. 'integration_pull'). */
