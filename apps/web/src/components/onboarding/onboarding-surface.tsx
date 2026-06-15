@@ -8,6 +8,7 @@ import {
   OnboardingChecklist,
   emitStepCompletedAnalytics,
 } from './onboarding-checklist';
+import { DailyBriefOffer } from './daily-brief-offer';
 
 /**
  * The mounted onboarding surface.
@@ -80,6 +81,7 @@ export function OnboardingSurface() {
   if (!enabled || loading || !status) return null;
 
   const started = Boolean(status.state.startedAt);
+  const allDone = status.state.completedSteps.length >= 5;
 
   // ---- Welcome (full-screen takeover before onboarding has started) --------
   if (!started) {
@@ -118,7 +120,15 @@ export function OnboardingSurface() {
   }
 
   return (
-    <div className="pointer-events-none absolute bottom-4 right-4 z-30">
+    <div className="pointer-events-none absolute bottom-4 right-4 z-30 flex flex-col items-end gap-3">
+      {/* Once the activation checklist is complete, plant the retention habit:
+          a one-click daily-brief offer. Self-suppresses if they already have
+          routines or dismissed it. */}
+      {allDone && (
+        <div className="pointer-events-auto">
+          <DailyBriefOffer />
+        </div>
+      )}
       <div className="pointer-events-auto">
         <OnboardingChecklist
           status={status}

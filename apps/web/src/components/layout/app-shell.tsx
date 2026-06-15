@@ -7,6 +7,7 @@ import { HButton } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { OnboardingSurface } from '@/components/onboarding/onboarding-surface';
+import { DailyBriefOffer } from '@/components/onboarding/daily-brief-offer';
 
 interface AppShellProps {
   currentRoute: string;
@@ -78,6 +79,19 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps) 
         {/* Per-user onboarding (welcome takeover + persistent checklist).
             Self-gates on needsOnboarding; renders nothing once dismissed/done. */}
         <OnboardingSurface />
+
+        {/* Post-activation retention habit. Once onboarding is dismissed/done
+            the surface above unmounts; this keeps the one-click daily-brief
+            offer reachable. Self-suppresses if the user already has routines or
+            dismissed it, and stands down while onboarding is still active so it
+            never stacks with the checklist (which renders its own copy). */}
+        {!user.needsOnboarding && (
+          <div className="pointer-events-none absolute bottom-4 right-4 z-20">
+            <div className="pointer-events-auto">
+              <DailyBriefOffer />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
