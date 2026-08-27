@@ -76,15 +76,17 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps) 
         )}
         {children}
 
-        {/* Per-user onboarding (welcome takeover + persistent checklist).
-            Self-gates on needsOnboarding; renders nothing once dismissed/done. */}
+        {/* Per-user onboarding — a prominent, centered guided flow that takes
+            over the main content area while needsOnboarding is true (welcome
+            on-ramp → guided checklist → daily-brief finale). Self-gates on
+            needsOnboarding; renders nothing once finished/skipped. */}
         <OnboardingSurface />
 
-        {/* Post-activation retention habit. Once onboarding is dismissed/done
-            the surface above unmounts; this keeps the one-click daily-brief
-            offer reachable. Self-suppresses if the user already has routines or
-            dismissed it, and stands down while onboarding is still active so it
-            never stacks with the checklist (which renders its own copy). */}
+        {/* Post-activation retention habit. The onboarding flow folds the
+            daily-brief in as its finale; this standalone offer only covers
+            users who reach the app post-onboarding without one (finished/skipped
+            without turning it on). Self-suppresses if they already have routines
+            or dismissed it, and stands down while onboarding is still active. */}
         {!user.needsOnboarding && (
           <div className="pointer-events-none absolute bottom-4 right-4 z-20">
             <div className="pointer-events-auto">
