@@ -61,6 +61,7 @@ export function HIcon({ name, size = 16, color = 'currentColor', strokeWidth = 1
     case 'sparkle':  return <svg {...p}><path d="M8 2l1.3 3.7L13 7l-3.7 1.3L8 12l-1.3-3.7L3 7l3.7-1.3z"/></svg>;
     case 'bell':     return <svg {...p}><path d="M4 11V8a4 4 0 118 0v3l1 1H3z"/><path d="M6.5 13.5a1.5 1.5 0 003 0"/></svg>;
     case 'lock':     return <svg {...p}><rect x="3" y="7" width="10" height="6" rx="1"/><path d="M5 7V5a3 3 0 116 0v2"/></svg>;
+    case 'key':      return <svg {...p}><circle cx="5.5" cy="5.5" r="3"/><path d="M7.6 7.6l5 5M10.5 11l1.3-1.3M12 12.5l1.3-1.3"/></svg>;
     case 'globe':    return <svg {...p}><circle cx="8" cy="8" r="5.5"/><path d="M2.5 8h11M8 2.5c1.8 2 1.8 9 0 11M8 2.5c-1.8 2-1.8 9 0 11"/></svg>;
     case 'team':     return <svg {...p}><circle cx="6" cy="6" r="2"/><circle cx="11.5" cy="6.5" r="1.5"/><path d="M2.5 13c0-2 1.6-3.5 3.5-3.5S9.5 11 9.5 13M10 13c0-1.5.7-2.5 2-2.5s2 1 2 2.5"/></svg>;
     case 'user':     return <svg {...p}><circle cx="8" cy="5.5" r="2.5"/><path d="M3 13c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5"/></svg>;

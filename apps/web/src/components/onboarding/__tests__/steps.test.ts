@@ -22,6 +22,13 @@ describe('onboarding step metadata', () => {
     expect(meta.description.toLowerCase()).toContain('pull');
   });
 
+  it('routes configure_llm to the admin LLM config surface', () => {
+    expect(STEP_META.configure_llm.action).toEqual({
+      kind: 'navigate',
+      hash: '/settings/llm',
+    });
+  });
+
   it('routes invite_teammate to the real invite surface (P2)', () => {
     expect(STEP_META.invite_teammate.action).toEqual({
       kind: 'navigate',

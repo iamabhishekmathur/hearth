@@ -15,6 +15,7 @@
  * activation funnel; do not reorder casually (it changes the suggested path).
  */
 export const ONBOARDING_STEPS = [
+  'configure_llm',
   'connect_integration',
   'first_chat',
   'first_task',
@@ -26,6 +27,25 @@ export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export function isOnboardingStep(value: unknown): value is OnboardingStep {
   return typeof value === 'string' && (ONBOARDING_STEPS as readonly string[]).includes(value);
+}
+
+/**
+ * Steps that only make sense for an org admin. The LLM provider key is set once,
+ * per-org, by an admin (see admin/llm-config) — members can neither perform it
+ * nor should they be nagged by it, so it is filtered out of their funnel. It
+ * leads the taxonomy because chat/tasks cannot work until a provider is
+ * configured, so the admin who bootstraps the org is prompted for it first.
+ */
+export const ADMIN_ONLY_STEPS: readonly OnboardingStep[] = ['configure_llm'];
+
+/**
+ * The onboarding steps applicable to a given user role. Non-admins never see
+ * admin-only steps; `nextStep`/`needsOnboarding` are computed over this subset
+ * both server-side (source of truth) and in the checklist UI so the two agree.
+ */
+export function stepsForRole(role: string | null | undefined): OnboardingStep[] {
+  if (role === 'admin') return [...ONBOARDING_STEPS];
+  return ONBOARDING_STEPS.filter((s) => !ADMIN_ONLY_STEPS.includes(s));
 }
 
 /**

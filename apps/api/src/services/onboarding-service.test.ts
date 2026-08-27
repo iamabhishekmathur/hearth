@@ -9,6 +9,13 @@ vi.mock('../lib/prisma.js', () => ({
   },
 }));
 
+// Pin env so the org-provider check is deterministic regardless of the ambient
+// shell (a real ANTHROPIC/OPENAI key exported locally would otherwise satisfy
+// configure_llm and skew the role-gating assertions).
+vi.mock('../config.js', () => ({
+  env: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined, OLLAMA_BASE_URL: undefined },
+}));
+
 import { prisma } from '../lib/prisma.js';
 import {
   normalizeState,
@@ -32,11 +39,21 @@ const USER = 'user_1';
 /**
  * Wire the prisma mock to an in-memory onboardingState so service helpers
  * exercise the full load → merge → persist cycle. Returns a getter for the
- * current stored value.
+ * current stored value. `role`/`orgSettings` back the role-scoped getStatus
+ * computation; defaults model an admin whose org has no provider yet (so the
+ * admin-only `configure_llm` step leads the funnel).
  */
-function withStoredState(initial: unknown) {
+function withStoredState(
+  initial: unknown,
+  opts: { role?: string; orgSettings?: unknown } = {},
+) {
+  const { role = 'admin', orgSettings = {} } = opts;
   let stored: unknown = initial;
-  findUnique.mockImplementation(async () => ({ onboardingState: stored }));
+  findUnique.mockImplementation(async () => ({
+    onboardingState: stored,
+    role,
+    team: { org: { settings: orgSettings } },
+  }));
   update.mockImplementation(async ({ data }: { data: { onboardingState: unknown } }) => {
     stored = data.onboardingState;
     return { id: USER, onboardingState: stored };
@@ -132,6 +149,28 @@ describe('getState / getStatus', () => {
     const status = await getStatus(USER);
     expect(status.nextStep).toBe(ONBOARDING_STEPS[0]);
     expect(status.needsOnboarding).toBe(true);
+  });
+
+  it('for an admin with no provider, configure_llm leads the funnel', async () => {
+    withStoredState({}, { role: 'admin', orgSettings: {} });
+    const status = await getStatus(USER);
+    expect(status.nextStep).toBe('configure_llm');
+  });
+
+  it('hides the admin-only configure_llm step from members', async () => {
+    withStoredState({}, { role: 'member', orgSettings: {} });
+    const status = await getStatus(USER);
+    expect(status.nextStep).toBe('connect_integration');
+    expect(status.needsOnboarding).toBe(true);
+  });
+
+  it('folds out configure_llm for an admin whose org already has a key', async () => {
+    withStoredState(
+      {},
+      { role: 'admin', orgSettings: { llm: { encryptedKeys: { anthropic: 'enc' } } } },
+    );
+    const status = await getStatus(USER);
+    expect(status.nextStep).toBe('connect_integration');
   });
 
   it('throws when the user does not exist', async () => {

@@ -1,25 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { FadeIn } from '@/components/ui/motion';
-import { HIcon } from '@/components/ui/icon';
 import { useOnboarding } from './use-onboarding';
 import { OnboardingWelcome } from './onboarding-welcome';
 import {
   OnboardingChecklist,
   emitStepCompletedAnalytics,
 } from './onboarding-checklist';
-import { DailyBriefOffer } from './daily-brief-offer';
 
 /**
- * The mounted onboarding surface.
+ * The prominent onboarding surface.
  *
- * Gated by `needsOnboarding` (from useAuth's user). When the user has not yet
- * started (no welcome.startedAt), it takes over as a full welcome screen. Once
- * started, it renders as a persistent, collapsible checklist anchored bottom
- * -right. Collapsing leaves a small "Get started" launcher; dismissing hides it
- * for good (server-side). Nothing renders once needsOnboarding is false.
+ * Gated by `needsOnboarding` (from useAuth's user). While the user is
+ * onboarding, this is NOT a corner widget — it occupies and dominates the main
+ * content area as a centered, focused guided flow: a welcome on-ramp (step 0)
+ * that captures the user's goal (PATCH welcome), then a guided checklist with a
+ * benefit-led hero card, progress, and a folded-in daily-brief finale. Once
+ * the user finishes or skips (PATCH dismiss), `needsOnboarding` flips false and
+ * nothing renders.
  *
- * It also fires ONBOARDING_STEP_COMPLETED / AHA_REACHED when it observes the
+ * It fires ONBOARDING_STEP_COMPLETED / AHA_REACHED when it observes the
  * server's completedSteps grow — keeping emission tied to real completion.
  */
 export function OnboardingSurface() {
@@ -29,7 +28,6 @@ export function OnboardingSurface() {
   const { status, loading, submitWelcome, dismiss, refresh } =
     useOnboarding(enabled);
 
-  const [collapsed, setCollapsed] = useState(false);
   const prevCompleted = useRef<Set<string> | null>(null);
 
   // Re-pull onboarding state when the tab regains focus — step completions
@@ -81,61 +79,23 @@ export function OnboardingSurface() {
   if (!enabled || loading || !status) return null;
 
   const started = Boolean(status.state.startedAt);
-  const allDone = status.state.completedSteps.length >= 5;
 
-  // ---- Welcome (full-screen takeover before onboarding has started) --------
-  if (!started) {
-    return (
-      <div className="absolute inset-0 z-30 bg-hearth-bg">
-        <OnboardingWelcome onSubmit={handleWelcome} onSkip={() => void handleDismiss()} />
-      </div>
-    );
-  }
-
-  // ---- Checklist (persistent, collapsible, bottom-right) -------------------
-  if (collapsed) {
-    return (
-      <div className="pointer-events-none absolute bottom-4 right-4 z-30">
-        <FadeIn>
-          <button
-            type="button"
-            onClick={() => {
-              setCollapsed(false);
-              void refresh();
-            }}
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-pill border border-hearth-border bg-hearth-card px-3.5 py-2 text-[13px] font-semibold text-hearth-text shadow-hearth-2 transition-all duration-fast ease-hearth hover:border-hearth-accent"
-          >
-            <HIcon name="sparkle" size={14} color="var(--hearth-accent)" />
-            Get started
-            <span
-              className="ml-0.5 rounded-pill px-1.5 py-[1px] text-[11px] font-bold text-white"
-              style={{ background: 'var(--hearth-accent)' }}
-            >
-              {status.state.completedSteps.length}/5
-            </span>
-          </button>
-        </FadeIn>
-      </div>
-    );
-  }
-
+  // Full takeover of the main content area for the whole flow — front and
+  // centre on first login. Scrollable in case the viewport is short.
   return (
-    <div className="pointer-events-none absolute bottom-4 right-4 z-30 flex flex-col items-end gap-3">
-      {/* Once the activation checklist is complete, plant the retention habit:
-          a one-click daily-brief offer. Self-suppresses if they already have
-          routines or dismissed it. */}
-      {allDone && (
-        <div className="pointer-events-auto">
-          <DailyBriefOffer />
-        </div>
-      )}
-      <div className="pointer-events-auto">
-        <OnboardingChecklist
-          status={status}
-          onCollapse={() => setCollapsed(true)}
-          onDismiss={() => void handleDismiss()}
-          onRefresh={refresh}
-        />
+    <div className="absolute inset-0 z-30 overflow-y-auto bg-hearth-bg">
+      <div className="flex min-h-full items-center justify-center px-6 py-12">
+        {!started ? (
+          <OnboardingWelcome onSubmit={handleWelcome} />
+        ) : (
+          <OnboardingChecklist
+            status={status}
+            role={user?.role}
+            onDismiss={() => void handleDismiss()}
+            onRefresh={refresh}
+            onFinish={() => void handleDismiss()}
+          />
+        )}
       </div>
     </div>
   );

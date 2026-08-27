@@ -323,7 +323,13 @@ export function LlmConfig() {
           <ProviderRow
             key={p.id}
             provider={p}
-            onKeySaved={fetchAll}
+            onKeySaved={() => {
+              void fetchAll();
+              // Saving the org's provider key completes the admin's
+              // `configure_llm` onboarding step (server-side) — nudge the
+              // onboarding surface to re-pull so the checklist ticks live.
+              window.dispatchEvent(new CustomEvent('hearth:onboarding-refresh'));
+            }}
             isLast={i === providers.length - 1}
           />
         ))}

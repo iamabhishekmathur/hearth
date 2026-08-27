@@ -3,11 +3,13 @@ import {
   ONBOARDING_STEPS,
   EMPTY_ONBOARDING_STATE,
   isOnboardingStep,
+  stepsForRole,
   type OnboardingState,
   type OnboardingStep,
   type OnboardingStatus,
 } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
+import { env } from '../config.js';
 
 // ──────────────────────────────────────────────
 // Onboarding service (growth-loop activation foundation, TRACK 1).
@@ -48,33 +50,58 @@ export function normalizeState(raw: unknown): OnboardingState {
 }
 
 /**
- * First step (in ONBOARDING_STEPS order) the user has not yet completed, or
- * null when every step is done.
+ * First applicable step (in ONBOARDING_STEPS order) the user has not yet
+ * completed, or null when every applicable step is done. `steps` defaults to the
+ * full taxonomy; callers pass a role-scoped subset (see stepsForRole) so members
+ * are never routed to admin-only steps.
  */
-export function computeNextStep(state: OnboardingState): OnboardingStep | null {
-  return ONBOARDING_STEPS.find((s) => !state.completedSteps.includes(s)) ?? null;
+export function computeNextStep(
+  state: OnboardingState,
+  steps: readonly OnboardingStep[] = ONBOARDING_STEPS,
+): OnboardingStep | null {
+  return steps.find((s) => !state.completedSteps.includes(s)) ?? null;
 }
 
 /**
  * The activation gate. The user needs onboarding when they have NOT dismissed
- * it AND there is still at least one incomplete step.
+ * it AND there is still at least one incomplete applicable step.
  */
-export function computeNeedsOnboarding(state: OnboardingState): boolean {
+export function computeNeedsOnboarding(
+  state: OnboardingState,
+  steps: readonly OnboardingStep[] = ONBOARDING_STEPS,
+): boolean {
   if (state.dismissedAt) return false;
-  return computeNextStep(state) !== null;
+  return computeNextStep(state, steps) !== null;
 }
 
 /**
  * Build the full status object (state + computed fields) from a raw stored value.
- * Pure — used by both the route and by GET /auth/me without an extra DB round-trip.
+ * Pure — the `steps` subset lets callers scope the computation to a role.
  */
-export function toStatus(raw: unknown): OnboardingStatus {
+export function toStatus(
+  raw: unknown,
+  steps: readonly OnboardingStep[] = ONBOARDING_STEPS,
+): OnboardingStatus {
   const state = normalizeState(raw);
   return {
     state,
-    nextStep: computeNextStep(state),
-    needsOnboarding: computeNeedsOnboarding(state),
+    nextStep: computeNextStep(state, steps),
+    needsOnboarding: computeNeedsOnboarding(state, steps),
   };
+}
+
+/**
+ * True when the user's org already has a usable LLM provider — either a
+ * system-wide env key or an admin-saved encrypted key on the org. When so, the
+ * admin's `configure_llm` step is treated as already satisfied (no nagging),
+ * mirroring how admin/llm-config decides a provider is `configured`.
+ */
+function orgHasLlmProvider(orgSettings: unknown): boolean {
+  if (env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY || env.OLLAMA_BASE_URL) return true;
+  const settings = (orgSettings ?? {}) as Record<string, unknown>;
+  const llm = (settings.llm ?? {}) as Record<string, unknown>;
+  const encryptedKeys = (llm.encryptedKeys ?? {}) as Record<string, string>;
+  return Object.keys(encryptedKeys).length > 0;
 }
 
 async function loadState(userId: string): Promise<OnboardingState> {
@@ -102,14 +129,37 @@ export async function getState(userId: string): Promise<OnboardingState> {
 }
 
 /**
- * Read the full computed status (state + nextStep + needsOnboarding).
+ * Read the full computed status (state + nextStep + needsOnboarding), scoped to
+ * the user's role. Admin-only steps (the LLM key) are excluded for members, and
+ * for admins whose org already has a provider the `configure_llm` step is folded
+ * out so a configured org is never nagged to reconfigure.
  */
 export async function getStatus(userId: string): Promise<OnboardingStatus> {
-  const state = await loadState(userId);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      onboardingState: true,
+      role: true,
+      team: { select: { org: { select: { settings: true } } } },
+    },
+  });
+  if (!user) throw new Error('User not found');
+
+  const state = normalizeState(user.onboardingState);
+  let steps = stepsForRole(user.role);
+
+  if (
+    user.role === 'admin' &&
+    steps.includes('configure_llm') &&
+    orgHasLlmProvider(user.team?.org?.settings)
+  ) {
+    steps = steps.filter((s) => s !== 'configure_llm');
+  }
+
   return {
     state,
-    nextStep: computeNextStep(state),
-    needsOnboarding: computeNeedsOnboarding(state),
+    nextStep: computeNextStep(state, steps),
+    needsOnboarding: computeNeedsOnboarding(state, steps),
   };
 }
 

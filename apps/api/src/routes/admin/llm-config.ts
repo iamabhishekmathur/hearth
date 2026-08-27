@@ -5,6 +5,8 @@ import { prisma } from '../../lib/prisma.js';
 import { encrypt } from '../../mcp/token-store.js';
 import { loadProviders } from '../../llm/provider-loader.js';
 import { getEmbeddingStatus } from '../../services/embedding-service.js';
+import * as onboardingService from '../../services/onboarding-service.js';
+import { logger } from '../../lib/logger.js';
 import { env } from '../../config.js';
 
 const router: ReturnType<typeof Router> = Router();
@@ -188,6 +190,15 @@ router.post('/keys', requireAuth, requireRole('admin'), async (req, res, next) =
 
     // Hot-reload providers so chat works immediately
     await loadProviders();
+
+    // Setting the org's first provider key is the admin's `configure_llm`
+    // onboarding step. Complete it server-side (best-effort — a bookkeeping
+    // failure must not fail the key save).
+    try {
+      await onboardingService.markStepComplete(req.user!.id, 'configure_llm');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to mark configure_llm onboarding step complete');
+    }
 
     res.json({ data: { provider, configured: true } });
   } catch (err) {
