@@ -67,6 +67,17 @@ const httpServer = createServer(app);
 // Trust first proxy hop (nginx in docker-compose) so req.ip reflects real client
 app.set('trust proxy', 1);
 
+// When fronted by CloudFront over an HTTP origin (e.g. CloudFront -> ALB :80),
+// the viewer's TLS terminates at the edge and the ALB reports
+// X-Forwarded-Proto: http — so express-session would withhold the Secure
+// session cookie and logins never stick. CloudFront stamps every origin request
+// with X-Amz-Cf-Id, so its presence reliably marks edge-HTTPS traffic (internal
+// ALB health checks have no such header and are left untouched).
+app.use((req, _res, next) => {
+  if (req.headers['x-amz-cf-id']) req.headers['x-forwarded-proto'] = 'https';
+  next();
+});
+
 // Socket.io
 const io = new SocketIOServer(httpServer, {
   cors: {
@@ -103,7 +114,14 @@ app.use(requestLogger);
 const PgStore = connectPgSimple(session);
 const sessionMiddleware = session({
   store: new PgStore({
-    conString: env.DATABASE_URL,
+    // Use a pg pool config (not a bare conString) so we can enable TLS: managed
+    // Postgres (e.g. RDS) rejects unencrypted connections, and node-postgres —
+    // unlike Prisma's `sslmode=prefer` default — does not negotiate SSL on its
+    // own. rejectUnauthorized:false because the connection stays inside the VPC.
+    conObject: {
+      connectionString: env.DATABASE_URL,
+      ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+    },
     createTableIfMissing: true,
   }),
   name: 'hearth.sid',
