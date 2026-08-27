@@ -21,6 +21,8 @@ COPY --from=build-shared /app/packages/shared/dist packages/shared/dist
 COPY apps/api/ apps/api/
 COPY packages/shared/ packages/shared/
 COPY tsconfig.base.json ./
+# Generate the Prisma client before tsc — its types are required to compile.
+RUN pnpm --filter @hearth/api exec prisma generate
 RUN pnpm --filter @hearth/api build
 
 # Production
