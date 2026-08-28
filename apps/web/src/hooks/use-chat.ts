@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api-client';
+import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 import {
   joinSession,
   leaveSession,
@@ -558,6 +559,11 @@ export function useChat(sessionId: string | null): UseChatReturn {
         }
 
         await api.post(`/chat/sessions/${sid}/messages`, body);
+        trackEvent(AnalyticsEvent.FIRST_MESSAGE_SENT, {
+          sessionId: sid,
+          length: content.length,
+          hasAttachments: Boolean(attachmentIds && attachmentIds.length > 0),
+        });
       } catch (err) {
         lastFailedContentRef.current = content;
         setError(err instanceof Error ? err.message : 'Failed to send message');

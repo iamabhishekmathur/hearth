@@ -238,7 +238,8 @@ async function installDemoOverlay(page: Page) {
     if (!document.getElementById('hearth-demo-caption')) {
       const caption = document.createElement('div');
       caption.id = 'hearth-demo-caption';
-      caption.innerHTML = '<div class="demo-eyebrow"></div><div class="demo-headline"></div><div class="demo-body"></div>';
+      caption.innerHTML =
+        '<div class="demo-eyebrow"></div><div class="demo-headline"></div><div class="demo-body"></div>';
       document.body.appendChild(caption);
     }
   }, TOTAL_SCENES);
@@ -246,21 +247,24 @@ async function installDemoOverlay(page: Page) {
 
 async function showCaption(page: Page, caption: Caption, ms = 2800) {
   await installDemoOverlay(page);
-  await page.evaluate(({ eyebrow, headline, body, scene, total }) => {
-    const root = document.getElementById('hearth-demo-caption');
-    if (!root) return;
-    root.querySelector('.demo-eyebrow')!.textContent = eyebrow;
-    root.querySelector('.demo-headline')!.textContent = headline;
-    root.querySelector('.demo-body')!.textContent = body ?? '';
-    root.setAttribute('style', 'animation: none');
-    void root.offsetHeight;
-    root.setAttribute('style', '');
+  await page.evaluate(
+    ({ eyebrow, headline, body, scene, total }) => {
+      const root = document.getElementById('hearth-demo-caption');
+      if (!root) return;
+      root.querySelector('.demo-eyebrow')!.textContent = eyebrow;
+      root.querySelector('.demo-headline')!.textContent = headline;
+      root.querySelector('.demo-body')!.textContent = body ?? '';
+      root.setAttribute('style', 'animation: none');
+      void root.offsetHeight;
+      root.setAttribute('style', '');
 
-    const dots = Array.from(document.querySelectorAll('#hearth-demo-progress span'));
-    dots.forEach((dot, index) => {
-      dot.classList.toggle('active', index < Math.min(scene, total));
-    });
-  }, { ...caption, total: TOTAL_SCENES });
+      const dots = Array.from(document.querySelectorAll('#hearth-demo-progress span'));
+      dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index < Math.min(scene, total));
+      });
+    },
+    { ...caption, total: TOTAL_SCENES },
+  );
   await pace(page, ms);
 }
 
@@ -286,7 +290,10 @@ async function spotlight(page: Page, text: string) {
 async function findDemoSessionId(page: Page) {
   const own = await apiGet(page, '/chat/sessions');
   const shared = await apiGet(page, '/chat/sessions/shared').catch(() => ({ body: { data: [] } }));
-  const sessions = [...(own.body.data ?? []), ...(shared.body.data ?? [])] as Array<{ id: string; title?: string }>;
+  const sessions = [...(own.body.data ?? []), ...(shared.body.data ?? [])] as Array<{
+    id: string;
+    title?: string;
+  }>;
   const hero = sessions.find((session) => session.title?.includes('Enterprise Beta Launch Review'));
   return hero?.id ?? sessions[0]?.id;
 }
@@ -300,9 +307,9 @@ async function endCard(page: Page) {
     end.innerHTML = `
       <div class="end-inner">
         <div class="end-brand"><span class="end-mark">H</span><span>Hearth</span></div>
-        <h1>Make your AI power users' breakthroughs your team's starting point.</h1>
-        <p>Open-source AI workspace for teams: shared workflows, org-owned memory, decisions, tasks, routines, and governance.</p>
-        <div class="end-cta">Self-host it. Bring your own models. Own the memory layer.</div>
+        <h1>Turn your best AI workflows into the company playbook.</h1>
+        <p>Hearth Cloud gives teams Chat, Tasks, Routines, Activity, company context, and governance in one managed workspace.</p>
+        <div class="end-cta">Start with one team and one workflow.</div>
       </div>
     `;
     document.body.appendChild(end);
@@ -321,91 +328,127 @@ test.describe('Hearth GTM demo video', () => {
     const sessionId = await findDemoSessionId(page);
     expect(sessionId, 'Run pnpm seed:gtm-demo before recording the GTM video').toBeTruthy();
 
-    await gotoApp(page, `/chat/${sessionId}`);
-    await showCaption(page, {
-      scene: 1,
-      eyebrow: 'The problem',
-      headline: "Your best AI work is trapped in one teammate's chat.",
-      body: 'Most teams already have AI power users. The leverage just does not spread.',
-    }, 3300);
+    await gotoApp(page, `/chat?sessionId=${sessionId}`);
+    await showCaption(
+      page,
+      {
+        scene: 1,
+        eyebrow: 'The problem',
+        headline: "Your best AI work is trapped in one teammate's private tab.",
+        body: 'Most teams already have AI power users. What they learn rarely becomes the way the team works.',
+      },
+      3300,
+    );
     await spotlight(page, 'Enterprise Beta Launch Review');
-    await showCaption(page, {
-      scene: 2,
-      eyebrow: 'The breakthrough',
-      headline: 'One power user pulls the launch together.',
-      body: 'Hearth connects the chat to launch notes, Slack feedback, meeting notes, GitHub, tasks, and decisions.',
-    }, 3600);
+    await showCaption(
+      page,
+      {
+        scene: 2,
+        eyebrow: 'The breakthrough',
+        headline: 'One teammate brings the launch work into Hearth.',
+        body: 'The shared session connects the conversation to launch notes, Slack feedback, GitHub work, tasks, and decisions.',
+      },
+      3600,
+    );
     await page.mouse.wheel(0, 420);
     await pace(page, 1200);
     await spotlight(page, 'saved "Enterprise Launch Review"');
 
     await gotoApp(page, '/tasks');
-    await showCaption(page, {
-      scene: 3,
-      eyebrow: 'Work becomes visible',
-      headline: 'The follow-up becomes work, not vibes.',
-      body: 'The AI-generated next steps land on the shared board with owners, priorities, comments, and execution state.',
-    }, 3600);
+    await showCaption(
+      page,
+      {
+        scene: 3,
+        eyebrow: 'Work becomes visible',
+        headline: 'The follow-up becomes work, not vibes.',
+        body: 'The AI-generated next steps land on the shared board with owners, priorities, comments, and execution state.',
+      },
+      3600,
+    );
     await spotlight(page, 'Implement audit-log export for admins');
     await page.mouse.wheel(520, 0);
     await pace(page, 1000);
 
     await gotoApp(page, '/skills');
-    await showCaption(page, {
-      scene: 4,
-      eyebrow: 'Pattern becomes reusable',
-      headline: "The workflow becomes the team's starting point.",
-      body: 'The launch review is no longer a one-off conversation. It is a reusable skill the whole team can install and improve.',
-    }, 3600);
+    await showCaption(
+      page,
+      {
+        scene: 4,
+        eyebrow: 'Pattern becomes reusable',
+        headline: "The workflow becomes the team's starting point.",
+        body: 'The launch review is no longer a one-off conversation. It is an installable Skill the team can reuse and improve.',
+      },
+      3600,
+    );
     await spotlight(page, 'Enterprise Launch Review');
     await spotlight(page, 'Security FAQ Builder');
 
     await gotoApp(page, '/routines');
-    await showCaption(page, {
-      scene: 5,
-      eyebrow: 'Recurring work runs itself',
-      headline: 'The weekly loop becomes a routine.',
-      body: 'Launch-risk digests, procurement readiness checks, and customer-feedback triage keep moving without another blank prompt.',
-    }, 3600);
+    await showCaption(
+      page,
+      {
+        scene: 5,
+        eyebrow: 'Recurring work runs itself',
+        headline: 'The weekly loop becomes a routine.',
+        body: 'Launch-risk digests, procurement readiness checks, and customer-feedback triage keep moving without another blank prompt.',
+      },
+      3600,
+    );
     await spotlight(page, 'Monday Launch Risk Digest');
 
     await gotoApp(page, '/activity');
-    await showCaption(page, {
-      scene: 6,
-      eyebrow: 'Team adoption',
-      headline: 'The rest of the team can discover what works.',
-      body: 'Activity turns useful AI work into something teammates can find, install, reuse, and build on.',
-    }, 3600);
+    await showCaption(
+      page,
+      {
+        scene: 6,
+        eyebrow: 'Team adoption',
+        headline: 'The rest of the team can discover what works.',
+        body: 'Activity makes published Skills and useful AI work visible so teammates can install and build on them.',
+      },
+      3600,
+    );
     await spotlight(page, 'Enterprise Launch Review');
     await page.mouse.wheel(0, 420);
     await pace(page, 1000);
 
     await gotoApp(page, '/memory');
-    await showCaption(page, {
-      scene: 7,
-      eyebrow: 'Org-owned memory',
-      headline: 'The company keeps the context.',
-      body: "Launch precedents, customer concerns, and workflow learnings stay in Hearth instead of a model provider's chat history.",
-    }, 3600);
+    await showCaption(
+      page,
+      {
+        scene: 7,
+        eyebrow: 'Org-owned memory',
+        headline: 'The company keeps the context.',
+        body: "Launch precedents, customer concerns, and workflow learnings stay in Hearth instead of a model provider's chat history.",
+      },
+      3600,
+    );
     await spotlight(page, 'Enterprise Launch Review workflow is the standard starting point');
 
     await gotoApp(page, '/decisions');
-    await showCaption(page, {
-      scene: 8,
-      eyebrow: 'Decision memory',
-      headline: 'Decisions stop evaporating after the meeting.',
-      body: 'Hearth preserves the rationale, alternatives, owners, and links behind the work.',
-    }, 3600);
+    await showCaption(
+      page,
+      {
+        scene: 8,
+        eyebrow: 'Decision memory',
+        headline: 'Decisions stop evaporating after the meeting.',
+        body: 'Hearth preserves the rationale, alternatives, owners, and links behind the work.',
+      },
+      3600,
+    );
     await spotlight(page, 'Gate enterprise beta expansion');
     await spotlight(page, 'Include tool-call metadata');
 
     await gotoApp(page, '/settings/compliance');
-    await showCaption(page, {
-      scene: 9,
-      eyebrow: 'The buyer objection',
-      headline: 'Govern AI without locking it down.',
-      body: 'Self-host it. Bring your own models. Scrub sensitive data before it reaches external LLMs.',
-    }, 3800);
+    await showCaption(
+      page,
+      {
+        scene: 9,
+        eyebrow: 'The trust layer',
+        headline: 'Protect sensitive context before model calls.',
+        body: 'Hearth can scrub configured sensitive-data classes before content reaches an external LLM. The open-source core remains available when infrastructure control matters.',
+      },
+      3800,
+    );
     await spotlight(page, 'PII (Personally Identifiable Information)');
     await page.mouse.wheel(0, 620);
     await pace(page, 1200);

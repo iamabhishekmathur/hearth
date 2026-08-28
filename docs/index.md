@@ -3,85 +3,72 @@ layout: home
 
 hero:
   name: Hearth
-  text: A Team AI Workspace
-  tagline: A team AI workspace for chat, agent-assisted tasks, routines, activity, and company-owned context. Available in Hearth Cloud or self-hosted. BYO LLM either way.
+  text: Turn your best AI workflows into the company playbook
+  tagline: Hearth captures successful AI work, turns it into installable team Skills, and keeps company context, approvals, and policies attached.
   actions:
     - theme: brand
-      text: Start with Hearth Cloud
+      text: Evaluate with Hearth Cloud
       link: /getting-started/cloud
-    - theme: brand
-      text: Start self-hosted
+    - theme: alt
+      text: See how Hearth works
+      link: /guide/
+    - theme: alt
+      text: Self-host open source
       link: /getting-started/self-hosted
-    - theme: alt
-      text: Compare paths
-      link: /getting-started/comparison
-    - theme: alt
-      text: View on GitHub
-      link: https://github.com/iamabhishekmathur/hearth
 
 features:
-  - icon: "💬"
+  - icon: '01'
     title: Chat
-    details: Teammates and agents work in one shared AI session with shared context, files, and artifacts.
+    details: Teammates and AI work together in shared sessions with the context, files, and artifacts needed to finish useful work.
     link: /guide/chat
-    linkText: Learn more
-  - icon: "📋"
+    linkText: Explore Chat
+  - icon: '02'
     title: Tasks
-    details: Assigned work becomes visible, planned into subtasks, executed through connected tools, and returned for approval.
+    details: Agents plan and execute accountable work through connected tools, then return results for human review.
     link: /guide/tasks
-    linkText: Learn more
-  - icon: "🔄"
+    linkText: Explore Tasks
+  - icon: '03'
     title: Routines
-    details: Repeated work becomes agent-run workflows that run manually, on a schedule, or from triggers.
+    details: Successful workflows become reusable ways of working that run on demand, on a schedule, or from a trigger.
     link: /guide/routines
-    linkText: Learn more
-  - icon: "📊"
+    linkText: Explore Routines
+  - icon: '04'
     title: Activity
-    details: Teams discover what coworkers are doing in Hearth and adopt useful workflows into their own work.
+    details: Useful work becomes visible across the team, so people can inspect what worked and build on it.
     link: /guide/activity
-    linkText: Learn more
-  - icon: "🧠"
-    title: Memory
-    details: Context, decisions, outputs, and workflow history accumulate at user, team, and organization levels.
-    link: /guide/memory
-    linkText: Learn more
-  - icon: "🛡️"
+    linkText: Explore Activity
+  - icon: '05'
+    title: Team adoption
+    details: Power-user workflows spread as repeatable team capability instead of remaining trapped in private AI histories.
+    link: /guide/
+    linkText: Follow the product loop
+  - icon: '06'
     title: Governance
-    details: Admin policies, approval gates, audit trails, and sensitive-data controls keep agent execution reviewable.
+    details: Company context, approval points, policies, sensitive-data controls, and audit history stay attached to AI work.
     link: /admin/governance
-    linkText: Learn more
-  - icon: "🔌"
-    title: Integrations
-    details: Connect communication, meeting, work, knowledge, and GTM systems through integrations, MCP, webhooks, and APIs.
-    link: /admin/integrations
-    linkText: Learn more
-  - icon: "🏠"
-    title: Cloud or self-hosted
-    details: Use Hearth Cloud for managed operations, or run the open-source core in your own infrastructure.
-    link: /getting-started/comparison
-    linkText: Compare paths
-  - icon: "🔑"
-    title: BYO LLM
-    details: Bring OpenAI, Anthropic, Azure OpenAI, OpenAI-compatible providers, or OSS/local models on either path.
-    link: /admin/llm-providers
-    linkText: Learn more
+    linkText: Explore Governance
 ---
 
-## Choose Your Starting Path
+## How Hearth Spreads What Works
 
-Hearth can be used as a managed cloud workspace or deployed from the open-source core.
+1. A teammate completes useful work in Chat or Tasks.
+2. The successful pattern is published as a Skill.
+3. Activity makes the Skill visible to the rest of the team.
+4. Teammates install it instead of starting from scratch.
+5. Context, approvals, policies, and improvements travel with it.
 
-- **Hearth Cloud:** fastest path to a managed team AI workspace.
-- **Self-hosted:** run Hearth in your own cloud when infrastructure ownership matters.
-- **BYO LLM:** use your preferred model path with either deployment option.
+## Evaluate in Hearth Cloud
 
-## Self-Hosted Quickstart
+Hearth Cloud is the recommended way to evaluate Hearth. Your team can test a
+real workflow while Hearth manages the application infrastructure, updates,
+backups, and service operations.
 
-```bash
-git clone https://github.com/iamabhishekmathur/hearth.git
-cd hearth
-cp .env.example .env        # Add your LLM API key
-docker compose up
-```
+[Start with Hearth Cloud](/getting-started/cloud)
 
-Open `http://localhost:3000` and complete the setup wizard.
+## Self-Host When You Need Infrastructure Control
+
+The open-source core is available for teams that need source inspection,
+private-network deployment, local models, source-level customization, or direct
+control of data and operations.
+
+[Review the self-hosted path](/getting-started/self-hosted)

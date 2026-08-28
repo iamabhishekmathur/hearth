@@ -19,6 +19,7 @@ import chatRouter from './routes/chat.js';
 import artifactRouter from './routes/artifacts.js';
 import skillsRouter from './routes/skills.js';
 import integrationsRouter from './routes/admin/integrations.js';
+import userIntegrationsRouter from './routes/integrations.js';
 import auditLogsRouter from './routes/admin/audit-logs.js';
 import setupRouter from './routes/admin/setup.js';
 import memoryRouter from './routes/memory.js';
@@ -50,6 +51,8 @@ import meetingsRouter from './routes/meetings.js';
 import notificationsRouter from './routes/notifications.js';
 import taskSuggestionsRouter from './routes/task-suggestions.js';
 import recurrenceRouter from './routes/recurrence.js';
+import onboardingRouter from './routes/onboarding.js';
+import invitationsRouter from './routes/invitations.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { setupSocketManager } from './ws/socket-manager.js';
 import { loadProviders } from './llm/provider-loader.js';
@@ -63,6 +66,17 @@ const httpServer = createServer(app);
 
 // Trust first proxy hop (nginx in docker-compose) so req.ip reflects real client
 app.set('trust proxy', 1);
+
+// When fronted by CloudFront over an HTTP origin (e.g. CloudFront -> ALB :80),
+// the viewer's TLS terminates at the edge and the ALB reports
+// X-Forwarded-Proto: http — so express-session would withhold the Secure
+// session cookie and logins never stick. CloudFront stamps every origin request
+// with X-Amz-Cf-Id, so its presence reliably marks edge-HTTPS traffic (internal
+// ALB health checks have no such header and are left untouched).
+app.use((req, _res, next) => {
+  if (req.headers['x-amz-cf-id']) req.headers['x-forwarded-proto'] = 'https';
+  next();
+});
 
 // Socket.io
 const io = new SocketIOServer(httpServer, {
@@ -100,7 +114,14 @@ app.use(requestLogger);
 const PgStore = connectPgSimple(session);
 const sessionMiddleware = session({
   store: new PgStore({
-    conString: env.DATABASE_URL,
+    // Use a pg pool config (not a bare conString) so we can enable TLS: managed
+    // Postgres (e.g. RDS) rejects unencrypted connections, and node-postgres —
+    // unlike Prisma's `sslmode=prefer` default — does not negotiate SSL on its
+    // own. rejectUnauthorized:false because the connection stays inside the VPC.
+    conObject: {
+      connectionString: env.DATABASE_URL,
+      ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+    },
     createTableIfMissing: true,
   }),
   name: 'hearth.sid',
@@ -136,6 +157,7 @@ app.use('/api/v1/chat', chatRouter);
 app.use('/api/v1/chat', artifactRouter);
 app.use('/api/v1/skills', skillsRouter);
 app.use('/api/v1/admin/integrations', integrationsRouter);
+app.use('/api/v1/integrations', userIntegrationsRouter);
 app.use('/api/v1/admin/audit-logs', auditLogsRouter);
 app.use('/api/v1/admin/setup', setupRouter);
 app.use('/api/v1/memory', memoryRouter);
@@ -167,6 +189,8 @@ app.use('/api/v1/meetings', meetingsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 app.use('/api/v1/task-suggestions', taskSuggestionsRouter);
 app.use('/api/v1/recurrence', recurrenceRouter);
+app.use('/api/v1/onboarding', onboardingRouter);
+app.use('/api/v1/invitations', invitationsRouter);
 
 // Apply extension routes (cloud and any other downstream registers them
 // via registerApiExtension before this point). No-op for OSS-only builds.

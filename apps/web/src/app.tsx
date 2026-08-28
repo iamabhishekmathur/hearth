@@ -14,9 +14,11 @@ const SkillsPage = lazy(() => import('@/pages/skills').then((m) => ({ default: m
 const MemoryPage = lazy(() => import('@/pages/memory').then((m) => ({ default: m.MemoryPage })));
 const TasksPage = lazy(() => import('@/pages/tasks').then((m) => ({ default: m.TasksPage })));
 const SharedSessionPage = lazy(() => import('@/pages/shared-session').then((m) => ({ default: m.SharedSessionPage })));
+const AcceptInvitePage = lazy(() => import('@/pages/accept-invite').then((m) => ({ default: m.AcceptInvitePage })));
 const RoutinesPage = lazy(() => import('@/pages/routines').then((m) => ({ default: m.RoutinesPage })));
 const ActivityPage = lazy(() => import('@/pages/activity').then((m) => ({ default: m.ActivityPage })));
 const DecisionsPage = lazy(() => import('@/pages/decisions').then((m) => ({ default: m.DecisionsPage })));
+const ConnectTools = lazy(() => import('@/components/integrations/connect-tools').then((m) => ({ default: m.ConnectTools })));
 
 function PageFallback() {
   return (
@@ -105,6 +107,20 @@ function Router() {
     );
   }
 
+  // Public accept-invite page (no auth required). The accept endpoint sets the
+  // session server-side; the page refreshes auth + navigates the invitee into
+  // the relevant artifact (or /chat) once they join.
+  if (route.startsWith('/invite/')) {
+    const token = route.replace('/invite/', '');
+    return (
+      <PageErrorBoundary>
+        <Suspense fallback={<PageFallback />}>
+          <AcceptInvitePage token={token} />
+        </Suspense>
+      </PageErrorBoundary>
+    );
+  }
+
   // Public shared session page (no auth required)
   if (route.startsWith('/shared/')) {
     const token = route.replace('/shared/', '');
@@ -158,6 +174,7 @@ function Router() {
                 {route === '/routines' && <RoutinesPage />}
                 {route === '/activity' && <ActivityPage />}
                 {route === '/decisions' && <DecisionsPage />}
+                {route.startsWith('/integrations') && <ConnectTools />}
                 {route.startsWith('/settings') && <SettingsPage initialTab={route.split('/')[2]} />}
               </>
             )}

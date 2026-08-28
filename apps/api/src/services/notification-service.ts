@@ -8,7 +8,10 @@ export type NotificationType =
   | 'handoff'
   | 'governance_block'
   | 'comment_on_your_message'
-  | 'reaction_on_your_message';
+  | 'reaction_on_your_message'
+  | 'task_assigned'
+  | 'routine_result'
+  | 'digest';
 
 export interface NotifyInput {
   orgId: string;

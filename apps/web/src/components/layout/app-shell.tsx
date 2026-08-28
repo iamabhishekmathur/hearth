@@ -6,6 +6,8 @@ import type { CollaboratorAddedEvent } from '@hearth/shared';
 import { HButton } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { OnboardingSurface } from '@/components/onboarding/onboarding-surface';
+import { DailyBriefOffer } from '@/components/onboarding/daily-brief-offer';
 
 interface AppShellProps {
   currentRoute: string;
@@ -73,6 +75,25 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps) 
           </div>
         )}
         {children}
+
+        {/* Per-user onboarding — a prominent, centered guided flow that takes
+            over the main content area while needsOnboarding is true (welcome
+            on-ramp → guided checklist → daily-brief finale). Self-gates on
+            needsOnboarding; renders nothing once finished/skipped. */}
+        <OnboardingSurface />
+
+        {/* Post-activation retention habit. The onboarding flow folds the
+            daily-brief in as its finale; this standalone offer only covers
+            users who reach the app post-onboarding without one (finished/skipped
+            without turning it on). Self-suppresses if they already have routines
+            or dismissed it, and stands down while onboarding is still active. */}
+        {!user.needsOnboarding && (
+          <div className="pointer-events-none absolute bottom-4 right-4 z-20">
+            <div className="pointer-events-auto">
+              <DailyBriefOffer />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

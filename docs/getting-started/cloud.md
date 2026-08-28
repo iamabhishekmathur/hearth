@@ -1,6 +1,10 @@
 # Start with Hearth Cloud
 
-Hearth Cloud is the managed path for teams that want the Hearth product experience without operating the infrastructure themselves.
+Hearth Cloud is the default evaluation path for teams that want to test the Hearth product experience without operating the infrastructure themselves.
+
+::: info Current access
+Hearth Cloud evaluation currently begins with a guided 14-day team pilot. [Start a team pilot](https://hearth-app.xyz/pilot) to choose the workflow, approval boundary, and success measures before the workspace is provisioned.
+:::
 
 [[toc]]
 
@@ -17,6 +21,8 @@ In the cloud edition, Hearth runs and maintains the application infrastructure f
 Your team still configures the workspace itself: users, teams, integrations, LLM provider behavior, governance, compliance settings, and routines.
 
 ## Workspace Setup
+
+After the pilot workspace is provisioned:
 
 1. Create a Hearth Cloud workspace or accept an invitation from an existing workspace.
 2. Create the first admin account.

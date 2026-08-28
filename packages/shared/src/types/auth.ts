@@ -20,6 +20,8 @@ export interface AuthResponse {
   message?: string;
 }
 
+import type { OnboardingState } from './onboarding.js';
+
 export interface SessionUser {
   id: string;
   email: string;
@@ -27,4 +29,12 @@ export interface SessionUser {
   role: string;
   teamId: string | null;
   orgId: string | null;
+  /** Per-user onboarding progress. Empty object means "not started". */
+  onboardingState: OnboardingState;
+  /**
+   * Computed gate the web uses to decide whether to surface onboarding UI.
+   * True when the user has not dismissed onboarding AND still has at least one
+   * incomplete step.
+   */
+  needsOnboarding: boolean;
 }

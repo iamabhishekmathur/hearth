@@ -8,6 +8,8 @@ import {
 } from 'react';
 import { createElement } from 'react';
 import { api, ApiError } from '@/lib/api-client';
+import { identify, reset } from '@/lib/analytics';
+import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 import type { AuthResponse, SessionUser } from '@hearth/shared';
 
 interface AuthContextValue {
@@ -22,6 +24,17 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Associate analytics events with the signed-in user. No-op without a PostHog key. */
+function identifyUser(u: SessionUser): void {
+  identify(u.id, {
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    org_id: u.orgId ?? undefined,
+    team_id: u.teamId ?? undefined,
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .get<AuthResponse>('/auth/me')
       .then((res) => {
         if (res.data) {
-          setUser(res.data as SessionUser);
+          const u = res.data as SessionUser;
+          setUser(u);
+          identifyUser(u);
         }
       })
       .catch((err) => {
@@ -49,7 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Login response only has { id } — fetch full profile
     const me = await api.get<AuthResponse>('/auth/me');
     if (me.data) {
-      setUser(me.data as SessionUser);
+      const u = me.data as SessionUser;
+      setUser(u);
+      identifyUser(u);
     }
   }, []);
 
@@ -63,7 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch full profile after registration
       const me = await api.get<AuthResponse>('/auth/me');
       if (me.data) {
-        setUser(me.data as SessionUser);
+        const u = me.data as SessionUser;
+        setUser(u);
+        identifyUser(u);
+        trackEvent(AnalyticsEvent.USER_SIGNED_UP, { method: 'register' });
       }
     },
     [],
@@ -72,12 +92,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await api.post('/auth/logout');
     setUser(null);
+    reset();
   }, []);
 
   const refresh = useCallback(async () => {
     try {
       const me = await api.get<AuthResponse>('/auth/me');
-      setUser(me.data ? (me.data as SessionUser) : null);
+      if (me.data) {
+        const u = me.data as SessionUser;
+        setUser(u);
+        identifyUser(u);
+      } else {
+        setUser(null);
+      }
     } catch {
       setUser(null);
     }

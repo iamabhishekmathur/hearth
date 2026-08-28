@@ -2,14 +2,13 @@ import { defineConfig } from 'vitepress';
 
 const startSidebar = [
   {
-    text: 'Start here',
+    text: 'Evaluate Hearth',
     collapsed: false,
     items: [
       { text: 'Overview', link: '/' },
-      { text: 'Choose Your Path', link: '/getting-started/' },
       { text: 'Start with Hearth Cloud', link: '/getting-started/cloud' },
-      { text: 'Start Self-Hosted', link: '/getting-started/self-hosted' },
-      { text: 'Cloud vs Self-Hosted', link: '/getting-started/comparison' },
+      { text: 'Adopt Your First Workflow', link: '/getting-started/' },
+      { text: 'Cloud or Self-Hosted', link: '/getting-started/comparison' },
     ],
   },
   {
@@ -18,8 +17,8 @@ const startSidebar = [
     items: [
       { text: 'Product Guide', link: '/guide/' },
       { text: 'Admin Guide', link: '/admin/' },
-      { text: 'Hearth Cloud', link: '/cloud/' },
-      { text: 'Self-Hosting', link: '/self-hosting/' },
+      { text: 'Hearth Cloud Operations', link: '/cloud/' },
+      { text: 'Open-Source Self-Hosting', link: '/self-hosting/' },
     ],
   },
 ];
@@ -31,12 +30,12 @@ const guideSidebar = [
     items: [
       { text: 'Overview', link: '/guide/' },
       { text: 'Chat', link: '/guide/chat' },
-      { text: 'Artifacts', link: '/guide/artifacts' },
       { text: 'Tasks', link: '/guide/tasks' },
-      { text: 'Memory', link: '/guide/memory' },
       { text: 'Routines', link: '/guide/routines' },
-      { text: 'Skills', link: '/guide/skills' },
       { text: 'Activity Feed', link: '/guide/activity' },
+      { text: 'Artifacts', link: '/guide/artifacts' },
+      { text: 'Memory', link: '/guide/memory' },
+      { text: 'Skills', link: '/guide/skills' },
       { text: 'Decision Graph', link: '/guide/decisions' },
     ],
   },
@@ -45,8 +44,8 @@ const guideSidebar = [
     collapsed: true,
     items: [
       { text: 'Start with Hearth Cloud', link: '/getting-started/cloud' },
-      { text: 'Start Self-Hosted', link: '/getting-started/self-hosted' },
-      { text: 'Cloud vs Self-Hosted', link: '/getting-started/comparison' },
+      { text: 'Cloud or Self-Hosted', link: '/getting-started/comparison' },
+      { text: 'Self-Host Open Source', link: '/getting-started/self-hosted' },
     ],
   },
 ];
@@ -58,14 +57,14 @@ const adminSidebar = [
     items: [
       { text: 'Overview', link: '/admin/' },
       { text: 'Users and Teams', link: '/admin/users-and-teams' },
+      { text: 'Governance', link: '/admin/governance' },
+      { text: 'Audit Logs', link: '/admin/audit-logs' },
+      { text: 'Compliance', link: '/admin/compliance' },
       { text: 'Integrations', link: '/admin/integrations' },
       { text: 'LLM Providers', link: '/admin/llm-providers' },
       { text: 'Soul and Identity', link: '/admin/soul-and-identity' },
       { text: 'SSO', link: '/admin/sso' },
       { text: 'Skill Governance', link: '/admin/skill-governance' },
-      { text: 'Governance', link: '/admin/governance' },
-      { text: 'Compliance', link: '/admin/compliance' },
-      { text: 'Audit Logs', link: '/admin/audit-logs' },
       { text: 'Analytics', link: '/admin/analytics' },
       { text: 'Cognitive Profiles', link: '/admin/cognitive-profiles' },
       { text: 'Decision Graph', link: '/admin/decision-graph' },
@@ -178,25 +177,38 @@ const developerSidebar = [
 
 export default defineConfig({
   title: 'Hearth Docs',
-  description: 'Documentation for the Hearth AI productivity platform',
+  description:
+    'Hearth turns successful AI workflows into reusable team routines with context, approvals, and policies attached.',
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
-    ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;600&display=swap' }],
+    [
+      'link',
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500;600&display=swap',
+      },
+    ],
   ],
 
   themeConfig: {
     logo: '/logo.svg',
 
     nav: [
-      { text: 'Start', link: '/getting-started/' },
+      { text: 'Evaluate Hearth', link: '/getting-started/cloud' },
       { text: 'Product', link: '/guide/' },
-      { text: 'Admin', link: '/admin/' },
-      { text: 'Cloud', link: '/cloud/' },
-      { text: 'Self-Hosting', link: '/self-hosting/' },
+      { text: 'Hearth Cloud', link: '/cloud/' },
+      { text: 'Governance', link: '/admin/governance' },
       { text: 'Developers', link: '/developers/' },
+      {
+        text: 'Open Source',
+        items: [
+          { text: 'Self-Hosting', link: '/self-hosting/' },
+          { text: 'GitHub Repository', link: 'https://github.com/iamabhishekmathur/hearth' },
+        ],
+      },
     ],
 
     sidebar: {
@@ -225,16 +237,15 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Released under the AGPL v3 License.',
+      message:
+        'Repository code is licensed under the GNU Affero General Public License, version 3.',
       copyright: 'Copyright 2026 Hearth Contributors',
     },
   },
 
   appearance: true,
 
-  ignoreDeadLinks: [
-    /^https?:\/\/localhost/,
-  ],
+  ignoreDeadLinks: [/^https?:\/\/localhost/],
 
   markdown: {
     lineNumbers: true,

@@ -9,6 +9,7 @@ import { setCsrfCookie } from '../middleware/csrf.js';
 import * as authService from '../services/auth-service.js';
 import { sanitizeUser } from '../services/user-service.js';
 import * as ssoService from '../services/sso-service.js';
+import * as onboardingService from '../services/onboarding-service.js';
 import { logger } from '../lib/logger.js';
 
 // ──────────────────────────────────────────────
@@ -155,10 +156,19 @@ router.post('/logout', (req, res, next) => {
 });
 
 /**
- * GET /me — current user info (requires auth)
+ * GET /me — current user info (requires auth).
+ *
+ * Augments the session user with onboarding state so the web can gate the
+ * onboarding UI without a second request. `needsOnboarding` is the computed
+ * activation gate (not dismissed AND has incomplete steps).
  */
-router.get('/me', requireAuth, (req, res) => {
-  res.json({ data: req.user });
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const { state, needsOnboarding } = await onboardingService.getStatus(req.user!.id);
+    res.json({ data: { ...req.user, onboardingState: state, needsOnboarding } });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
