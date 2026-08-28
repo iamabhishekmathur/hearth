@@ -10,13 +10,15 @@ resource "aws_ecs_cluster" "main" {
 locals {
   image = "${aws_ecr_repository.api.repository_url}:${var.image_tag}"
 
-  # Non-secret env shared by api + worker.
+  # Non-secret env shared by api + worker. The app is served from
+  # app.hearth-app.xyz (the apex is the marketing landing), and the SPA calls the
+  # API same-origin there, so WEB_URL/API_URL/OAuth point at the app host.
   common_env = [
     { name = "NODE_ENV", value = "production" },
     { name = "API_PORT", value = "8000" },
-    { name = "WEB_URL", value = "https://${var.domain}" },
-    { name = "API_URL", value = "https://${var.domain}" },
-    { name = "GOOGLE_CALLBACK_URL", value = "https://${var.domain}/api/v1/auth/oauth/google/callback" },
+    { name = "WEB_URL", value = "https://${local.app_host}" },
+    { name = "API_URL", value = "https://${local.app_host}" },
+    { name = "GOOGLE_CALLBACK_URL", value = "https://${local.app_host}/api/v1/auth/oauth/google/callback" },
   ]
 }
 
