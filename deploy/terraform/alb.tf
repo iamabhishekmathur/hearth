@@ -2,7 +2,7 @@ resource "aws_lb" "api" {
   name               = "${var.project}-api"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
+  security_groups    = [aws_security_group.alb.id, aws_security_group.alb_https.id]
   subnets            = var.subnet_ids
 
   idle_timeout = 300 # keep WebSocket (Socket.io /ws) connections alive

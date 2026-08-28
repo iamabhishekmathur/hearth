@@ -47,8 +47,9 @@ DATABASE_URL=$(tofu output -raw database_url) \
 aws ecs update-service --cluster hearth --service hearth-api    --force-new-deployment
 aws ecs update-service --cluster hearth --service hearth-worker --force-new-deployment
 
-# 5. Point CloudFront at the ALB
-python3 cloudfront-patch.py E1O2U9YQ6WTPX3 "$(tofu output -raw alb_dns_name)"
+# 5. Point CloudFront at the ALB over HTTPS (api.hearth-app.xyz, ACM cert)
+python3 cloudfront-patch.py E1O2U9YQ6WTPX3 "$(tofu output -raw api_origin_host)" https
+# Pre-cert fallback (HTTP origin): cloudfront-patch.py <id> "$(tofu output -raw alb_dns_name)" http
 ```
 
 ## Notes / deferred
@@ -61,4 +62,8 @@ python3 cloudfront-patch.py E1O2U9YQ6WTPX3 "$(tofu output -raw alb_dns_name)"
   re-apply, then force a new deployment to enable AI features.
 - **File uploads** land on the task's ephemeral disk and are lost on redeploy.
   Add EFS or move storage to S3 for durability.
+- **Origin TLS**: CloudFront reaches the ALB over HTTPS at `api.hearth-app.xyz`
+  (ACM cert, `tls.tf`), so the ALB reports `X-Forwarded-Proto: https` and the
+  Secure session cookie is set correctly. The app also carries an
+  `X-Amz-Cf-Id`-based proto shim as a belt-and-suspenders fallback.
 - `terraform.tfvars` holds generated secrets and is gitignored.

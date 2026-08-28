@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """
 Patch the existing hearth-app.xyz CloudFront distribution to route the backend
-API + WebSocket paths to the new ALB origin, leaving the S3 landing default
-behavior untouched. Idempotent: re-running only updates the ALB origin domain.
+API + WebSocket paths to the ALB origin, leaving the S3 landing default behavior
+untouched. Idempotent: re-running only updates the origin domain/protocol.
 
-Usage:  python3 cloudfront-patch.py <DISTRIBUTION_ID> <ALB_DNS_NAME>
+Usage:  python3 cloudfront-patch.py <DISTRIBUTION_ID> <ORIGIN_HOST> [http|https]
+
+ORIGIN_HOST is api.hearth-app.xyz (https, via the ALB's ACM cert) in production;
+the raw ALB DNS name with `http` is the fallback used before the cert exists.
 """
 import subprocess, json, sys
 
-DIST_ID, ALB_DNS = sys.argv[1], sys.argv[2]
+DIST_ID = sys.argv[1]
+ORIGIN_HOST = sys.argv[2]
+ORIGIN_SCHEME = sys.argv[3] if len(sys.argv) > 3 else "https"
 ORIGIN_ID = "alb-hearth-api"
 
 # Managed policies:
@@ -29,16 +34,18 @@ cfg = json.loads(cfg_raw)
 etag = cfg["ETag"]
 dc = cfg["DistributionConfig"]
 
-# --- upsert ALB origin (HTTP-only; TLS terminates at CloudFront) ---
+# --- upsert ALB origin ---
+# https-only (default): CloudFront -> ALB over TLS via api.hearth-app.xyz, so the
+# ALB reports X-Forwarded-Proto: https natively. http-only is the pre-cert fallback.
 origin = {
     "Id": ORIGIN_ID,
-    "DomainName": ALB_DNS,
+    "DomainName": ORIGIN_HOST,
     "OriginPath": "",
     "CustomHeaders": {"Quantity": 0},
     "CustomOriginConfig": {
         "HTTPPort": 80,
         "HTTPSPort": 443,
-        "OriginProtocolPolicy": "http-only",
+        "OriginProtocolPolicy": "http-only" if ORIGIN_SCHEME == "http" else "https-only",
         "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
         "OriginReadTimeout": 60,
         "OriginKeepaliveTimeout": 5,
@@ -82,4 +89,4 @@ with open("/tmp/hearth-cf-config.json", "w") as f:
 aws("cloudfront", "update-distribution", "--id", DIST_ID,
     "--if-match", etag,
     "--distribution-config", "file:///tmp/hearth-cf-config.json")
-print(f"Patched {DIST_ID}: {API_PATHS} -> {ALB_DNS}")
+print(f"Patched {DIST_ID}: {API_PATHS} -> {ORIGIN_SCHEME}://{ORIGIN_HOST}")

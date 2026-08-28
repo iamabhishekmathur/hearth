@@ -27,6 +27,31 @@ resource "aws_security_group" "alb" {
   }
 }
 
+# A CloudFront prefix-list rule counts as ~its max-entries (~55) against the
+# 60-rules-per-SG limit, so 80 and 443 cannot share one SG. Put 443 in its own
+# SG and attach both to the ALB (each SG has its own limit). This also lets the
+# HTTP origin keep serving during the cutover to the HTTPS origin.
+resource "aws_security_group" "alb_https" {
+  name        = "${var.project}-alb-https"
+  description = "ALB HTTPS ingress from CloudFront"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description     = "HTTPS from CloudFront (origin TLS)"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 resource "aws_security_group" "ecs" {
   name        = "${var.project}-ecs-tasks"
   description = "Fargate tasks"

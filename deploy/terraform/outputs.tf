@@ -22,3 +22,7 @@ output "database_url" {
 output "ecs_cluster" {
   value = aws_ecs_cluster.main.name
 }
+
+output "api_origin_host" {
+  value = local.api_origin_host
+}
