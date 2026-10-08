@@ -340,6 +340,7 @@ model Org {
   userSkills           UserSkill[]
   notifications        Notification[]
   pipelineRuns         PipelineRun[]
+  toolPermissionPolicies ToolPermissionPolicy[]
 
   @@map("orgs")
 }
@@ -1031,6 +1032,37 @@ model ApprovalRequest {
   reviewer   User?              @relation(fields: [reviewerId], references: [id])
 
   @@map("approval_requests")
+}
+
+// ──────────────────────────────────────────────
+// W3: Per-tool permission policy (opencode adaptation)
+//
+// Ordered allow/ask/deny rules evaluated against a tool call. Scope is encoded
+// by which of (agentProfileId, userId) are set:
+//   - both null         → org default
+//   - agentProfileId set → agent-profile rule (Plan/Build)
+//   - userId set         → user override (narrowing only; allow_always persists
+//                          an allow row here)
+// Rows are ordered by created_at (first-match-wins). Distinct from durable
+// routine approvals — these back the EPHEMERAL interactive chat gate.
+// ──────────────────────────────────────────────
+
+model ToolPermissionPolicy {
+  id                   String   @id @default(uuid())
+  orgId                String   @map("org_id")
+  agentProfileId       String?  @map("agent_profile_id")
+  userId               String?  @map("user_id")
+  toolPattern          String   @map("tool_pattern")
+  argPattern           Json?    @map("arg_pattern")
+  level                String // allow | ask | deny
+  userScopeOverridable Boolean? @map("user_scope_overridable")
+  createdBy            String   @map("created_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, agentProfileId, userId])
+  @@map("tool_permission_policies")
 }
 
 // ──────────────────────────────────────────────

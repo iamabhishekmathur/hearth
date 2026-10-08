@@ -409,6 +409,47 @@ router.post('/sessions/:id/stop', requireAuth, async (req, res, next) => {
 });
 
 /**
+ * POST /sessions/:id/permission — reply to a tool `permission_request` (W3).
+ *
+ * The chat UI primarily answers over WS (`permission_response`), but this REST
+ * route is a transport fallback. The decision resolves the parked ask keyed by
+ * `callId`. A response for an already-finished/aborted run (unknown callId) is
+ * ignored with 202 (no throw) — exactly the "response after run ended" case.
+ * Permission mirrors stop: run initiator or session owner/contributor.
+ */
+router.post('/sessions/:id/permission', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const userId = req.user!.id;
+    const { callId, decision } = req.body as { callId?: string; decision?: string };
+
+    if (!callId || !decision || !['allow_once', 'allow_always', 'deny'].includes(decision)) {
+      res.status(400).json({ error: 'callId and a valid decision (allow_once|allow_always|deny) are required' });
+      return;
+    }
+
+    const session = await chatService.getSession(sessionId, userId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    // Same gate as stop — initiator or owner/contributor may answer a prompt.
+    const allowed = await canStopRun(sessionId, userId);
+    if (!allowed) {
+      res.status(403).json({ error: 'You do not have permission to respond to this prompt' });
+      return;
+    }
+
+    const { resolvePermission } = await import('../agent/run-registry.js');
+    const resolved = resolvePermission(callId, decision as 'allow_once' | 'allow_always' | 'deny');
+    res.status(202).json({ data: { resolved } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /sessions/:id/read — mark a message as read for the current user
  */
 router.post('/sessions/:id/read', requireAuth, async (req, res, next) => {
@@ -974,6 +1015,21 @@ async function isInterruptibleEnabled(orgId: string): Promise<boolean> {
 }
 
 /**
+ * Whether the org has the W3 `permissions` feature flag on. Gates the
+ * interactive per-tool permission gate in the agent loop. When off, tools run
+ * unconditionally (today's behavior). Best-effort: defaults false on failure.
+ */
+async function isPermissionsEnabled(orgId: string): Promise<boolean> {
+  try {
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    return isFeatureEnabled(org?.settings, 'permissions');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Derives a short session title from the first user message.
  * Truncates to 60 chars at a word boundary.
  */
@@ -1040,6 +1096,9 @@ async function runAgent(
     if (providerId) context.providerId = providerId;
     context.runId = effectiveRunId;
     context.abortSignal = controller.signal;
+    // W3: gate the per-tool permission policy behind the `permissions` flag.
+    // Off = today's behavior (no gating). Best-effort lookup — defaults false.
+    context.permissionsEnabled = await isPermissionsEnabled(orgId);
     contextSources = context.sources ?? [];
 
     // Emit memory debug info for dev/debug tools

@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
+import type { ToolPermissionDecision } from '@hearth/shared';
 import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 
@@ -154,6 +155,118 @@ export function claimFinalize(runId: string): boolean {
   return true;
 }
 
+// ── Pending tool-permission asks (W3) ──────────────────────────────────────
+//
+// When a tool call resolves to `ask`, the agent loop emits a `permission_request`
+// ChatEvent and PARKS on a promise keyed by `callId`. The client replies out of
+// band (WS `permission_response` or REST) which resolves that promise, un-parking
+// the loop. These asks are EPHEMERAL (in-memory + WS) — distinct from durable
+// routine approvals (`approval_requests`). They do not survive a process restart;
+// a restarted instance simply never owns the park, so the ask times out to its
+// default (deny), which is the fail-safe.
+//
+// Concurrency: each `callId` parks independently. Resolving one never resolves
+// another. A `permission_response` for an unknown `callId` (run already
+// finished/aborted, or a response that lost the timeout race) is ignored.
+
+/** How a parked permission ask settles. `timeout` maps to the timeout action. */
+export type PermissionOutcome = ToolPermissionDecision | 'timeout';
+
+interface PendingPermission {
+  callId: string;
+  runId: string;
+  resolve: (outcome: PermissionOutcome) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+/** callId → the parked ask awaiting a client response. */
+const pendingPermissions = new Map<string, PendingPermission>();
+
+/** Default time a parked ask waits before resolving to its timeout action. */
+export const DEFAULT_PERMISSION_TIMEOUT_MS = 5 * 60_000;
+
+/**
+ * Park the loop awaiting a client decision for one tool call. Returns a promise
+ * that resolves to the client's `ToolPermissionDecision`, or `'timeout'` if no
+ * response arrives within `timeoutMs`. The caller maps `'timeout'` to the
+ * configured timeout action (default: treat as deny).
+ *
+ * If the run is aborted while parked (its AbortController fires), the ask is
+ * abandoned and resolves to `'timeout'` so the loop un-parks and finalizes.
+ */
+export function awaitPermission(input: {
+  callId: string;
+  runId: string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}): Promise<PermissionOutcome> {
+  const { callId, runId, signal } = input;
+  const timeoutMs = input.timeoutMs ?? DEFAULT_PERMISSION_TIMEOUT_MS;
+
+  // Defensive: if a stale ask with the same callId exists, settle it first.
+  const existing = pendingPermissions.get(callId);
+  if (existing) {
+    clearTimeout(existing.timer);
+    existing.resolve('timeout');
+    pendingPermissions.delete(callId);
+  }
+
+  return new Promise<PermissionOutcome>((resolve) => {
+    let settled = false;
+    const settle = (outcome: PermissionOutcome) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener('abort', onAbort);
+      pendingPermissions.delete(callId);
+      resolve(outcome);
+    };
+    const onAbort = () => settle('timeout');
+
+    const timer = setTimeout(() => settle('timeout'), timeoutMs);
+    timer.unref?.();
+
+    if (signal) {
+      if (signal.aborted) {
+        // Already aborted — resolve immediately (next tick, so the map is set).
+        queueMicrotask(() => settle('timeout'));
+      } else {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+    }
+
+    pendingPermissions.set(callId, {
+      callId,
+      runId,
+      resolve: (outcome) => settle(outcome),
+      timer,
+    });
+  });
+}
+
+/**
+ * Resolve a parked ask from a client reply. Returns true if a pending ask for
+ * `callId` existed and was resolved; false if none (run already ended/aborted,
+ * or a duplicate/late response) — in which case this is a safe no-op (never
+ * throws). This is what makes "response after run ended" harmless.
+ */
+export function resolvePermission(callId: string, decision: ToolPermissionDecision): boolean {
+  const pending = pendingPermissions.get(callId);
+  if (!pending) return false;
+  pending.resolve(decision);
+  return true;
+}
+
+/** Whether a given callId currently has a parked ask (for tests/diagnostics). */
+export function hasPendingPermission(callId: string): boolean {
+  return pendingPermissions.has(callId);
+}
+
+/** Number of parked asks (diagnostics/tests). */
+export function pendingPermissionCount(): number {
+  return pendingPermissions.size;
+}
+
 /** Test seam: clear all registry state. */
 export function __resetRunRegistryForTests(): void {
   for (const run of activeRuns.values()) {
@@ -161,4 +274,9 @@ export function __resetRunRegistryForTests(): void {
   }
   activeRuns.clear();
   finalizedRuns.clear();
+  for (const pending of pendingPermissions.values()) {
+    clearTimeout(pending.timer);
+    pending.resolve('timeout');
+  }
+  pendingPermissions.clear();
 }

@@ -121,6 +121,19 @@ export function onRunStarted(
   return () => { s.off('chat:run_started', callback); };
 }
 
+// ── W3: per-tool permission prompts ──
+import type { ToolPermissionDecision } from '@hearth/shared';
+
+/** Reply to a tool `permission_request` over WebSocket. */
+export function emitPermissionResponse(
+  sessionId: string,
+  callId: string,
+  decision: ToolPermissionDecision,
+): void {
+  const s = getSocket();
+  if (s.connected) s.emit('permission_response', { sessionId, callId, decision });
+}
+
 // Typing & composing & state
 export function emitTyping(sessionId: string): void {
   const s = getSocket();

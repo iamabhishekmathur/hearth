@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { ChatMessage, MessageAuthor } from '@hearth/shared';
-import type { ToolCallInfo } from '@/hooks/use-chat';
+import type { ToolCallInfo, PermissionRequestInfo } from '@/hooks/use-chat';
+import type { ToolPermissionDecision } from '@hearth/shared';
 import type { Artifact } from '@/hooks/use-artifacts';
 import { MessageBubble } from './message-bubble';
 import { ThinkingIndicator } from './thinking-indicator';
@@ -46,6 +47,9 @@ interface MessageListProps {
   taskSuggestions?: Map<string, TaskSuggestionEvent>;
   onDismissTaskSuggestion?: (suggestionId: string) => void;
   onUnlinkTask?: (messageId: string, taskId: string) => void;
+  /** W3: open tool permission prompts (allow once / always / deny). */
+  permissionRequests?: PermissionRequestInfo[];
+  onRespondToPermission?: (callId: string, decision: ToolPermissionDecision) => void;
 }
 
 export function MessageList({
@@ -55,6 +59,7 @@ export function MessageList({
   onStarterSelect, onRegenerate, sessionId,
   unreadAnchorId, onMessageVisible,
   taskChips, taskSuggestions, onDismissTaskSuggestion, onUnlinkTask,
+  permissionRequests, onRespondToPermission,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -314,6 +319,15 @@ export function MessageList({
         {toolCalls.map((tc) => (
           <ToolCallCard key={tc.id} toolCall={tc} />
         ))}
+        {/* W3: inline permission prompts. Concurrent asks stack in arrival
+            order; each resolves independently. */}
+        {permissionRequests?.map((pr) => (
+          <PermissionCard
+            key={pr.callId}
+            request={pr}
+            onRespond={onRespondToPermission}
+          />
+        ))}
         {thinking && <ThinkingIndicator content={thinking} />}
         {isStreaming && !thinking && messages[messages.length - 1]?.id !== '__streaming__' && (
           <ThinkingIndicator />
@@ -381,6 +395,71 @@ function MessageRow({ message, onVisible, children }: MessageRowProps) {
       data-message-id={message.id}
     >
       {children}
+    </div>
+  );
+}
+
+interface PermissionCardProps {
+  request: PermissionRequestInfo;
+  onRespond?: (callId: string, decision: ToolPermissionDecision) => void;
+}
+
+/**
+ * W3: inline tool-permission prompt. Renders the tool name + its input and
+ * offers Allow once / Allow always / Deny. Answering fires `onRespond` which
+ * replies over the socket and removes the card. Keyboard-accessible buttons.
+ */
+function PermissionCard({ request, onRespond }: PermissionCardProps) {
+  const respond = (decision: ToolPermissionDecision) => onRespond?.(request.callId, decision);
+  return (
+    <div
+      className="mx-auto max-w-xl rounded-lg border p-3 text-sm animate-fade-in"
+      data-testid="permission-card"
+      data-call-id={request.callId}
+      style={{
+        borderColor: 'var(--hearth-warn)',
+        background: 'color-mix(in srgb, var(--hearth-warn) 8%, transparent)',
+      }}
+    >
+      <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--hearth-warn)' }}>
+        <HIcon name="lock" size={14} color="var(--hearth-warn)" />
+        Permission needed
+      </div>
+      <p className="mt-1 text-[13px] text-hearth-text">
+        The agent wants to run{' '}
+        <code className="rounded bg-hearth-chip px-1 py-0.5 font-mono text-[11px]">{request.tool}</code>.
+      </p>
+      {request.input && Object.keys(request.input).length > 0 && (
+        <pre className="mt-1.5 max-h-28 overflow-auto rounded bg-hearth-chip p-2 text-[11px] text-hearth-text-muted">
+          {JSON.stringify(request.input, null, 2)}
+        </pre>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => respond('allow_once')}
+          className="rounded-pill px-3 py-1 text-xs font-medium"
+          style={{ background: 'var(--hearth-accent)', color: 'var(--hearth-text-inverse)' }}
+        >
+          Allow once
+        </button>
+        <button
+          type="button"
+          onClick={() => respond('allow_always')}
+          className="rounded-pill border px-3 py-1 text-xs font-medium text-hearth-text"
+          style={{ borderColor: 'var(--hearth-border)' }}
+        >
+          Allow always
+        </button>
+        <button
+          type="button"
+          onClick={() => respond('deny')}
+          className="rounded-pill border px-3 py-1 text-xs font-medium"
+          style={{ borderColor: 'var(--hearth-err)', color: 'var(--hearth-err)' }}
+        >
+          Deny
+        </button>
+      </div>
     </div>
   );
 }

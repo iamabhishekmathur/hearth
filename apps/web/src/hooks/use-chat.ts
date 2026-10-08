@@ -19,12 +19,20 @@ import {
   onTaskProgress,
   onRunStarted,
   emitStopRun,
+  emitPermissionResponse,
   connectSocket,
 } from '@/lib/socket-client';
 import type {
   ChatMessage, AgentEvent, ApiResponse, PresenceUser, ComposingUser, PresenceState, MessageAuthor,
-  TaskCreatedFromChatEvent, TaskSuggestionEvent,
+  TaskCreatedFromChatEvent, TaskSuggestionEvent, ToolPermissionDecision,
 } from '@hearth/shared';
+
+/** W3: a pending tool permission prompt awaiting the user's decision. */
+export interface PermissionRequestInfo {
+  callId: string;
+  tool: string;
+  input: Record<string, unknown>;
+}
 
 export interface TaskChipInfo {
   taskId: string;
@@ -89,6 +97,10 @@ interface UseChatReturn {
   /** Most recent side-effecting tool call this session, if any. UI surfaces a hint. */
   sideEffectNotice: { toolName: string; provider: string; shownAt: number } | null;
   dismissSideEffectNotice: () => void;
+  /** W3: open tool permission prompts, in arrival order (concurrent asks queue). */
+  permissionRequests: PermissionRequestInfo[];
+  /** W3: answer a permission prompt; removes it locally and replies over WS. */
+  respondToPermission: (callId: string, decision: ToolPermissionDecision) => void;
 }
 
 export interface ToolCallInfo {
@@ -122,6 +134,10 @@ export function useChat(sessionId: string | null): UseChatReturn {
   const [taskToast, setTaskToast] = useState<TaskToastInfo | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sideEffectNotice, setSideEffectNotice] = useState<{ toolName: string; provider: string; shownAt: number } | null>(null);
+  // W3: queue of open permission prompts. Concurrent asks (multiple tool calls
+  // needing `ask` in one turn) accumulate here in arrival order; answering one
+  // removes only that callId.
+  const [permissionRequests, setPermissionRequests] = useState<PermissionRequestInfo[]>([]);
   // Live last-read tracker (separate from the visual divider anchor). Used to
   // de-dupe markRead network calls so we don't POST for every viewport hit.
   const lastReadMessageIdRef = useRef<string | null>(null);
@@ -218,6 +234,16 @@ export function useChat(sessionId: string | null): UseChatReturn {
         setSideEffectNotice({ toolName: event.toolName, provider: event.provider, shownAt: Date.now() });
         break;
 
+      case 'permission_request':
+        // W3: a tool call needs the user's OK. Append to the queue (dedupe by
+        // callId in case of a repaint). The run is parked server-side until we
+        // reply, so there's no race with streaming.
+        setPermissionRequests((prev) => {
+          if (prev.some((p) => p.callId === event.callId)) return prev;
+          return [...prev, { callId: event.callId, tool: event.tool, input: event.input }];
+        });
+        break;
+
       case 'done': {
         setIsStreaming(false);
         setThinking(null);
@@ -244,6 +270,8 @@ export function useChat(sessionId: string | null): UseChatReturn {
         currentRunIdRef.current = null;
         streamingContentRef.current = '';
         setToolCalls([]);
+        // Any unanswered permission prompts are moot once the run ends.
+        setPermissionRequests([]);
         break;
       }
     }
@@ -480,6 +508,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
     setTaskSuggestions(new Map());
     setTaskToast(null);
     setSideEffectNotice(null);
+    setPermissionRequests([]);
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
       toastTimerRef.current = null;
@@ -638,6 +667,16 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
   const dismissSideEffectNotice = useCallback(() => setSideEffectNotice(null), []);
 
+  // W3: answer a tool permission prompt. Replies over WS (cross-instance via
+  // Redis-backed park resolution) and optimistically removes the card. If the
+  // run already ended, the server-side resolve is a harmless no-op.
+  const respondToPermission = useCallback((callId: string, decision: ToolPermissionDecision) => {
+    const sid = sessionIdRef.current;
+    setPermissionRequests((prev) => prev.filter((p) => p.callId !== callId));
+    if (!sid) return;
+    emitPermissionResponse(sid, callId, decision);
+  }, []);
+
   const dismissTaskToast = useCallback(() => {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
@@ -726,5 +765,6 @@ export function useChat(sessionId: string | null): UseChatReturn {
     taskChips, taskSuggestions, dismissTaskSuggestion,
     taskToast, dismissTaskToast, unlinkTask,
     sideEffectNotice, dismissSideEffectNotice,
+    permissionRequests, respondToPermission,
   };
 }

@@ -36,6 +36,7 @@ export function ChatPage() {
     taskChips, taskSuggestions, dismissTaskSuggestion,
     taskToast, dismissTaskToast, unlinkTask,
     sideEffectNotice, dismissSideEffectNotice,
+    permissionRequests, respondToPermission,
   } = useChat(activeSessionId);
   const {
     artifacts, activeArtifact, panelOpen, versions,
@@ -331,6 +332,8 @@ export function ChatPage() {
             taskSuggestions={taskSuggestions}
             onDismissTaskSuggestion={dismissTaskSuggestion}
             onUnlinkTask={unlinkTask}
+            permissionRequests={permissionRequests}
+            onRespondToPermission={respondToPermission}
           />
 
           {/* Input */}
