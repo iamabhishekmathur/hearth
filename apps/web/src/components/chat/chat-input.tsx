@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { api } from '@/lib/api-client';
 import { emitTyping, emitComposing, emitHeartbeat } from '@/lib/socket-client';
-import type { ComposingUser, PresenceUser } from '@hearth/shared';
+import type { AgentMode, ComposingUser, PresenceUser } from '@hearth/shared';
 import { TaskComposer, type TaskComposerSubmit } from './task-composer';
 import { useAuth } from '@/hooks/use-auth';
 import { useModelSelection, type PickerOption } from '@/hooks/use-model-selection';
@@ -21,8 +21,14 @@ export interface MentionUser {
 }
 
 interface ChatInputProps {
-  onSend: (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }) => void;
+  onSend: (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => void;
   disabled?: boolean;
+  /**
+   * W4: org `planMode` feature flag. When ON a Plan/Build toggle is shown
+   * (Tab toggles it) and the chosen mode is sent with the message. When OFF the
+   * toggle is hidden and messages run in today's single build mode.
+   */
+  planMode?: boolean;
   /**
    * W2: whether an agent run is currently streaming. When `interruptible` is on
    * the input stays enabled during streaming and the Send button becomes Stop.
@@ -54,12 +60,15 @@ interface ChatInputProps {
 
 const ACCEPTED_TYPES = 'image/*,application/pdf,text/*,application/json';
 
-export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, interruptible, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
   // W2: when interruptible, the input stays live during streaming (steering).
   // When the flag is off, streaming disables the input exactly as before.
   const inputDisabled = interruptible ? !!disabled : (!!disabled || !!isStreaming);
   // Show a Stop button (in place of Send) while a run streams and the flag is on.
   const showStop = !!interruptible && !!isStreaming;
+  // W4: plan/build mode (only when the planMode flag is on). Defaults to build.
+  const [agentMode, setAgentMode] = useState<AgentMode>('build');
+  const toggleMode = useCallback(() => setAgentMode((m) => (m === 'plan' ? 'build' : 'plan')), []);
   const [value, setValue] = useState('');
   const [focused, setFocused] = useState(false);
   const [taskSlashOpen, setTaskSlashOpen] = useState(false);
@@ -186,7 +195,8 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
     const modelOverride = modelSelection.selectedModel
       ? { model: modelSelection.selectedModel.id, providerId: modelSelection.selectedModel.providerId }
       : undefined;
-    onSend(trimmed, attachments, undefined, modelOverride);
+    // W4: only send a mode when the flag is on; otherwise undefined (build).
+    onSend(trimmed, attachments, undefined, modelOverride, planMode ? agentMode : undefined);
     setValue('');
     setAttachments([]);
     setMentionResults([]);
@@ -194,7 +204,7 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [value, attachments, inputDisabled, onSend, sessionId, latestMessageId, modelSelection.selectedModel]);
+  }, [value, attachments, inputDisabled, onSend, sessionId, latestMessageId, modelSelection.selectedModel, planMode, agentMode]);
 
   const handleTaskSlashSubmit = useCallback((_result: TaskComposerSubmit) => {
     setTaskSlashOpen(false);
@@ -227,12 +237,20 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
         }
       }
 
+      // W4: Tab toggles plan/build mode (only when the flag is on and the
+      // mention menu isn't capturing Tab above).
+      if (planMode && e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        toggleMode();
+        return;
+      }
+
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend, mentionResults, mentionIndex, selectMention],
+    [handleSend, mentionResults, mentionIndex, selectMention, planMode, toggleMode],
   );
 
   const handleInput = useCallback(() => {
@@ -517,6 +535,29 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
             onChange={handleFileChange}
             className="hidden"
           />
+
+          {/* W4: plan/build mode toggle — only when the planMode flag is on. */}
+          {planMode && (
+            <button
+              type="button"
+              onClick={toggleMode}
+              disabled={inputDisabled}
+              aria-pressed={agentMode === 'plan'}
+              aria-label={`Mode: ${agentMode === 'plan' ? 'Plan' : 'Build'} (Tab to toggle)`}
+              title={
+                agentMode === 'plan'
+                  ? 'Plan mode: produces a plan to approve (no actions taken). Tab to toggle.'
+                  : 'Build mode: executes directly. Tab to toggle.'
+              }
+              className={`flex h-10 shrink-0 items-center gap-1 rounded-xl border px-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                agentMode === 'plan'
+                  ? 'border-hearth-400 bg-hearth-50 text-hearth-700'
+                  : 'border-hearth-border text-hearth-text-muted hover:bg-hearth-chip'
+              }`}
+            >
+              <span>{agentMode === 'plan' ? 'Plan' : 'Build'}</span>
+            </button>
+          )}
 
           {/* W5: model picker — only rendered when the org has the flag on. */}
           {!modelSelection.disabledByFlag && !modelSelection.loading && (

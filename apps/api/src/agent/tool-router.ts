@@ -1,6 +1,6 @@
 import type { ArtifactType } from '@prisma/client';
-import type { LLMMessage } from '@hearth/shared';
-import type { AgentTool, ToolResult } from './types.js';
+import type { AgentMode, LLMMessage } from '@hearth/shared';
+import type { AgentPlan, AgentPlanStep, AgentTool, ToolResult } from './types.js';
 import { sandboxManager } from '../sandbox/sandbox-manager.js';
 import { mcpGateway } from '../mcp/gateway.js';
 import { createMemory, searchMemory } from '../services/memory-service.js';
@@ -21,6 +21,10 @@ interface ToolRouterContext {
   sessionId: string;
   routineId?: string;
   visionEnabled?: boolean;
+  /** W4: when 'plan', register the read-only `submit_plan` tool. */
+  agentMode?: AgentMode;
+  /** W4: invoked by `submit_plan` with the structured plan. */
+  onPlanSubmitted?: (plan: AgentPlan) => void;
 }
 
 /**
@@ -1178,6 +1182,55 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
       };
     },
   });
+
+  // ── W4: Plan mode — submit the structured plan ──
+  // Only registered when the run is in plan mode. The agent calls this exactly
+  // once with the ordered, numbered steps it WOULD execute. The handler emits
+  // the plan to the session (so the UI can render it live) and hands it to the
+  // chat route via `onPlanSubmitted` for persistence on the assistant message.
+  // This is read-only: it does not execute anything.
+  if (ctx.agentMode === 'plan') {
+    tools.set('submit_plan', {
+      name: 'submit_plan',
+      description:
+        'Submit your finished plan. Call this exactly once, when planning is complete, with the ordered steps you WOULD take to fulfil the request. Each step is a single concrete action. If no action is needed, submit an empty steps array.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          steps: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Ordered list of concrete action steps (strings). Empty if nothing to do.',
+          },
+          summary: {
+            type: 'string',
+            description: 'Optional one-line summary of what the plan accomplishes.',
+          },
+        },
+        required: ['steps'],
+      },
+      handler: async (input) => {
+        const rawSteps = Array.isArray(input.steps) ? (input.steps as unknown[]) : [];
+        const steps: AgentPlanStep[] = rawSteps
+          .map((s) => (typeof s === 'string' ? s.trim() : ''))
+          .filter((s) => s.length > 0)
+          .map((text, i) => ({ index: i + 1, text }));
+        const summary = typeof input.summary === 'string' ? input.summary.trim() : undefined;
+        const plan: AgentPlan = { steps, summary: summary || undefined };
+
+        ctx.onPlanSubmitted?.(plan);
+        emitToSessionEvent(ctx.sessionId, 'chat:plan', { sessionId: ctx.sessionId, plan });
+
+        return {
+          output: {
+            submitted: true,
+            stepCount: steps.length,
+            steps: steps.map((s) => `${s.index}. ${s.text}`),
+          },
+        };
+      },
+    });
+  }
 
   // ── Session search: search chat history ──
   tools.set('session_search', {

@@ -17,7 +17,7 @@ import { MemoryDebugPanel } from '@/components/chat/memory-debug-panel';
 import { IntegrationsIndicator } from '@/components/chat/integrations-indicator';
 import { uploadFile } from '@/lib/upload-client';
 import { getSocket } from '@/lib/socket-client';
-import type { PresenceUser, SessionVisibility } from '@hearth/shared';
+import type { AgentMode, PresenceUser, SessionVisibility } from '@hearth/shared';
 import { HEyebrow, HPill, HChip, HKbd, HButton, HAvatar } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
 
@@ -153,14 +153,19 @@ export function ChatPage() {
   // W2+: org agent feature flags. `interruptible` gates the live input + Stop
   // button; when off, the input disables during streaming (legacy behavior).
   const [interruptible, setInterruptible] = useState(false);
+  // W4: `planMode` gates the Plan/Build toggle and plan rendering.
+  const [planModeEnabled, setPlanModeEnabled] = useState(false);
   useEffect(() => {
-    api.get<{ data: { interruptible?: boolean } }>('/chat/features')
-      .then((res) => setInterruptible(res.data.interruptible === true))
+    api.get<{ data: { interruptible?: boolean; planMode?: boolean } }>('/chat/features')
+      .then((res) => {
+        setInterruptible(res.data.interruptible === true);
+        setPlanModeEnabled(res.data.planMode === true);
+      })
       .catch(() => {});
   }, []);
 
   const handleSendMessage = useCallback(
-    async (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }) => {
+    async (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => {
       let sessionId = activeSessionId;
       if (!sessionId) {
         try {
@@ -175,9 +180,23 @@ export function ChatPage() {
         const results = await Promise.all(attachments.map((att) => uploadFile(att.file)));
         attachmentIds = results.filter((r) => r !== null).map((r) => r!.id);
       }
-      sendMessage(content, sessionId, activeArtifact?.id, attachmentIds.length > 0 ? attachmentIds : undefined, mentionUser ? { subjectUserId: mentionUser.id } : undefined, modelOverride);
+      sendMessage(content, sessionId, activeArtifact?.id, attachmentIds.length > 0 ? attachmentIds : undefined, mentionUser ? { subjectUserId: mentionUser.id } : undefined, modelOverride, agentMode);
     },
     [activeSessionId, createSession, sendMessage, activeArtifact],
+  );
+
+  // W4: "Approve & Build" — approve a plan message's plan and start a Build run.
+  const handleApproveBuild = useCallback(
+    async (messageId: string) => {
+      const sid = activeSessionId;
+      if (!sid) return;
+      try {
+        await api.post(`/chat/sessions/${sid}/messages/${messageId}/approve-build`, {});
+      } catch {
+        // Surface failures silently for now; the plan card stays actionable.
+      }
+    },
+    [activeSessionId],
   );
 
   const handleNewSession = useCallback(() => setActiveSessionId(null), []);
@@ -334,6 +353,8 @@ export function ChatPage() {
             onUnlinkTask={unlinkTask}
             permissionRequests={permissionRequests}
             onRespondToPermission={respondToPermission}
+            planMode={planModeEnabled}
+            onApproveBuild={handleApproveBuild}
           />
 
           {/* Input */}
@@ -342,6 +363,7 @@ export function ChatPage() {
             isStreaming={isStreaming}
             onStop={stopRun}
             interruptible={interruptible}
+            planMode={planModeEnabled}
             cognitiveEnabled={cognitiveEnabled}
             sessionId={activeSessionId}
             typingUsers={typingUsers}

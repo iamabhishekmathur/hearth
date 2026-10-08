@@ -11,6 +11,7 @@ import {
   persistUserAllowRule,
   type PermissionDecisionResult,
 } from './permission-policy.js';
+import { PLAN_PROFILE_ID } from './agent-profiles.js';
 import { awaitPermission } from './run-registry.js';
 import { logAudit } from '../services/audit-service.js';
 import { prisma } from '../lib/prisma.js';
@@ -221,7 +222,12 @@ export async function* agentLoop(
     // All of this is gated behind `permissionsEnabled`; when off the tools run
     // unconditionally (today's behavior). Permission resolution is sequential
     // (asks queue by callId, in order); the ALLOWED tools then run in parallel.
-    const policyRules = context.permissionsEnabled
+    // W4: plan mode's read-only guarantee is enforced through this SAME W3
+    // policy path — so even when the W3 `permissions` flag is OFF, a plan run
+    // must still consult the policy to deny writes. We therefore gate on
+    // `permissionsEnabled` OR an active plan profile.
+    const planModeActive = context.agentProfileId === PLAN_PROFILE_ID;
+    const policyRules = context.permissionsEnabled || planModeActive
       ? await loadPolicyRules({
           orgId: context.orgId,
           agentProfileId: context.agentProfileId,

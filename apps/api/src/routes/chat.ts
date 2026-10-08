@@ -201,7 +201,7 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
   try {
     const sessionId = req.params.id as string;
     const userId = req.user!.id;
-    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery, timezone } = req.body as {
+    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery, timezone, agentMode } = req.body as {
       content?: string;
       model?: string;
       providerId?: string;
@@ -209,12 +209,26 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       attachmentIds?: string[];
       cognitiveQuery?: { subjectUserId: string };
       timezone?: string;
+      agentMode?: string;
     };
 
     if (!content) {
       res.status(400).json({ error: 'content is required' });
       return;
     }
+
+    if (agentMode !== undefined && agentMode !== 'plan' && agentMode !== 'build') {
+      res.status(400).json({ error: "agentMode must be 'plan' or 'build'" });
+      return;
+    }
+
+    // W4: plan mode is gated behind the `planMode` flag. When off, ignore the
+    // mode entirely and run today's single build-mode behavior.
+    const orgIdForFlag = req.user!.orgId;
+    const resolvedMode: 'plan' | 'build' | undefined =
+      agentMode && orgIdForFlag && (await isPlanModeEnabled(orgIdForFlag))
+        ? (agentMode as 'plan' | 'build')
+        : undefined;
 
     // Check write access (owner or contributor)
     const access = await chatService.getSessionWriteAccess(sessionId, userId);
@@ -275,8 +289,17 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       }
     }
 
-    // Save the user message with attribution (only reached when not blocked)
-    const userMessage = await chatService.addMessage(session.orgId, sessionId, 'user', content, undefined, userId);
+    // Save the user message with attribution (only reached when not blocked).
+    // W4: stamp the resolved agent mode on the user message metadata so the
+    // transcript records which mode produced the following assistant turn.
+    const userMessage = await chatService.addMessage(
+      session.orgId,
+      sessionId,
+      'user',
+      content,
+      resolvedMode ? { agentMode: resolvedMode } : undefined,
+      userId,
+    );
 
     // Link uploaded attachments to this message
     if (attachmentIds && attachmentIds.length > 0) {
@@ -339,7 +362,21 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       }
 
       const runId = newRunId();
-      runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id, runId, userId).catch((err) => {
+      runAgent({
+        orgId: session.orgId,
+        sessionId,
+        ownerUserId: session.userId,
+        model,
+        providerId,
+        latestMessage: content,
+        activeArtifactId,
+        cognitiveQuerySubjectId: cognitiveQuery?.subjectUserId,
+        timezone,
+        respondingToMessageId: userMessage.id,
+        runId,
+        initiatorUserId: userId,
+        agentMode: resolvedMode,
+      }).catch((err) => {
         logger.error({ err, sessionId }, 'Agent loop unhandled error');
       });
 
@@ -444,6 +481,94 @@ router.post('/sessions/:id/permission', requireAuth, async (req, res, next) => {
     const { resolvePermission } = await import('../agent/run-registry.js');
     const resolved = resolvePermission(callId, decision as 'allow_once' | 'allow_always' | 'deny');
     res.status(202).json({ data: { resolved } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/messages/:messageId/approve-build — "Approve & Build" (W4).
+ *
+ * Approves the structured plan carried on an assistant message's
+ * `metadata.plan` and starts a Build run seeded with the approved steps.
+ *
+ * Contract:
+ *  - 404 — session or plan message not found / not visible to the caller.
+ *  - 409 PLAN_NOT_APPROVED — the message carries no (actionable) plan: either
+ *    no `metadata.plan`, or an empty/degenerate plan (zero steps). There is
+ *    nothing to build.
+ *  - 403 — only the plan's OWNER (the user who sent the request that produced
+ *    the plan) may approve & build it. A collaborator / non-owner gets 403.
+ *  - 200 — idempotent. The approval flips `metadata.plan.approved=true` via a
+ *    guarded conditional update; exactly ONE caller wins the flip and starts
+ *    the single Build run. A double-approve / double-click returns 200 with
+ *    `{ alreadyApproved: true }` and starts NO second run.
+ */
+router.post('/sessions/:id/messages/:messageId/approve-build', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const messageId = req.params.messageId as string;
+    const userId = req.user!.id;
+
+    const session = await chatService.getSession(sessionId, userId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const { approvePlanForBuild } = await import('../services/plan-service.js');
+    const result = await approvePlanForBuild({
+      sessionId,
+      messageId,
+      userId,
+      sessionOwnerId: session.userId,
+    });
+
+    switch (result.status) {
+      case 'not_found':
+        res.status(404).json({ error: 'Plan message not found' });
+        return;
+      case 'no_plan':
+        res.status(409).json({ error: 'PLAN_NOT_APPROVED', message: 'No actionable plan to build.' });
+        return;
+      case 'forbidden':
+        res.status(403).json({ error: 'Only the plan owner can approve and build this plan.' });
+        return;
+      case 'already_approved':
+        res.status(200).json({ data: { alreadyApproved: true, started: false } });
+        return;
+      case 'approved':
+        break;
+    }
+
+    res.status(202).json({ data: { approved: true, started: true } });
+
+    // Start the single Build run seeded with the approved plan (fire-and-forget).
+    // Only the flip WINNER reaches here, so exactly one Build run starts.
+    if (process.env.HEARTH_DISABLE_AGENT_DISPATCH !== 'true') {
+      // Steer: stop any in-flight run for this session first (flag-gated).
+      const steerEnabled = await isInterruptibleEnabled(session.orgId);
+      if (steerEnabled) {
+        for (const run of getActiveRunsForSession(sessionId)) {
+          await requestStop(run.runId);
+        }
+      }
+
+      const buildRunId = newRunId();
+      runAgent({
+        orgId: result.orgId,
+        sessionId,
+        ownerUserId: session.userId,
+        latestMessage: `Execute the approved plan:\n${result.plan.steps.map((s) => `${s.index}. ${s.text}`).join('\n')}`,
+        respondingToMessageId: messageId,
+        runId: buildRunId,
+        initiatorUserId: userId,
+        agentMode: 'build',
+        approvedPlan: result.plan,
+      }).catch((err) => {
+        logger.error({ err, sessionId }, 'Approve-build run unhandled error');
+      });
+    }
   } catch (err) {
     next(err);
   }
@@ -1030,6 +1155,21 @@ async function isPermissionsEnabled(orgId: string): Promise<boolean> {
 }
 
 /**
+ * Whether the org has the W4 `planMode` feature flag on. Gates plan/build mode
+ * end-to-end: when off, `agentMode` on the message body is ignored and runs use
+ * today's single build-mode behavior. Best-effort: defaults false on failure.
+ */
+async function isPlanModeEnabled(orgId: string): Promise<boolean> {
+  try {
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    return isFeatureEnabled(org?.settings, 'planMode');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Derives a short session title from the first user message.
  * Truncates to 60 chars at a word boundary.
  */
@@ -1046,20 +1186,44 @@ function deriveSessionTitle(content: string): string {
  * and saving the final assistant message. On error, persists an
  * assistant message describing the failure and emits an error event.
  */
-async function runAgent(
-  orgId: string,
-  sessionId: string,
-  ownerUserId: string,
-  model?: string,
-  providerId?: string,
-  latestMessage?: string,
-  activeArtifactId?: string,
-  cognitiveQuerySubjectId?: string,
-  timezone?: string,
-  respondingToMessageId?: string,
-  runId?: string,
-  initiatorUserId?: string,
-): Promise<void> {
+interface RunAgentOpts {
+  orgId: string;
+  sessionId: string;
+  ownerUserId: string;
+  model?: string;
+  providerId?: string;
+  latestMessage?: string;
+  activeArtifactId?: string;
+  cognitiveQuerySubjectId?: string;
+  timezone?: string;
+  respondingToMessageId?: string;
+  runId?: string;
+  initiatorUserId?: string;
+  /** W4: plan/build mode for this run. */
+  agentMode?: 'plan' | 'build';
+  /** W4: an approved plan to seed a build run with. */
+  approvedPlan?: import('../agent/types.js').AgentPlan;
+}
+
+async function runAgent(opts: RunAgentOpts): Promise<void> {
+  const {
+    orgId,
+    sessionId,
+    ownerUserId,
+    model,
+    providerId,
+    latestMessage,
+    activeArtifactId,
+    cognitiveQuerySubjectId,
+    timezone,
+    respondingToMessageId,
+    runId,
+    initiatorUserId,
+    agentMode,
+    approvedPlan,
+  } = opts;
+  // W4: captured structured plan from a plan-mode run's `submit_plan` tool.
+  let capturedPlan: import('../agent/types.js').AgentPlan | null = null;
   let assistantContent = '';
   let errorMessage: string | null = null;
   let sawErrorEvent = false;
@@ -1091,6 +1255,9 @@ async function runAgent(
     const context = await buildAgentContext(ownerUserId, sessionId, latestMessage, activeArtifactId, {
       cognitiveQuerySubjectId,
       timezone,
+      agentMode,
+      approvedPlan,
+      onPlanSubmitted: (plan) => { capturedPlan = plan; },
     });
     if (model) context.model = model;
     if (providerId) context.providerId = providerId;
@@ -1283,6 +1450,13 @@ async function runAgent(
             // affordance and history stays coherent.
             interrupted: interrupted ? true : undefined,
             stopReason: stopReason && stopReason !== 'done' ? stopReason : undefined,
+            // W4: stamp the agent mode + structured plan (plan mode) on the
+            // assistant message. `plan.approved=false` here; "Approve & Build"
+            // flips it. The plan object is what the approve endpoint reads.
+            agentMode: agentMode ?? undefined,
+            plan: capturedPlan
+              ? { ...(capturedPlan as import('../agent/types.js').AgentPlan), approved: false }
+              : undefined,
           },
           undefined,
           respondingToMessageId,
