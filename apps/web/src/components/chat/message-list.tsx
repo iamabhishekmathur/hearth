@@ -50,6 +50,10 @@ interface MessageListProps {
   /** W3: open tool permission prompts (allow once / always / deny). */
   permissionRequests?: PermissionRequestInfo[];
   onRespondToPermission?: (callId: string, decision: ToolPermissionDecision) => void;
+  /** W4: org `planMode` flag — gates plan rendering + Approve & Build. */
+  planMode?: boolean;
+  /** W4: approve a plan message's plan and start a Build run. */
+  onApproveBuild?: (messageId: string) => void;
 }
 
 export function MessageList({
@@ -60,6 +64,7 @@ export function MessageList({
   unreadAnchorId, onMessageVisible,
   taskChips, taskSuggestions, onDismissTaskSuggestion, onUnlinkTask,
   permissionRequests, onRespondToPermission,
+  planMode, onApproveBuild,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -223,6 +228,25 @@ export function MessageList({
                   </div>
                 );
               })()}
+
+              {/* W4: plan card — renders the structured plan a plan-mode run
+                  produced, with an "Approve & Build" button (disabled when the
+                  plan is empty or already approved). Owner-gating is enforced
+                  server-side; the button simply posts the approval. */}
+              {planMode
+                && msg.role === 'assistant'
+                && msg.id !== '__streaming__'
+                && (() => {
+                  const m = (msg.metadata ?? {}) as Record<string, unknown>;
+                  const plan = m.plan as { steps?: Array<{ index: number; text: string }>; summary?: string; approved?: boolean } | undefined;
+                  if (!plan) return null;
+                  return (
+                    <PlanCard
+                      plan={plan}
+                      onApproveBuild={onApproveBuild ? () => onApproveBuild(msg.id) : undefined}
+                    />
+                  );
+                })()}
 
               {sessionId && msg.id !== '__streaming__' && msg.reactions && msg.reactions.length > 0 && (
                 <ReactionChips
@@ -458,6 +482,63 @@ function PermissionCard({ request, onRespond }: PermissionCardProps) {
           style={{ borderColor: 'var(--hearth-err)', color: 'var(--hearth-err)' }}
         >
           Deny
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// W4 ── Plan card ────────────────────────────────────────────────────────────
+
+/**
+ * Renders a plan-mode run's numbered plan with an "Approve & Build" action.
+ * The button is disabled when the plan is empty (a degenerate/no-op plan — the
+ * server would 409) or already approved (idempotent — nothing more to do).
+ */
+function PlanCard({
+  plan,
+  onApproveBuild,
+}: {
+  plan: { steps?: Array<{ index: number; text: string }>; summary?: string; approved?: boolean };
+  onApproveBuild?: () => void;
+}) {
+  const steps = plan.steps ?? [];
+  const isEmpty = steps.length === 0;
+  const approved = plan.approved === true;
+
+  return (
+    <div
+      className="mt-2 rounded-lg border p-3 text-sm animate-fade-in"
+      style={{ borderColor: 'var(--hearth-border)', background: 'var(--hearth-bg)' }}
+      data-testid="plan-card"
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-hearth-text-muted">
+        <HIcon name="board" className="h-3 w-3" />
+        <span>Plan</span>
+      </div>
+      {plan.summary && <p className="mt-1 text-[13px] text-hearth-text">{plan.summary}</p>}
+      {isEmpty ? (
+        <p className="mt-1.5 text-[13px] text-hearth-text-faint">No plan produced — nothing to build.</p>
+      ) : (
+        <ol className="mt-1.5 space-y-1 text-[13px] text-hearth-text">
+          {steps.map((s) => (
+            <li key={s.index} className="flex gap-2">
+              <span className="shrink-0 font-medium text-hearth-text-muted">{s.index}.</span>
+              <span>{s.text}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className="mt-2.5">
+        <button
+          type="button"
+          onClick={onApproveBuild}
+          disabled={isEmpty || approved || !onApproveBuild}
+          data-testid="approve-build"
+          className="rounded-pill px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40"
+          style={{ background: 'var(--hearth-accent)', color: 'var(--hearth-text-inverse)' }}
+        >
+          {approved ? 'Building…' : 'Approve & Build'}
         </button>
       </div>
     </div>

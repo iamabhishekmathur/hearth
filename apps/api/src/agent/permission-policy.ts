@@ -1,6 +1,7 @@
 import type { PermissionRule, ToolPermissionLevel } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+import { getBuiltinProfile } from './agent-profiles.js';
 
 /**
  * Per-tool permission policy (W3 of the opencode adaptation).
@@ -209,6 +210,12 @@ export async function loadPolicyRules(input: {
   agentProfileId?: string | null;
   userId?: string | null;
 }): Promise<{ orgRules: PermissionRule[]; agentRules: PermissionRule[]; userRules: PermissionRule[] }> {
+  // W4: built-in agent profiles (plan/build) carry their rules in code, not the
+  // DB — so the read-only plan guarantee holds without per-org seeding. These
+  // come FIRST in the agent layer (first-match-wins), ahead of any org-authored
+  // profile rows that might also target this profile id.
+  const builtinAgentRules = getBuiltinProfile(input.agentProfileId)?.rules ?? [];
+
   try {
     const rows = await prisma.toolPermissionPolicy.findMany({
       where: {
@@ -236,10 +243,13 @@ export async function loadPolicyRules(input: {
       else if (row.agentProfileId) agentRules.push(rule);
       else orgRules.push(rule);
     }
-    return { orgRules, agentRules, userRules };
+    return { orgRules, agentRules: [...builtinAgentRules, ...agentRules], userRules };
   } catch (err) {
     logger.warn({ err, orgId: input.orgId }, 'loadPolicyRules failed; falling back to defaults');
-    return { orgRules: [], agentRules: [], userRules: [] };
+    // Even on a DB failure, the built-in plan read-only rules MUST still apply —
+    // otherwise a transient DB blip would let plan mode run writes. So return
+    // the built-in agent rules regardless.
+    return { orgRules: [], agentRules: builtinAgentRules, userRules: [] };
   }
 }
 

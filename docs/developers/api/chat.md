@@ -227,10 +227,38 @@ Send a message to a session and trigger the AI agent. The response is delivered 
 | `providerId` | string | No | LLM provider override |
 | `activeArtifactId` | string | No | Artifact currently open in the UI for context |
 | `attachmentIds` | string[] | No | IDs of uploaded files to attach |
+| `agentMode` | string | No | `plan` or `build` (requires the `planMode` feature flag). See [Plan → Build mode](#plan-build-mode-planmode). Ignored when the flag is off. |
 
 **Response:** `202 Accepted`
 
 The agent processes the message asynchronously. Streaming responses and tool calls are delivered via WebSocket events on the session channel.
+
+---
+
+#### POST /api/v1/chat/sessions/:id/messages/:messageId/approve-build
+
+Approve the structured plan on a plan-mode assistant message and start a Build run seeded with its steps ("Approve & Build"). Part of [Plan → Build mode](#plan-build-mode-planmode).
+
+**Responses:**
+
+| Status | Meaning |
+|--------|---------|
+| `202 Accepted` | Plan approved; a single Build run was started. |
+| `200 OK` `{ alreadyApproved: true }` | Plan was already approved — idempotent; no second Build run is started (handles double-click / double-approve). |
+| `409 PLAN_NOT_APPROVED` | The message has no actionable plan (empty/degenerate or absent) — nothing to build. |
+| `403` | Caller is not the plan's owner (the user who sent the request that produced the plan). |
+| `404` | Session or plan message not found / not visible to the caller. |
+
+---
+
+#### Plan → Build mode (`planMode`)
+
+When the org has the `planMode` feature flag enabled, a chat message may carry `agentMode`:
+
+- **`plan`** — the agent runs read-only. Write and side-effecting tools are denied by the built-in `plan` agent profile (enforced through the same per-tool permission policy as `permissions`; a denied write returns `blocked_by_policy` and never executes, so no side effect leaks). The agent produces a numbered plan via a `submit_plan` tool; the plan is persisted on the assistant message's `metadata.plan` (`{ steps: [{ index, text }], summary?, approved }`) and the UI renders it with an "Approve & Build" button.
+- **`build`** (default) — full tools, still subject to the `permissions` policy. A Build run started via **Approve & Build** is seeded with the approved plan in its system prompt.
+
+Both the user and assistant messages record the mode in `metadata.agentMode`. When the flag is off, `agentMode` is ignored and runs use the single build-mode behavior.
 
 ---
 

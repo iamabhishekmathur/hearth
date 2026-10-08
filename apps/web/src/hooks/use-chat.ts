@@ -24,7 +24,7 @@ import {
 } from '@/lib/socket-client';
 import type {
   ChatMessage, AgentEvent, ApiResponse, PresenceUser, ComposingUser, PresenceState, MessageAuthor,
-  TaskCreatedFromChatEvent, TaskSuggestionEvent, ToolPermissionDecision,
+  TaskCreatedFromChatEvent, TaskSuggestionEvent, ToolPermissionDecision, AgentMode,
 } from '@hearth/shared';
 
 /** W3: a pending tool permission prompt awaiting the user's decision. */
@@ -61,7 +61,7 @@ interface CognitiveQueryMeta {
 
 interface UseChatReturn {
   messages: ChatMessage[];
-  sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }) => Promise<void>;
+  sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => Promise<void>;
   retryLastMessage: () => void;
   regenerateMessage: () => void;
   /** W2: stop the current in-flight run (interrupt). No-op if nothing streaming. */
@@ -589,7 +589,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
   }, [sessionId, subscribe]);
 
   const sendMessage = useCallback(
-    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }) => {
+    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => {
       const sid = overrideSessionId ?? sessionId;
       if (!sid) return;
 
@@ -639,6 +639,11 @@ export function useChat(sessionId: string | null): UseChatReturn {
         if (modelOverride?.model) {
           body.model = modelOverride.model;
           if (modelOverride.providerId) body.providerId = modelOverride.providerId;
+        }
+
+        // W4: plan/build mode. Only sent when the caller chose a mode (flag on).
+        if (agentMode) {
+          body.agentMode = agentMode;
         }
 
         await api.post(`/chat/sessions/${sid}/messages`, body);

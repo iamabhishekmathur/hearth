@@ -542,6 +542,27 @@ Tools:
 - Give each artifact a short, descriptive title.
 - When the user says "update that" or "change the X", use update_artifact on the most recent relevant artifact.`);
 
+  // W4: plan/build mode addendum. Appended last so it takes precedence over the
+  // execute-biased default prompt. In plan mode this flips the agent to
+  // read-only "produce a numbered plan" behavior; in build mode it optionally
+  // seeds the approved plan.
+  if (context.agentMode === 'plan') {
+    const { PLAN_PROFILE } = await import('./agent-profiles.js');
+    parts.push(PLAN_PROFILE.promptAddendum);
+  } else if (context.agentMode === 'build') {
+    const { BUILD_PROFILE } = await import('./agent-profiles.js');
+    if (context.approvedPlan && context.approvedPlan.steps.length > 0) {
+      const steps = context.approvedPlan.steps
+        .map((s) => `${s.index}. ${s.text}`)
+        .join('\n');
+      parts.push(
+        `## Approved plan to execute\n\nThe user approved this plan. Execute these steps in order:\n\n${steps}` +
+          (context.approvedPlan.summary ? `\n\nGoal: ${context.approvedPlan.summary}` : ''),
+      );
+    }
+    parts.push(BUILD_PROFILE.promptAddendum);
+  }
+
   // 8. Citation guidance (only if sources were collected)
   if (sources.length > 0) {
     parts.push(`## Citations

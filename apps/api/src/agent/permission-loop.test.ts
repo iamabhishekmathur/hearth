@@ -44,7 +44,7 @@ vi.mock('../llm/model-catalog.js', () => {
 // persistUserAllowRule are stubbed. `vi.hoisted` makes the refs/spies available
 // inside the hoisted mock factories.
 const { rulesRef, persistSpy, auditSpy } = vi.hoisted(() => ({
-  rulesRef: { orgRules: [] as PermissionRule[] },
+  rulesRef: { orgRules: [] as PermissionRule[], agentRules: [] as PermissionRule[] },
   persistSpy: vi.fn(async () => {}),
   auditSpy: vi.fn(async () => {}),
 }));
@@ -52,7 +52,7 @@ vi.mock('./permission-policy.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./permission-policy.js')>();
   return {
     ...actual,
-    loadPolicyRules: vi.fn(async () => ({ orgRules: rulesRef.orgRules, agentRules: [], userRules: [] })),
+    loadPolicyRules: vi.fn(async () => ({ orgRules: rulesRef.orgRules, agentRules: rulesRef.agentRules, userRules: [] })),
     persistUserAllowRule: persistSpy,
   };
 });
@@ -73,6 +73,7 @@ import { agentLoop } from './agent-runtime.js';
 import { providerRegistry } from '../llm/provider-registry.js';
 import { executeTool } from './tool-router.js';
 import { resolvePermission, __resetRunRegistryForTests } from './run-registry.js';
+import { PLAN_PROFILE, PLAN_PROFILE_ID } from './agent-profiles.js';
 
 const mockedChat = vi.mocked(providerRegistry.chatWithFallback);
 const mockedExecuteTool = vi.mocked(executeTool);
@@ -129,6 +130,7 @@ describe('agentLoop — W3 permission gate', () => {
     vi.clearAllMocks();
     __resetRunRegistryForTests();
     rulesRef.orgRules = [];
+    rulesRef.agentRules = [];
     mockedExecuteTool.mockResolvedValue({ output: { ok: true } });
   });
 
@@ -296,5 +298,54 @@ describe('agentLoop — W3 permission gate', () => {
     await drain(agentLoop(makeContext(), [{ role: 'user', content: 'recall' }]));
     expect(mockedExecuteTool).toHaveBeenCalledTimes(1);
     expect(auditSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ── W4 §5.1 case 27 + J3 "write attempt in plan denied" — end-to-end ──────────
+// Plan mode enforces read-only through this SAME loop + policy path. The plan
+// profile's agent-layer rules (loaded via loadPolicyRules in prod) deny writes.
+// Here we seed them on rulesRef.agentRules to exercise the full loop.
+describe('agentLoop — W4 plan mode (read-only)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __resetRunRegistryForTests();
+    rulesRef.orgRules = [];
+    rulesRef.agentRules = PLAN_PROFILE.rules;
+    mockedExecuteTool.mockResolvedValue({ output: { ok: true } });
+  });
+
+  function planContext() {
+    // agentProfileId=plan → the loop consults the policy even with the W3
+    // permissions flag OFF (plan read-only must hold regardless).
+    return makeContext({
+      permissionsEnabled: false,
+      agentProfileId: PLAN_PROFILE_ID,
+      tools: [tool('slack_post_message'), tool('recall_decisions'), tool('submit_plan')],
+    });
+  }
+
+  it('case 27: a write tool attempted in plan mode is DENIED and never executed (no side effect)', async () => {
+    toolThenDone('slack_post_message', 'pc_1', { channel: '#sales', text: 'hi' });
+    const events = await drain(agentLoop(planContext(), [{ role: 'user', content: 'post it' }]));
+    // The write tool never ran — no side effect could leak.
+    expect(mockedExecuteTool).not.toHaveBeenCalled();
+    // The loop continued (second provider call) and finished normally — the
+    // plan is still produced after the write is refused.
+    expect(mockedChat).toHaveBeenCalledTimes(2);
+    const done = events.filter((e) => e.type === 'done').pop() as { stopReason?: string } | undefined;
+    expect(done?.stopReason).toBe('done');
+  });
+
+  it('plan mode still ALLOWS reads and submit_plan to run', async () => {
+    toolThenDone('recall_decisions', 'pc_1', { query: 'x' });
+    await drain(agentLoop(planContext(), [{ role: 'user', content: 'research' }]));
+    expect(mockedExecuteTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('read-only enforcement holds even when the W3 permissions flag is OFF', async () => {
+    // permissionsEnabled:false + plan profile → policy is STILL consulted.
+    toolThenDone('slack_post_message', 'pc_2', { channel: '#x', text: 'y' });
+    await drain(agentLoop(planContext(), [{ role: 'user', content: 'post' }]));
+    expect(mockedExecuteTool).not.toHaveBeenCalled();
   });
 });

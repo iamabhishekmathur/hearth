@@ -22,6 +22,12 @@ export interface AgentContext {
   maxTokens?: number;
   // W4: plan vs build. Undefined is treated as 'build' (current behavior).
   agentMode?: AgentMode;
+  // W4: in plan mode the `submit_plan` tool calls this with the structured plan
+  // the agent produced, so the chat route can persist it on the assistant
+  // message metadata (`metadata.plan`) and render the "Approve & Build" card.
+  onPlanSubmitted?: (plan: AgentPlan) => void;
+  // W4: an approved plan seeding a build run (rendered into the system prompt).
+  approvedPlan?: AgentPlan;
   // ── W3: per-tool permission policy (opencode adaptation) ──
   // When `permissionsEnabled` is true the loop consults the policy before each
   // tool call: allow→run, deny→blocked_by_policy tool result, ask→emit a
@@ -44,6 +50,24 @@ export interface AgentContext {
   systemPrompt: string;
   sources?: CitationSource[];
   tools: AgentTool[];
+}
+
+/** A single step of a plan-mode plan. */
+export interface AgentPlanStep {
+  /** 1-based step index. */
+  index: number;
+  /** One concrete, verifiable action. */
+  text: string;
+}
+
+/**
+ * The structured plan produced by a plan-mode run via the `submit_plan` tool.
+ * Persisted to `chat_messages.metadata.plan` and consumed by "Approve & Build".
+ */
+export interface AgentPlan {
+  steps: AgentPlanStep[];
+  /** Optional one-line summary of what the plan accomplishes. */
+  summary?: string;
 }
 
 export interface AgentTool {
