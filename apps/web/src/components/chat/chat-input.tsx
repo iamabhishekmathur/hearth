@@ -1,8 +1,10 @@
-import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { api } from '@/lib/api-client';
 import { emitTyping, emitComposing, emitHeartbeat } from '@/lib/socket-client';
 import type { ComposingUser, PresenceUser } from '@hearth/shared';
 import { TaskComposer, type TaskComposerSubmit } from './task-composer';
+import { useAuth } from '@/hooks/use-auth';
+import { useModelSelection, type PickerOption } from '@/hooks/use-model-selection';
 
 export interface PendingAttachment {
   id?: string; // Set after upload completes
@@ -74,6 +76,18 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mentionStartRef = useRef<number>(-1);
+
+  // W5: in-chat model picker. The picker only offers org-enabled + role-allowed
+  // models; a staged image attachment marks non-vision models unselectable. The
+  // selection is held in a dedicated hook (persisted per-user) so the send path
+  // can read it without this component owning chat transport.
+  const { user } = useAuth();
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const hasImageAttachment = useMemo(
+    () => attachments.some((a) => a.file.type.startsWith('image/')),
+    [attachments],
+  );
+  const modelSelection = useModelSelection(user?.id, hasImageAttachment, !!sessionId);
 
   // Detect an @mention being typed at the cursor — anywhere in the message, not
   // just at the start. @ must begin the line or follow whitespace (so emails
@@ -501,6 +515,23 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
             className="hidden"
           />
 
+          {/* W5: model picker — only rendered when the org has the flag on. */}
+          {!modelSelection.disabledByFlag && !modelSelection.loading && (
+            <ModelPicker
+              open={modelMenuOpen}
+              onToggle={() => setModelMenuOpen((o) => !o)}
+              onClose={() => setModelMenuOpen(false)}
+              options={modelSelection.options}
+              selectedId={modelSelection.selectedModelId}
+              isEmpty={modelSelection.isEmpty}
+              disabled={inputDisabled}
+              onSelect={(id) => {
+                modelSelection.select(id);
+                setModelMenuOpen(false);
+              }}
+            />
+          )}
+
           {/* Mention-aware input: a transparent textarea over a styled backdrop
               that renders @mentions as chips. The chip is a background tint only
               (no padding/weight change) so glyph widths — and the caret — stay
@@ -594,6 +625,118 @@ function parseMentionSegments(text: string): Array<{ type: 'text' | 'mention'; v
   }
   if (last < text.length) segs.push({ type: 'text', value: text.slice(last) });
   return segs.length > 0 ? segs : [{ type: 'text', value: text }];
+}
+
+// W5 ── Model picker ────────────────────────────────────────────────────────
+
+/** Compact context-window label, e.g. 1000000 → "1M", 128000 → "128K". */
+export function formatContextWindow(tokens: number): string {
+  if (!tokens) return '';
+  if (tokens >= 1_000_000) {
+    const m = tokens / 1_000_000;
+    return `${Number.isInteger(m) ? m : m.toFixed(1)}M ctx`;
+  }
+  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K ctx`;
+  return `${tokens} ctx`;
+}
+
+interface ModelPickerProps {
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  options: PickerOption[];
+  selectedId: string | null;
+  isEmpty: boolean;
+  disabled?: boolean;
+  onSelect: (modelId: string) => void;
+}
+
+/**
+ * Dropdown over `GET /models`: each row shows the model name, context window and
+ * cost hint. Rows that aren't selectable (role allowlist or vision gate) are
+ * shown disabled with their reason. When the catalog is empty an actionable
+ * empty state is shown instead of a list.
+ */
+function ModelPicker({
+  open,
+  onToggle,
+  onClose,
+  options,
+  selectedId,
+  isEmpty,
+  disabled,
+  onSelect,
+}: ModelPickerProps) {
+  const selected = options.find((o) => o.entry.id === selectedId);
+  const label = selected ? selected.entry.id : 'Model';
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title="Choose model"
+        className="flex h-10 max-w-[180px] items-center gap-1 rounded-xl border border-hearth-border px-2.5 text-xs font-medium text-hearth-text-muted transition-colors hover:bg-hearth-chip disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <span className="truncate">{label}</span>
+        <svg className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          {/* Click-away backdrop */}
+          <div className="fixed inset-0 z-10" onClick={onClose} aria-hidden="true" />
+          <div
+            role="listbox"
+            aria-label="Model"
+            className="absolute bottom-12 left-0 z-20 max-h-72 w-64 overflow-y-auto rounded-lg border border-hearth-border bg-hearth-card py-1 shadow-hearth-3"
+          >
+            {isEmpty ? (
+              <div className="px-3 py-4 text-center text-xs text-hearth-text-faint">
+                No models available. Ask an admin to enable a provider in LLM settings.
+              </div>
+            ) : (
+              options.map(({ entry, selectable, reason }) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  role="option"
+                  aria-selected={entry.id === selectedId}
+                  disabled={!selectable}
+                  onClick={() => selectable && onSelect(entry.id)}
+                  title={reason}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                    !selectable
+                      ? 'cursor-not-allowed text-hearth-text-faint'
+                      : entry.id === selectedId
+                        ? 'bg-hearth-50 text-hearth-700'
+                        : 'text-hearth-text hover:bg-hearth-bg'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{entry.id}</span>
+                    <span className="block text-[10px] text-hearth-text-faint">
+                      {[formatContextWindow(entry.contextWindow), reason].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                  {entry.costHint && (
+                    <span className="shrink-0 text-[11px] font-medium text-hearth-text-muted">
+                      {entry.costHint}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function formatFileSize(bytes: number): string {
