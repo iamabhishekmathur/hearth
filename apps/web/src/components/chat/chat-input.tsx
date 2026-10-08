@@ -21,7 +21,7 @@ export interface MentionUser {
 }
 
 interface ChatInputProps {
-  onSend: (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser) => void;
+  onSend: (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }) => void;
   disabled?: boolean;
   /**
    * W2: whether an agent run is currently streaming. When `interruptible` is on
@@ -183,7 +183,10 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
       return;
     }
-    onSend(trimmed, attachments, undefined);
+    const modelOverride = modelSelection.selectedModel
+      ? { model: modelSelection.selectedModel.id, providerId: modelSelection.selectedModel.providerId }
+      : undefined;
+    onSend(trimmed, attachments, undefined, modelOverride);
     setValue('');
     setAttachments([]);
     setMentionResults([]);
@@ -191,7 +194,7 @@ export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [value, attachments, inputDisabled, onSend, sessionId, latestMessageId]);
+  }, [value, attachments, inputDisabled, onSend, sessionId, latestMessageId, modelSelection.selectedModel]);
 
   const handleTaskSlashSubmit = useCallback((_result: TaskComposerSubmit) => {
     setTaskSlashOpen(false);

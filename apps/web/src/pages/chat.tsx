@@ -160,7 +160,7 @@ export function ChatPage() {
   }, []);
 
   const handleSendMessage = useCallback(
-    async (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser) => {
+    async (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }) => {
       let sessionId = activeSessionId;
       if (!sessionId) {
         try {
@@ -175,7 +175,7 @@ export function ChatPage() {
         const results = await Promise.all(attachments.map((att) => uploadFile(att.file)));
         attachmentIds = results.filter((r) => r !== null).map((r) => r!.id);
       }
-      sendMessage(content, sessionId, activeArtifact?.id, attachmentIds.length > 0 ? attachmentIds : undefined, mentionUser ? { subjectUserId: mentionUser.id } : undefined);
+      sendMessage(content, sessionId, activeArtifact?.id, attachmentIds.length > 0 ? attachmentIds : undefined, mentionUser ? { subjectUserId: mentionUser.id } : undefined, modelOverride);
     },
     [activeSessionId, createSession, sendMessage, activeArtifact],
   );

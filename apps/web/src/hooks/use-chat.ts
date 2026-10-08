@@ -61,7 +61,7 @@ interface CognitiveQueryMeta {
 
 interface UseChatReturn {
   messages: ChatMessage[];
-  sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => Promise<void>;
+  sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }) => Promise<void>;
   retryLastMessage: () => void;
   regenerateMessage: () => void;
   /** W2: stop the current in-flight run (interrupt). No-op if nothing streaming. */
@@ -589,7 +589,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
   }, [sessionId, subscribe]);
 
   const sendMessage = useCallback(
-    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => {
+    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }) => {
       const sid = overrideSessionId ?? sessionId;
       if (!sid) return;
 
@@ -631,6 +631,14 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
         if (cognitiveQuery) {
           body.cognitiveQuery = cognitiveQuery;
+        }
+
+        // W5: in-chat model picker. Only sent when the user explicitly picked a
+        // model; otherwise the server resolves the org/user default (and the
+        // catalog derives the provider when providerId is omitted).
+        if (modelOverride?.model) {
+          body.model = modelOverride.model;
+          if (modelOverride.providerId) body.providerId = modelOverride.providerId;
         }
 
         await api.post(`/chat/sessions/${sid}/messages`, body);
