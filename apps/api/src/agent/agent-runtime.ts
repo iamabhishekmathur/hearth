@@ -1,10 +1,18 @@
 import { createHash } from 'node:crypto';
-import type { ChatEvent, LLMMessage, StopReason, ToolDefinition } from '@hearth/shared';
+import type { ChatEvent, LLMMessage, StopReason, ToolDefinition, ToolPermissionLevel } from '@hearth/shared';
 import { providerRegistry } from '../llm/provider-registry.js';
 import { resolveModel, UnknownModelError } from '../llm/model-catalog.js';
 import { executeTool } from './tool-router.js';
-import type { AgentContext } from './types.js';
+import type { AgentContext, ToolResult } from './types.js';
 import { getUsageRecorder } from '../extensions/usage-metering.js';
+import {
+  evaluateToolCall,
+  loadPolicyRules,
+  persistUserAllowRule,
+  type PermissionDecisionResult,
+} from './permission-policy.js';
+import { awaitPermission } from './run-registry.js';
+import { logAudit } from '../services/audit-service.js';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 
@@ -205,20 +213,116 @@ export async function* agentLoop(
       return;
     }
 
-    // Yield 'started' progress for all tools before execution
+    // ── W3: per-tool permission gate ──
+    // Before firing any tool, consult the policy for each call. `deny` short-
+    // circuits to a `blocked_by_policy` tool result (the model adapts). `ask`
+    // emits a `permission_request` and PARKS the run on a per-callId promise
+    // until the client replies (or the ask times out → deny). `allow` runs.
+    // All of this is gated behind `permissionsEnabled`; when off the tools run
+    // unconditionally (today's behavior). Permission resolution is sequential
+    // (asks queue by callId, in order); the ALLOWED tools then run in parallel.
+    const policyRules = context.permissionsEnabled
+      ? await loadPolicyRules({
+          orgId: context.orgId,
+          agentProfileId: context.agentProfileId,
+          userId: context.userId,
+        })
+      : null;
+
+    // Decide per tool call. `deny`/timeout produce a blocked result inline;
+    // allowed calls are collected for parallel execution.
+    const blockedResults: Array<{ toolCall: typeof pendingToolCalls[number]; result: ToolResult; durationMs: number }> = [];
+    const toRun: typeof pendingToolCalls = [];
+
     for (const toolCall of pendingToolCalls) {
+      // Yield 'started' progress up front (keeps the UI's tool card in sync
+      // whether the call ends up allowed, denied, or awaiting approval).
       yield { type: 'tool_progress', toolCallId: toolCall.id, toolName: toolCall.name, status: 'started' as const };
+
+      if (!policyRules) {
+        toRun.push(toolCall);
+        continue;
+      }
+
+      let decision: PermissionDecisionResult = evaluateToolCall({
+        toolName: toolCall.name,
+        input: toolCall.input,
+        userRules: policyRules.userRules,
+        agentRules: policyRules.agentRules,
+        orgRules: policyRules.orgRules,
+      });
+
+      if (decision.level === 'ask') {
+        // Emit the request and park until the client answers / timeout / abort.
+        yield { type: 'permission_request', callId: toolCall.id, tool: toolCall.name, input: toolCall.input };
+        const outcome = await awaitPermission({
+          callId: toolCall.id,
+          runId: context.runId ?? context.sessionId,
+          timeoutMs: context.permissionTimeoutMs,
+          signal,
+        });
+        // Map the client decision back to a concrete level.
+        const resolved: ToolPermissionLevel =
+          outcome === 'allow_once' || outcome === 'allow_always' ? 'allow' : 'deny';
+        if (outcome === 'allow_always') {
+          // Persist a user-scope allow rule so the next identical call auto-allows.
+          await persistUserAllowRule({
+            orgId: context.orgId,
+            userId: context.userId,
+            toolName: toolCall.name,
+            createdBy: context.userId,
+          });
+        }
+        void auditPermissionDecision(context, toolCall.name, 'ask', outcome);
+        decision = { ...decision, level: resolved };
+      } else if (decision.level === 'deny') {
+        void auditPermissionDecision(context, toolCall.name, 'deny', decision.nonOverridable ? 'org_deny' : 'deny');
+      }
+
+      if (decision.level === 'deny') {
+        // Blocked — return a tool result the model can adapt to (never a silent
+        // drop). Distinguish the hard org deny for the UI/model.
+        blockedResults.push({
+          toolCall,
+          result: {
+            output: {
+              error: 'blocked_by_policy',
+              reason: decision.nonOverridable
+                ? 'This tool is blocked by an organization policy and cannot be used.'
+                : 'The user declined to allow this tool call.',
+            },
+            error: 'blocked_by_policy',
+          },
+          durationMs: 0,
+        });
+      } else {
+        toRun.push(toolCall);
+      }
     }
 
-    // Execute tool calls in parallel, honoring the abort signal.
-    const toolResults = await Promise.all(
-      pendingToolCalls.map(async (toolCall) => {
+    // Abort may have fired while a permission ask was parked. If so, discard
+    // everything and finalize interrupted (no side-effects after a stop).
+    if (signal?.aborted) {
+      yield { type: 'done', usage: lastUsage, stopReason: 'interrupted' };
+      return;
+    }
+
+    // Execute the ALLOWED tool calls in parallel, honoring the abort signal.
+    const ranResults = await Promise.all(
+      toRun.map(async (toolCall) => {
         const startTime = Date.now();
         const result = await executeTool(toolCall.name, toolCall.input, toolMap, context.userId, signal);
         const durationMs = Date.now() - startTime;
         return { toolCall, result, durationMs };
       }),
     );
+
+    // Merge blocked + ran results, preserving the original call order so the
+    // conversation's tool_result messages line up with the assistant's calls.
+    const resultsById = new Map<string, { toolCall: typeof pendingToolCalls[number]; result: ToolResult; durationMs: number }>();
+    for (const r of blockedResults) resultsById.set(r.toolCall.id, r);
+    for (const r of ranResults) resultsById.set(r.toolCall.id, r);
+    const toolResults = pendingToolCalls.map((tc) => resultsById.get(tc.id)!);
 
     // Yield completion progress and add results to conversation
     for (const { toolCall, result, durationMs } of toolResults) {
@@ -431,4 +535,33 @@ function hasExternalSideEffect(toolName: string): boolean {
 function extractProvider(toolName: string): string {
   const parts = toolName.split('__');
   return parts.length >= 2 ? parts[1] : 'integration';
+}
+
+/**
+ * Audit a permission decision (W3). Every `ask` outcome and every `deny` writes
+ * an `audit_logs` row with `action: 'tool_permission_decision'`. Fire-and-forget
+ * — a failed audit never breaks the run (logAudit already swallows its own
+ * errors). The `decision` is the concrete outcome: a ToolPermissionDecision for
+ * asks, `'timeout'` for ask-timeouts, `'deny'`/`'org_deny'` for policy denials.
+ */
+async function auditPermissionDecision(
+  context: AgentContext,
+  toolName: string,
+  gate: 'ask' | 'deny',
+  decision: string,
+): Promise<void> {
+  await logAudit({
+    orgId: context.orgId,
+    userId: context.userId,
+    action: 'tool_permission_decision',
+    entityType: 'session',
+    entityId: context.sessionId,
+    details: {
+      tool: toolName,
+      gate,
+      decision,
+      runId: context.runId ?? null,
+      agentMode: context.agentMode ?? null,
+    },
+  });
 }

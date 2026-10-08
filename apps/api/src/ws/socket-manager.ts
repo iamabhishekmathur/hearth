@@ -224,6 +224,45 @@ export function setupSocketManager(
       }
     });
 
+    // ── W3: reply to a tool permission_request over WebSocket ──
+    // When a tool call resolves to `ask`, the agent loop emits a
+    // `permission_request` ChatEvent and parks on a per-callId promise. The
+    // client answers here with { callId, decision }. Resolving a callId whose
+    // run already finished/aborted is a harmless no-op (resolvePermission
+    // returns false, never throws). Permission mirrors stop: the run initiator
+    // or a session owner/contributor may answer; a pure viewer may not.
+    socket.on('permission_response', async (payload: { sessionId?: string; callId?: string; decision?: string }) => {
+      if (!socket.userId) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+      const sessionId = payload?.sessionId;
+      const callId = payload?.callId;
+      const decision = payload?.decision;
+      if (typeof sessionId !== 'string' || !sessionId) {
+        socket.emit('error', { message: 'Invalid sessionId' });
+        return;
+      }
+      if (typeof callId !== 'string' || !callId ||
+          (decision !== 'allow_once' && decision !== 'allow_always' && decision !== 'deny')) {
+        socket.emit('error', { message: 'Invalid permission_response' });
+        return;
+      }
+      try {
+        const { canStopRun } = await import('../services/run-permission.js');
+        const allowed = await canStopRun(sessionId, socket.userId);
+        if (!allowed) {
+          socket.emit('error', { message: 'Not permitted to respond to this prompt' });
+          return;
+        }
+        const { resolvePermission } = await import('../agent/run-registry.js');
+        resolvePermission(callId, decision);
+      } catch (err) {
+        logger.error({ err, sessionId, callId }, 'permission_response failed');
+        socket.emit('error', { message: 'Failed to submit permission response' });
+      }
+    });
+
     // Typing indicator (short TTL, no DB)
     socket.on('presence:typing', (sessionId: string) => {
       if (!socket.userId || typeof sessionId !== 'string') return;

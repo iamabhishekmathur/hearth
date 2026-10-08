@@ -22,6 +22,17 @@ export interface AgentContext {
   maxTokens?: number;
   // W4: plan vs build. Undefined is treated as 'build' (current behavior).
   agentMode?: AgentMode;
+  // ── W3: per-tool permission policy (opencode adaptation) ──
+  // When `permissionsEnabled` is true the loop consults the policy before each
+  // tool call: allow→run, deny→blocked_by_policy tool result, ask→emit a
+  // `permission_request` ChatEvent and PARK on a per-callId promise until the
+  // client replies (or the ask times out → treated as deny). When false (flag
+  // off), tools run unconditionally — today's behavior. An optional agent
+  // profile scopes agent-layer rules (Plan/Build, W4).
+  permissionsEnabled?: boolean;
+  agentProfileId?: string | null;
+  /** Override the ask timeout (ms). Defaults to run-registry's default. */
+  permissionTimeoutMs?: number;
   // Routine-specific context (Features 1, 2)
   routineRunContext?: RoutineRunContext;
   triggerEvent?: NormalizedEvent;

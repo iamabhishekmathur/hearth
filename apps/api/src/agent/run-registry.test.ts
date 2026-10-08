@@ -45,6 +45,10 @@ import {
   getActiveRun,
   getActiveRunsForSession,
   newRunId,
+  awaitPermission,
+  resolvePermission,
+  hasPendingPermission,
+  pendingPermissionCount,
   __resetRunRegistryForTests,
 } from './run-registry.js';
 
@@ -125,5 +129,55 @@ describe('run-registry', () => {
     await requestStop(runId);
     await requestStop(runId);
     expect(ctl.signal.aborted).toBe(true);
+  });
+
+  // ── W3: pending tool-permission asks (park / resolve / timeout / abort) ──
+  describe('awaitPermission / resolvePermission', () => {
+    it('parks until the client resolves, returning the decision', async () => {
+      const p = awaitPermission({ callId: 'pc_1', runId: 'run-1' });
+      expect(hasPendingPermission('pc_1')).toBe(true);
+      expect(resolvePermission('pc_1', 'allow_once')).toBe(true);
+      await expect(p).resolves.toBe('allow_once');
+      // Settling removes it from the map.
+      expect(hasPendingPermission('pc_1')).toBe(false);
+    });
+
+    it('resolves to the exact decision (allow_always / deny)', async () => {
+      const a = awaitPermission({ callId: 'pc_a', runId: 'r' });
+      resolvePermission('pc_a', 'allow_always');
+      await expect(a).resolves.toBe('allow_always');
+
+      const d = awaitPermission({ callId: 'pc_d', runId: 'r' });
+      resolvePermission('pc_d', 'deny');
+      await expect(d).resolves.toBe('deny');
+    });
+
+    it('times out to "timeout" when no response arrives', async () => {
+      const p = awaitPermission({ callId: 'pc_t', runId: 'r', timeoutMs: 10 });
+      await expect(p).resolves.toBe('timeout');
+    });
+
+    it('resolving an unknown callId is a harmless no-op (returns false)', () => {
+      expect(resolvePermission('nope', 'allow_once')).toBe(false);
+    });
+
+    it('an abort while parked settles the ask to "timeout"', async () => {
+      const ctl = new AbortController();
+      const p = awaitPermission({ callId: 'pc_abort', runId: 'r', signal: ctl.signal, timeoutMs: 10_000 });
+      ctl.abort();
+      await expect(p).resolves.toBe('timeout');
+    });
+
+    it('concurrent asks are independent by callId', async () => {
+      const a = awaitPermission({ callId: 'pc_1', runId: 'r' });
+      const b = awaitPermission({ callId: 'pc_2', runId: 'r' });
+      expect(pendingPermissionCount()).toBe(2);
+      resolvePermission('pc_1', 'allow_once');
+      await expect(a).resolves.toBe('allow_once');
+      // pc_2 still parked.
+      expect(hasPendingPermission('pc_2')).toBe(true);
+      resolvePermission('pc_2', 'deny');
+      await expect(b).resolves.toBe('deny');
+    });
   });
 });

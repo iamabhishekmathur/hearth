@@ -422,6 +422,23 @@ AuditLog
 
 Audit logs record all significant actions across the platform. Indexed by `(org_id, created_at DESC)` for efficient feed queries and `(user_id, created_at DESC)` for per-user history.
 
+### Tool Permission Policies
+
+```
+ToolPermissionPolicy
+  ├── org_id
+  ├── agent_profile_id (nullable: set for agent-profile-scoped rules)
+  ├── user_id (nullable: set for user-override rules)
+  ├── tool_pattern (glob against the tool name, e.g. "slack_post_message", "*_delete")
+  ├── arg_pattern (JSONB, nullable: structural subset match against tool input)
+  ├── level (string: "allow" | "ask" | "deny")
+  ├── user_scope_overridable (nullable boolean: false = org hard-rule a user may not widen)
+  ├── created_by
+  └── created_at
+```
+
+Backs the interactive per-tool permission gate for chat agent runs (gated by the org `permissions` feature flag). Rules are evaluated first-match-wins in order `created_at ASC`, with scope precedence user → agent profile → org default, falling back to built-in Hearth defaults. Scope is encoded by which of `agent_profile_id` / `user_id` are set (both null = org default). These interactive asks are **ephemeral** (WebSocket + in-memory park) and distinct from the durable routine approval gates (`approval_requests`). RLS-isolated by `org_id`.
+
 ### Governance
 
 ```

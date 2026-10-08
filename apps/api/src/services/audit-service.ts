@@ -26,7 +26,8 @@ export type AuditAction =
   | 'decision_conflict_detected'
   | 'decision_outcome_updated'
   | 'pattern_extracted'
-  | 'principle_proposed';
+  | 'principle_proposed'
+  | 'tool_permission_decision';
 
 export type AuditEntityType =
   | 'session'

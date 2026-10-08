@@ -234,6 +234,29 @@ The agent processes the message asynchronously. Streaming responses and tool cal
 
 ---
 
+#### POST /api/v1/chat/sessions/:id/permission
+
+Reply to an interactive tool-permission prompt (per-tool permission policy). When the org has the `permissions` feature flag enabled and a tool call resolves to `ask`, the agent emits a `permission_request` WebSocket event (`{ callId, tool, input }`) and pauses the run until a decision arrives. This REST route is a fallback for the primary WebSocket transport (`permission_response`).
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Session ID |
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `callId` | string | Yes | The tool call id from the `permission_request` event |
+| `decision` | string | Yes | One of `allow_once`, `allow_always`, `deny`. `allow_always` persists a user-scope allow rule so identical future calls auto-allow. |
+
+**Response:** `202 Accepted` with `{ data: { resolved: boolean } }`. `resolved` is `false` (still 202, no error) when the run already finished or the `callId` is unknown — a safe no-op.
+
+Permission to respond mirrors stop: the run initiator or a session owner/contributor. A pure viewer gets `403`. Every `ask` and `deny` decision writes an `audit_logs` row with `action: 'tool_permission_decision'`. Policy rules live in `tool_permission_policies` (org / agent-profile / user scope) and default to: reads/recall/get/search = allow; external side-effects (`slack_post_message`, `jira_create_issue`, `send_email`, `*_create`, `*_update`, MCP writes) = ask; destructive (`*_delete`, `integration_*`) = deny (non-overridable).
+
+---
+
 ### Collaborators
 
 #### GET /api/v1/chat/sessions/:id/collaborators
