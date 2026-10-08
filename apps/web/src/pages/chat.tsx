@@ -29,8 +29,8 @@ export function ChatPage() {
   const activeTasks = useActiveSessionTasks(activeSessionId);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const {
-    messages, sendMessage, retryLastMessage, regenerateMessage,
-    isStreaming, thinking, toolCalls, error, presenceUsers,
+    messages, sendMessage, retryLastMessage, regenerateMessage, stopRun,
+    isStreaming, thinking, toolCalls, error, warning, presenceUsers,
     typingUsers, composingUsers,
     messageAuthors, unreadAnchorId, markRead,
     taskChips, taskSuggestions, dismissTaskSuggestion,
@@ -146,6 +146,15 @@ export function ChatPage() {
   useEffect(() => {
     api.get<{ data: { orgEnabled: boolean } }>('/chat/cognitive-profile/status')
       .then((res) => setCognitiveEnabled(res.data.orgEnabled))
+      .catch(() => {});
+  }, []);
+
+  // W2+: org agent feature flags. `interruptible` gates the live input + Stop
+  // button; when off, the input disables during streaming (legacy behavior).
+  const [interruptible, setInterruptible] = useState(false);
+  useEffect(() => {
+    api.get<{ data: { interruptible?: boolean } }>('/chat/features')
+      .then((res) => setInterruptible(res.data.interruptible === true))
       .catch(() => {});
   }, []);
 
@@ -287,6 +296,13 @@ export function ChatPage() {
             />
           )}
 
+          {/* Warning banner (W2: doom-loop break, budget, max-iterations) */}
+          {warning && (
+            <div className="flex items-center justify-between border-b px-5 py-2 text-sm animate-fade-in" style={{ borderColor: 'var(--hearth-warn)', background: 'color-mix(in srgb, var(--hearth-warn) 8%, transparent)', color: 'var(--hearth-warn)' }}>
+              <span>{warning}</span>
+            </div>
+          )}
+
           {/* Error banner */}
           {error && (
             <div className="flex items-center justify-between border-b px-5 py-2 text-sm animate-fade-in" style={{ borderColor: 'var(--hearth-err)', background: 'color-mix(in srgb, var(--hearth-err) 8%, transparent)', color: 'var(--hearth-err)' }}>
@@ -320,7 +336,9 @@ export function ChatPage() {
           {/* Input */}
           <ChatInput
             onSend={handleSendMessage}
-            disabled={isStreaming}
+            isStreaming={isStreaming}
+            onStop={stopRun}
+            interruptible={interruptible}
             cognitiveEnabled={cognitiveEnabled}
             sessionId={activeSessionId}
             typingUsers={typingUsers}

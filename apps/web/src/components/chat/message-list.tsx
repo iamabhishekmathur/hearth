@@ -199,6 +199,26 @@ export function MessageList({
                 respondingToAuthor={respondingToAuthor}
               />
 
+              {/* W2: subtle "stopped" affordance for interrupted / capped partials. */}
+              {msg.role === 'assistant' && (() => {
+                const m = (msg.metadata ?? {}) as Record<string, unknown>;
+                const label =
+                  m.interrupted === true || m.stopReason === 'interrupted'
+                    ? 'Stopped'
+                    : m.stopReason === 'budget'
+                      ? 'Budget reached'
+                      : m.stopReason === 'max_iterations'
+                        ? 'Reached step limit'
+                        : null;
+                if (!label) return null;
+                return (
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-hearth-text-faint animate-fade-in">
+                    <HIcon name="pause" className="h-3 w-3" />
+                    <span>{label}</span>
+                  </div>
+                );
+              })()}
+
               {sessionId && msg.id !== '__streaming__' && msg.reactions && msg.reactions.length > 0 && (
                 <ReactionChips
                   sessionId={sessionId}

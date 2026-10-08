@@ -1812,13 +1812,29 @@ const MAX_RESULT_SIZE = 50_000; // 50KB
  * Executes a tool call by name using the provided tool map.
  * Returns a stub result if the tool is not found.
  * Truncates results exceeding MAX_RESULT_SIZE to prevent context window bloat.
+ *
+ * `signal` (W2): if the run was aborted before this tool fires, short-circuit
+ * so steer/stop discards in-flight tool work rather than triggering a
+ * side-effect. The signal is checked at entry; a tool whose result is discarded
+ * because the run was aborted mid-flight is handled by the loop's post-exec
+ * abort check.
  */
 export async function executeTool(
   toolName: string,
   input: Record<string, unknown>,
   tools: Map<string, AgentTool>,
   userId?: string,
+  signal?: AbortSignal,
 ): Promise<ToolResult> {
+  // Abort check: if the run was stopped/steered before this tool ran, don't
+  // execute it (prevents an external side-effect after a stop).
+  if (signal?.aborted) {
+    return {
+      output: { aborted: true },
+      error: 'Run aborted before tool execution',
+    };
+  }
+
   const tool = tools.get(toolName);
 
   if (!tool) {
