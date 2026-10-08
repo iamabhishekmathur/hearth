@@ -187,6 +187,43 @@ export function setupSocketManager(
       logger.info({ socketId: socket.id, sessionId }, 'Left session room');
     });
 
+    // ── W2: stop an in-flight agent run over WebSocket ──
+    // Mirror of POST /sessions/:id/stop. Permission: the run initiator OR a
+    // session owner/contributor may stop; a pure viewer may not. The actual
+    // abort is broadcast over Redis so whichever instance owns the run aborts
+    // it (cross-instance). `runId` is optional — without it we stop all of the
+    // session's locally-tracked runs.
+    socket.on('chat:stop', async (payload: { sessionId?: string; runId?: string }) => {
+      if (!socket.userId) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+      const sessionId = payload?.sessionId;
+      if (typeof sessionId !== 'string' || sessionId.length === 0) {
+        socket.emit('error', { message: 'Invalid sessionId' });
+        return;
+      }
+      try {
+        const { canStopRun } = await import('../services/run-permission.js');
+        const allowed = await canStopRun(sessionId, socket.userId, payload?.runId);
+        if (!allowed) {
+          socket.emit('error', { message: 'Not permitted to stop this run' });
+          return;
+        }
+        const { requestStop, getActiveRunsForSession } = await import('../agent/run-registry.js');
+        if (payload?.runId) {
+          await requestStop(payload.runId);
+        } else {
+          for (const run of getActiveRunsForSession(sessionId)) {
+            await requestStop(run.runId);
+          }
+        }
+      } catch (err) {
+        logger.error({ err, sessionId }, 'chat:stop failed');
+        socket.emit('error', { message: 'Failed to stop run' });
+      }
+    });
+
     // Typing indicator (short TTL, no DB)
     socket.on('presence:typing', (sessionId: string) => {
       if (!socket.userId || typeof sessionId !== 'string') return;

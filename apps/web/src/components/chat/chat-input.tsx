@@ -21,6 +21,18 @@ export interface MentionUser {
 interface ChatInputProps {
   onSend: (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser) => void;
   disabled?: boolean;
+  /**
+   * W2: whether an agent run is currently streaming. When `interruptible` is on
+   * the input stays enabled during streaming and the Send button becomes Stop.
+   */
+  isStreaming?: boolean;
+  /** W2: stop the in-flight run (shown as the Stop button while streaming). */
+  onStop?: () => void;
+  /**
+   * W2: org `interruptible` feature flag. When OFF the component behaves exactly
+   * as before (input disabled while streaming, no Stop button).
+   */
+  interruptible?: boolean;
   /** If set, shows a prompt instead of the input (e.g. "Join conversation" or "Duplicate to chat") */
   accessPrompt?: {
     label: string;
@@ -40,7 +52,12 @@ interface ChatInputProps {
 
 const ACCEPTED_TYPES = 'image/*,application/pdf,text/*,application/json';
 
-export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, isStreaming, onStop, interruptible, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
+  // W2: when interruptible, the input stays live during streaming (steering).
+  // When the flag is off, streaming disables the input exactly as before.
+  const inputDisabled = interruptible ? !!disabled : (!!disabled || !!isStreaming);
+  // Show a Stop button (in place of Send) while a run streams and the flag is on.
+  const showStop = !!interruptible && !!isStreaming;
   const [value, setValue] = useState('');
   const [focused, setFocused] = useState(false);
   const [taskSlashOpen, setTaskSlashOpen] = useState(false);
@@ -142,7 +159,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
-    if ((!trimmed && attachments.length === 0) || disabled) return;
+    if ((!trimmed && attachments.length === 0) || inputDisabled) return;
     // Intercept /task — open the inline composer instead of sending to the agent.
     const slashMatch = /^\/task(?:\s+(.*))?$/.exec(trimmed);
     if (slashMatch && sessionId && latestMessageId) {
@@ -160,7 +177,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [value, attachments, disabled, onSend, sessionId, latestMessageId]);
+  }, [value, attachments, inputDisabled, onSend, sessionId, latestMessageId]);
 
   const handleTaskSlashSubmit = useCallback((_result: TaskComposerSubmit) => {
     setTaskSlashOpen(false);
@@ -445,7 +462,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
           <button
             type="button"
             onClick={handleFileSelect}
-            disabled={disabled}
+            disabled={inputDisabled}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted disabled:cursor-not-allowed disabled:opacity-40"
             title="Attach file"
           >
@@ -462,7 +479,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
           <button
             type="button"
             onClick={handleScreenshot}
-            disabled={disabled}
+            disabled={inputDisabled}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted disabled:cursor-not-allowed disabled:opacity-40"
             title="Take screenshot"
           >
@@ -518,26 +535,43 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder="Type a message..."
-              disabled={disabled}
+              disabled={inputDisabled}
               rows={1}
               style={{ caretColor: 'var(--hearth-text, #111827)' }}
               className="relative block w-full resize-none rounded-xl border border-hearth-border-strong bg-transparent px-4 py-2.5 text-sm leading-5 text-transparent placeholder-hearth-text-faint outline-none transition-colors focus:border-hearth-400 focus:ring-2 focus:ring-hearth-100 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={disabled || (!value.trim() && attachments.length === 0)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-hearth-1 transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          {showStop ? (
+            // W2: Stop button — same footprint as Send so there's no layout
+            // shift when the agent starts/stops streaming.
+            <button
+              type="button"
+              onClick={() => onStop?.()}
+              aria-label="Stop generating"
+              title="Stop generating"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-hearth-1 transition-colors hover:bg-hearth-600"
             >
-              <path d="M3.105 2.29a.75.75 0 0 0-.826.95l1.414 4.925A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.086L2.28 16.76a.75.75 0 0 0 .826.95l15-4.5a.75.75 0 0 0 0-1.42l-15-4.5Z" />
-            </svg>
-          </button>
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <rect x="4" y="4" width="12" height="12" rx="2" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSend}
+              aria-label="Send message"
+              disabled={inputDisabled || (!value.trim() && attachments.length === 0)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-hearth-1 transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M3.105 2.29a.75.75 0 0 0-.826.95l1.414 4.925A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.086L2.28 16.76a.75.75 0 0 0 .826.95l15-4.5a.75.75 0 0 0 0-1.42l-15-4.5Z" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>

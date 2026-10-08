@@ -178,6 +178,12 @@ app.use(errorHandler);
 // Socket.io — share session middleware for auth
 setupSocketManager(io, sessionMiddleware);
 
+// W2: subscribe to cross-instance run-stop broadcasts (Redis pub/sub) so a
+// stop on any API instance aborts the run on whichever instance owns it.
+import('./agent/run-registry.js')
+  .then(({ initRunRegistry }) => initRunRegistry())
+  .catch((err) => logger.warn({ err }, 'run-registry init failed at startup'));
+
 // Start server — skip listen when running under tests
 if (process.env.NODE_ENV !== 'test') {
   loadProviders()

@@ -7,6 +7,16 @@ import * as chatService from '../services/chat-service.js';
 import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
 import { emitToSession, emitToUser, emitToSessionEvent } from '../ws/socket-manager.js';
+import {
+  registerRun,
+  unregisterRun,
+  newRunId,
+  requestStop,
+  claimFinalize,
+  getActiveRunsForSession,
+} from '../agent/run-registry.js';
+import { canStopRun } from '../services/run-permission.js';
+import { isFeatureEnabled } from '../lib/feature-flags.js';
 import { logger } from '../lib/logger.js';
 import { evaluateMessage, getGovernanceSettings, hasBlockPolicies } from '../services/governance-service.js';
 import { reflectOnSession } from '../services/experience-service.js';
@@ -29,6 +39,27 @@ router.post('/sessions', requireAuth, requireOrg, async (req, res, next) => {
     const { title } = req.body as { title?: string };
     const session = await chatService.createSession(req.user!.orgId!, req.user!.id, title);
     res.status(201).json({ data: session });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /features — the current org's agent feature flags (W2–W6). Lets the chat
+ * UI gate new interactive surfaces (e.g. the W2 Stop button / live input)
+ * per-org. Returns all-false when there's no org context.
+ */
+router.get('/features', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.json({ data: {} });
+      return;
+    }
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    const { getOrgFeatureFlags } = await import('../lib/feature-flags.js');
+    res.json({ data: getOrgFeatureFlags(org?.settings) });
   } catch (err) {
     next(err);
   }
@@ -293,7 +324,22 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     // the response and races the next test's DB truncate. The var is only ever
     // set by the integration harness — production/dev behavior is unchanged.
     if (process.env.HEARTH_DISABLE_AGENT_DISPATCH !== 'true') {
-      runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
+      // ── W2 steering: interrupt-and-continue ──
+      // If a run is already streaming for this session, sending a new message
+      // steers: abort the in-flight run (its partial is persisted + marked
+      // interrupted by its own finalize) and start a fresh run below. The new
+      // run's history read picks up both the interrupted partial and this new
+      // user turn. This is gated behind the `interruptible` flag — when off,
+      // the legacy behavior (overlapping runs) is preserved, matching today.
+      const steerEnabled = await isInterruptibleEnabled(session.orgId);
+      if (steerEnabled) {
+        for (const run of getActiveRunsForSession(sessionId)) {
+          await requestStop(run.runId);
+        }
+      }
+
+      const runId = newRunId();
+      runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id, runId, userId).catch((err) => {
         logger.error({ err, sessionId }, 'Agent loop unhandled error');
       });
 
@@ -315,6 +361,48 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
         );
       })().catch((err) => logger.warn({ err, sessionId }, 'Failed to enqueue chat decision extraction'));
     }
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/stop — stop an in-flight agent run (W2).
+ *
+ * Permission: the run initiator OR a session owner/contributor. A pure viewer
+ * gets 403 and the run continues. The abort is broadcast over Redis pub/sub so
+ * whichever API instance owns the run aborts it (cross-instance). `runId` is
+ * optional in the body; without it, all of the session's runs are stopped.
+ */
+router.post('/sessions/:id/stop', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const userId = req.user!.id;
+    const { runId } = req.body as { runId?: string };
+
+    // 404 vs 403: if the user can't even see the session, treat as not found so
+    // we don't leak session existence. Viewers (read access, no write) → 403.
+    const session = await chatService.getSession(sessionId, userId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const allowed = await canStopRun(sessionId, userId, runId);
+    if (!allowed) {
+      res.status(403).json({ error: 'You do not have permission to stop this run' });
+      return;
+    }
+
+    if (runId) {
+      await requestStop(runId);
+    } else {
+      for (const run of getActiveRunsForSession(sessionId)) {
+        await requestStop(run.runId);
+      }
+    }
+
+    res.status(202).json({ data: { stopped: true, runId: runId ?? null } });
   } catch (err) {
     next(err);
   }
@@ -871,6 +959,21 @@ async function notifyMentions(input: {
 }
 
 /**
+ * Whether the org has the W2 `interruptible` feature flag on. Gates steering
+ * (interrupt-and-continue). When off, overlapping runs behave as they did
+ * before W2. Best-effort: defaults to false on any lookup failure.
+ */
+async function isInterruptibleEnabled(orgId: string): Promise<boolean> {
+  try {
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    return isFeatureEnabled(org?.settings, 'interruptible');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Derives a short session title from the first user message.
  * Truncates to 60 chars at a word boundary.
  */
@@ -898,15 +1001,35 @@ async function runAgent(
   cognitiveQuerySubjectId?: string,
   timezone?: string,
   respondingToMessageId?: string,
+  runId?: string,
+  initiatorUserId?: string,
 ): Promise<void> {
   let assistantContent = '';
   let errorMessage: string | null = null;
   let sawErrorEvent = false;
+  // W2: the stop reason the loop finished with. Drives whether the persisted
+  // assistant message is marked interrupted, and whether finalize was claimed.
+  let stopReason: import('@hearth/shared').StopReason | undefined;
+  // Whether THIS invocation won the single finalize claim for its runId. When
+  // false (lost the stop↔done race), we must not persist a second assistant
+  // message or emit a second `done`.
+  let didFinalize = false;
   const startTime = Date.now();
   let iterationCount = 0;
   let totalTokens = 0;
   const toolFailures: string[] = [];
   let contextSources: Array<{ index: number; type: string; label: string; content: string }> = [];
+
+  // W2: register this run so it can be stopped (locally or cross-instance). The
+  // AbortController's signal is threaded into the agent loop → provider + tools.
+  const effectiveRunId = runId ?? newRunId();
+  const controller = registerRun({
+    runId: effectiveRunId,
+    sessionId,
+    initiatorUserId: initiatorUserId ?? ownerUserId,
+  });
+  // Tell subscribed clients the runId for this turn so they can target a stop.
+  emitToSessionEvent(sessionId, 'chat:run_started', { sessionId, runId: effectiveRunId });
 
   try {
     const context = await buildAgentContext(ownerUserId, sessionId, latestMessage, activeArtifactId, {
@@ -915,6 +1038,8 @@ async function runAgent(
     });
     if (model) context.model = model;
     if (providerId) context.providerId = providerId;
+    context.runId = effectiveRunId;
+    context.abortSignal = controller.signal;
     contextSources = context.sources ?? [];
 
     // Emit memory debug info for dev/debug tools
@@ -1024,6 +1149,25 @@ async function runAgent(
     }
 
     for await (const event of agentLoop(context, finalMessages)) {
+      // W2 idempotent finalize: the loop yields exactly one terminal `done`.
+      // Claim finalization on it so a stop↔natural-done race (or a double
+      // emission from any path) persists/broadcasts exactly one `done`. If the
+      // claim fails, another finalize already won — drop this terminal event.
+      if (event.type === 'done') {
+        if (!claimFinalize(effectiveRunId)) {
+          // Another finalize already won (stop↔done race / double drive).
+          // Don't broadcast or persist a second terminal — bail out; the
+          // `finally` persistence is gated on `didFinalize` below.
+          return;
+        }
+        didFinalize = true;
+        stopReason = event.stopReason;
+        totalTokens += (event.usage?.inputTokens ?? 0) + (event.usage?.outputTokens ?? 0);
+        iterationCount++;
+        emitToSession(sessionId, event);
+        continue;
+      }
+
       emitToSession(sessionId, event);
 
       if (event.type === 'text_delta') {
@@ -1031,9 +1175,6 @@ async function runAgent(
       } else if (event.type === 'error') {
         sawErrorEvent = true;
         errorMessage = event.message;
-      } else if (event.type === 'done') {
-        totalTokens += (event.usage?.inputTokens ?? 0) + (event.usage?.outputTokens ?? 0);
-        iterationCount++;
       } else if (event.type === 'tool_progress' && event.status === 'failed') {
         toolFailures.push(event.toolName);
       }
@@ -1041,15 +1182,29 @@ async function runAgent(
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : 'Agent execution failed';
     logger.error({ err, sessionId }, 'Agent loop threw');
-    emitToSession(sessionId, {
-      type: 'error',
-      message: 'Agent encountered an unexpected error',
-    });
+    // Claim finalize for the exception path too, so an error + a racing stop
+    // don't both persist. If another finalize already won, suppress ours.
+    if (claimFinalize(effectiveRunId)) {
+      didFinalize = true;
+      emitToSession(sessionId, {
+        type: 'error',
+        message: 'Agent encountered an unexpected error',
+      });
+    } else {
+      errorMessage = null;
+    }
   } finally {
+    unregisterRun(effectiveRunId);
+    // Persist only if THIS invocation won the finalize claim. A lost race means
+    // another finalize already persisted exactly one assistant message.
     // Always persist whatever was produced. If there was an error, append
     // a note so the user sees context on page refresh.
     try {
-      if (assistantContent || errorMessage) {
+      const interrupted = stopReason === 'interrupted';
+      // Persist when we won finalize AND there's something to persist — content,
+      // an error, or an interruption (an interrupted run always persists a row,
+      // even an empty partial, so the transcript records the stopped turn).
+      if (didFinalize && (assistantContent || errorMessage || interrupted)) {
         const finalContent = errorMessage
           ? assistantContent
             ? `${assistantContent}\n\n_[Error: ${errorMessage}]_`
@@ -1065,6 +1220,10 @@ async function runAgent(
             error: errorMessage ?? undefined,
             errorSource: sawErrorEvent ? 'llm' : errorMessage ? 'runtime' : undefined,
             sources: contextSources.length > 0 ? contextSources : undefined,
+            // W2: mark interrupted partials so the UI renders a "stopped"
+            // affordance and history stays coherent.
+            interrupted: interrupted ? true : undefined,
+            stopReason: stopReason && stopReason !== 'done' ? stopReason : undefined,
           },
           undefined,
           respondingToMessageId,

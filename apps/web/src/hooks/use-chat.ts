@@ -17,6 +17,8 @@ import {
   onTaskSuggested,
   onTaskSuggestionResolved,
   onTaskProgress,
+  onRunStarted,
+  emitStopRun,
   connectSocket,
 } from '@/lib/socket-client';
 import type {
@@ -54,10 +56,14 @@ interface UseChatReturn {
   sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => Promise<void>;
   retryLastMessage: () => void;
   regenerateMessage: () => void;
+  /** W2: stop the current in-flight run (interrupt). No-op if nothing streaming. */
+  stopRun: () => void;
   isStreaming: boolean;
   thinking: string | null;
   toolCalls: ToolCallInfo[];
   error: string | null;
+  /** W2: non-fatal notice surfaced mid-run (doom-loop break, budget, etc.). Null when none. */
+  warning: string | null;
   presenceUsers: PresenceUser[];
   typingUsers: PresenceUser[];
   composingUsers: ComposingUser[];
@@ -99,6 +105,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
   const [thinking, setThinking] = useState<string | null>(null);
   const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  // W2: runId for the current turn, learned from the chat:run_started event.
+  // Used to target a stop. Null between runs.
+  const currentRunIdRef = useRef<string | null>(null);
+  // Mirror of isStreaming for use inside stable callbacks without re-creating
+  // them on every stream toggle (avoids stale closures).
+  const isStreamingRef = useRef(false);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
   const [typingUsers, setTypingUsers] = useState<PresenceUser[]>([]);
   const [composingUsers, setComposingUsers] = useState<ComposingUser[]>([]);
@@ -125,6 +138,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
   // Stable event handler — only references refs and state setters (stable)
   const handleEvent = useCallback((event: AgentEvent) => {
+    // W2: `warning` is a server ChatEvent not present in the (legacy) AgentEvent
+    // union consumed here. Handle it off the typed switch via a narrow read.
+    if ((event as { type: string }).type === 'warning') {
+      const message = (event as unknown as { message?: string }).message;
+      if (message) setWarning(message);
+      return;
+    }
     switch (event.type) {
       case 'thinking':
         setThinking(event.content);
@@ -198,22 +218,34 @@ export function useChat(sessionId: string | null): UseChatReturn {
         setSideEffectNotice({ toolName: event.toolName, provider: event.provider, shownAt: Date.now() });
         break;
 
-      case 'done':
+      case 'done': {
         setIsStreaming(false);
         setThinking(null);
+        // `stopReason` is a server ChatEvent field absent from the legacy
+        // AgentEvent union; read it via a narrow cast.
+        const stopReason = (event as unknown as { stopReason?: string }).stopReason;
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last && last.id === '__streaming__') {
+            // W2: stamp the finalized message with its stop reason so the list
+            // can render a "stopped"/"budget reached" affordance on interrupted
+            // or capped partials.
+            const metadata =
+              stopReason && stopReason !== 'done'
+                ? { ...(last.metadata ?? {}), stopReason, interrupted: stopReason === 'interrupted' || undefined }
+                : (last.metadata ?? {});
             return [
               ...prev.slice(0, -1),
-              { ...last, id: `msg_${Date.now()}` },
+              { ...last, id: `msg_${Date.now()}`, metadata },
             ];
           }
           return prev;
         });
+        currentRunIdRef.current = null;
         streamingContentRef.current = '';
         setToolCalls([]);
         break;
+      }
     }
   }, []);
 
@@ -231,6 +263,10 @@ export function useChat(sessionId: string | null): UseChatReturn {
       connectSocket();
       joinSession(sid);
       const unsubAgent = onSessionEvent(sid, handleEvent);
+      // W2: capture the runId for the active turn so Stop can target it.
+      const unsubRunStarted = onRunStarted((p) => {
+        if (p.sessionId === sid) currentRunIdRef.current = p.runId;
+      });
 
       // Presence subscriptions
       const unsubList = onPresenceList((members) => {
@@ -411,6 +447,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
       subscribedSessionRef.current = sid;
       cleanupRef.current = () => {
         unsubAgent();
+        unsubRunStarted();
         unsubList();
         unsubJoin();
         unsubLeave();
@@ -530,7 +567,17 @@ export function useChat(sessionId: string | null): UseChatReturn {
       // CRITICAL: subscribe BEFORE posting so we never miss WebSocket events
       subscribe(sid);
 
+      // W2 steering (interrupt-and-continue): if a run is already streaming,
+      // stop it before sending the new turn. The server also aborts the prior
+      // run when the new message arrives (flag-gated); stopping here makes the
+      // UI snappy and de-risks a race where the client sends before the server
+      // sees the overlap.
+      if (isStreamingRef.current && currentRunIdRef.current) {
+        emitStopRun(sid, currentRunIdRef.current);
+      }
+
       setError(null);
+      setWarning(null);
       streamingContentRef.current = '';
 
       const userMsg: ChatMessage = {
@@ -567,6 +614,11 @@ export function useChat(sessionId: string | null): UseChatReturn {
     [sessionId, subscribe],
   );
 
+  // Keep the streaming ref in sync for use inside stable callbacks.
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
+
   const retryLastMessage = useCallback(() => {
     const content = lastFailedContentRef.current;
     if (!content) return;
@@ -574,6 +626,15 @@ export function useChat(sessionId: string | null): UseChatReturn {
     setError(null);
     sendMessage(content);
   }, [sendMessage]);
+
+  // W2: stop the in-flight run. Emits over WS (cross-instance via Redis). The
+  // server finalizes the run as interrupted; the `done{interrupted}` event
+  // flips isStreaming off and stamps the partial.
+  const stopRun = useCallback(() => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    emitStopRun(sid, currentRunIdRef.current ?? undefined);
+  }, []);
 
   const dismissSideEffectNotice = useCallback(() => setSideEffectNotice(null), []);
 
@@ -658,8 +719,8 @@ export function useChat(sessionId: string | null): UseChatReturn {
   }, [sendMessage]);
 
   return {
-    messages, sendMessage, retryLastMessage, regenerateMessage,
-    isStreaming, thinking, toolCalls, error, presenceUsers,
+    messages, sendMessage, retryLastMessage, regenerateMessage, stopRun,
+    isStreaming, thinking, toolCalls, error, warning, presenceUsers,
     typingUsers, composingUsers,
     messageAuthors, unreadAnchorId, markRead,
     taskChips, taskSuggestions, dismissTaskSuggestion,

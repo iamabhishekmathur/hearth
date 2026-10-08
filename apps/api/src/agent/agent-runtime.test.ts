@@ -14,6 +14,41 @@ vi.mock('./tool-router.js', () => ({
   executeTool: vi.fn(),
 }));
 
+// Mock the model catalog — the loop now validates the model via resolveModel.
+// The factory is hoisted, so the error class + known-set live inside it.
+vi.mock('../llm/model-catalog.js', () => {
+  class UnknownModelError extends Error {
+    readonly code = 'UNKNOWN_MODEL';
+    constructor(public readonly modelId: string) {
+      super(`Unknown model '${modelId}'`);
+      this.name = 'UnknownModelError';
+    }
+  }
+  const known = new Set(['claude-sonnet-4-6', 'claude-opus-4-8', 'gpt-4o']);
+  return {
+    UnknownModelError,
+    resolveModel: vi.fn((id: string) => {
+      if (!known.has(id)) throw new UnknownModelError(id);
+      return { id, providerId: 'anthropic', contextWindow: 1_000_000, caps: { vision: true, tools: true, reasoning: true } };
+    }),
+  };
+});
+
+// Mock prisma — org default model lookup; default: no org default (null).
+const orgSettingsRef: { settings: Record<string, unknown> | null } = { settings: {} };
+vi.mock('../lib/prisma.js', () => ({
+  prisma: {
+    org: {
+      findUnique: vi.fn(async () => ({ settings: orgSettingsRef.settings })),
+    },
+  },
+}));
+
+// No-op usage metering.
+vi.mock('../extensions/usage-metering.js', () => ({
+  getUsageRecorder: () => null,
+}));
+
 import { agentLoop } from './agent-runtime.js';
 import { providerRegistry } from '../llm/provider-registry.js';
 import { executeTool } from './tool-router.js';
@@ -47,12 +82,17 @@ async function collectEvents(gen: AsyncGenerator<ChatEvent>): Promise<ChatEvent[
   return result;
 }
 
+function tool(name = 'search') {
+  return { name, description: `${name} tool`, inputSchema: { type: 'object' }, handler: vi.fn() };
+}
+
 describe('agentLoop', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    orgSettingsRef.settings = {};
   });
 
-  it('yields text_delta events then done for a simple text response', async () => {
+  it('yields text_delta events then done{stopReason:done} for a simple text response', async () => {
     mockedChatWithFallback.mockReturnValue(
       streamEvents([
         { type: 'text_delta', content: 'Hello' },
@@ -61,31 +101,19 @@ describe('agentLoop', () => {
       ]),
     );
 
-    const events = await collectEvents(
-      agentLoop(makeContext(), [{ role: 'user', content: 'Hi' }]),
-    );
+    const events = await collectEvents(agentLoop(makeContext(), [{ role: 'user', content: 'Hi' }]));
 
     expect(events).toEqual([
       { type: 'text_delta', content: 'Hello' },
       { type: 'text_delta', content: ' world' },
-      { type: 'done', usage: { inputTokens: 10, outputTokens: 5 } },
+      { type: 'done', usage: { inputTokens: 10, outputTokens: 5 }, stopReason: 'done' },
     ]);
     expect(mockedChatWithFallback).toHaveBeenCalledTimes(1);
   });
 
   it('handles tool call flow: yields tool events, executes tool, makes second LLM call', async () => {
-    const tool = {
-      name: 'search',
-      description: 'Search things',
-      inputSchema: { type: 'object' },
-      handler: vi.fn(),
-    };
-
     mockedExecuteTool.mockResolvedValue({ output: { result: 'mock' } });
 
-    // First LLM call returns a tool call. The runtime accumulates the tool
-    // input via tool_call_delta events (streaming), not tool_call_start,
-    // so emit a delta with the JSON payload.
     mockedChatWithFallback.mockReturnValueOnce(
       streamEvents([
         { type: 'tool_call_start', id: 'tc-1', tool: 'search', input: {} },
@@ -94,8 +122,6 @@ describe('agentLoop', () => {
         { type: 'done', usage: { inputTokens: 10, outputTokens: 5 } },
       ]),
     );
-
-    // Second LLM call returns final text
     mockedChatWithFallback.mockReturnValueOnce(
       streamEvents([
         { type: 'text_delta', content: 'Found it' },
@@ -104,13 +130,9 @@ describe('agentLoop', () => {
     );
 
     const events = await collectEvents(
-      agentLoop(makeContext({ tools: [tool] }), [{ role: 'user', content: 'search for foo' }]),
+      agentLoop(makeContext({ tools: [tool()] }), [{ role: 'user', content: 'search for foo' }]),
     );
 
-    // Should have: tool_call_start, tool_call_delta, tool_call_end from LLM
-    // stream, then text_delta from second call, then done.
-    // (Execution itself does not re-emit tool events; the LLM stream is the
-    // single source of truth for tool_call lifecycle.)
     expect(events).toEqual([
       { type: 'tool_call_start', id: 'tc-1', tool: 'search', input: {} },
       { type: 'tool_call_delta', id: 'tc-1', input: '{"q":"foo"}' },
@@ -118,111 +140,224 @@ describe('agentLoop', () => {
       { type: 'tool_progress', toolCallId: 'tc-1', toolName: 'search', status: 'started' },
       { type: 'tool_progress', toolCallId: 'tc-1', toolName: 'search', status: 'completed', durationMs: expect.any(Number) },
       { type: 'text_delta', content: 'Found it' },
-      { type: 'done', usage: { inputTokens: 20, outputTokens: 10 } },
+      { type: 'done', usage: { inputTokens: 20, outputTokens: 10 }, stopReason: 'done' },
     ]);
-
-    expect(mockedChatWithFallback).toHaveBeenCalledTimes(2);
     expect(mockedExecuteTool).toHaveBeenCalledOnce();
-    expect(mockedExecuteTool).toHaveBeenCalledWith('search', { q: 'foo' }, expect.any(Map), 'user-1');
+    // Signal is threaded (undefined here — no abort).
+    expect(mockedExecuteTool).toHaveBeenCalledWith('search', { q: 'foo' }, expect.any(Map), 'user-1', undefined);
   });
 
-  it('yields error and returns immediately when LLM streams an error event', async () => {
+  it('yields error + done{error} when the LLM streams an error event', async () => {
     mockedChatWithFallback.mockReturnValue(
       streamEvents([
         { type: 'text_delta', content: 'partial' },
         { type: 'error', message: 'rate limit exceeded' },
-        // Events after error should not appear
-        { type: 'text_delta', content: 'should not appear' },
       ]),
     );
 
-    const events = await collectEvents(
-      agentLoop(makeContext(), [{ role: 'user', content: 'Hi' }]),
-    );
+    const events = await collectEvents(agentLoop(makeContext(), [{ role: 'user', content: 'Hi' }]));
 
-    // The generator returns on error, so the text_delta after error is still yielded
-    // by the stream but the agentLoop returns after yielding the error.
-    // Actually looking at the code: the for-await loop processes events one by one,
-    // so after error is yielded the function returns immediately.
-    // But the stream itself yields all events — the for-await just stops consuming.
     expect(events[0]).toEqual({ type: 'text_delta', content: 'partial' });
     expect(events[1]).toEqual({ type: 'error', message: 'rate limit exceeded' });
-    expect(events).toHaveLength(2);
+    expect(events[2]).toEqual({ type: 'done', usage: { inputTokens: 0, outputTokens: 0 }, stopReason: 'error' });
   });
 
-  it('gracefully summarizes after MAX_ITERATIONS (25) when LLM keeps returning tool calls', async () => {
-    const tool = {
-      name: 'loop_tool',
-      description: 'Always called',
-      inputSchema: { type: 'object' },
-      handler: vi.fn(),
-    };
-
-    mockedExecuteTool.mockResolvedValue({ output: { result: 'ok' } });
-
-    let callCount = 0;
-    mockedChatWithFallback.mockImplementation(() => {
-      callCount++;
-      // First 25 calls return tool calls; the 26th (graceful summary) returns text
-      if (callCount <= 25) {
-        return streamEvents([
-          { type: 'tool_call_start', id: 'tc-loop', tool: 'loop_tool', input: {} },
-          { type: 'tool_call_end', id: 'tc-loop' },
-          { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } },
-        ]);
-      }
-      return streamEvents([
-        { type: 'text_delta', content: 'Summary of progress...' },
-        { type: 'done', usage: { inputTokens: 10, outputTokens: 5 } },
-      ]);
-    });
-
-    const events = await collectEvents(
-      agentLoop(makeContext({ tools: [tool] }), [{ role: 'user', content: 'loop' }]),
-    );
-
-    const lastEvent = events[events.length - 1];
-    expect(lastEvent).toEqual({
-      type: 'done',
-      usage: { inputTokens: 10, outputTokens: 5 },
-    });
-
-    // 25 tool-call iterations + 1 graceful summary call = 26
-    expect(mockedChatWithFallback).toHaveBeenCalledTimes(26);
-  });
-
-  it('yields done with usage when response has no text and no tool calls', async () => {
-    mockedChatWithFallback.mockReturnValue(
-      streamEvents([
-        { type: 'done', usage: { inputTokens: 5, outputTokens: 0 } },
-      ]),
-    );
-
-    const events = await collectEvents(
-      agentLoop(makeContext(), [{ role: 'user', content: 'empty' }]),
-    );
-
-    expect(events).toEqual([
-      { type: 'done', usage: { inputTokens: 5, outputTokens: 0 } },
-    ]);
-  });
-
-  it('uses the provided model from context instead of the default', async () => {
+  it('uses the provided model from context and passes the abort signal', async () => {
     mockedChatWithFallback.mockReturnValue(
       streamEvents([
         { type: 'text_delta', content: 'ok' },
         { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } },
       ]),
     );
+    const ctl = new AbortController();
 
-    await collectEvents(
-      agentLoop(makeContext({ model: 'gpt-4o' }), [{ role: 'user', content: 'test' }]),
-    );
+    await collectEvents(agentLoop(makeContext({ model: 'gpt-4o', abortSignal: ctl.signal }), [{ role: 'user', content: 't' }]));
 
     expect(mockedChatWithFallback).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-4o' }),
+      expect.objectContaining({ model: 'gpt-4o', signal: ctl.signal }),
       undefined,
     );
+  });
+
+  // ── §5.1 case 2 (headline): unknown model surfaces an error, no silent fallback ──
+  it('surfaces UnknownModelError as error + done{error} — no silent fallback', async () => {
+    const events = await collectEvents(
+      agentLoop(makeContext({ model: 'claude-haiku-4-5' }), [{ role: 'user', content: 'hi' }]),
+    );
+    expect(events[0].type).toBe('error');
+    expect((events[0] as { message: string }).message).toContain('claude-haiku-4-5');
+    expect(events[1]).toEqual({ type: 'done', usage: { inputTokens: 0, outputTokens: 0 }, stopReason: 'error' });
+    // The provider was never called — no answer produced on a different model.
+    expect(mockedChatWithFallback).not.toHaveBeenCalled();
+  });
+
+  it('uses the org default model when no request model is set', async () => {
+    orgSettingsRef.settings = { defaultModel: 'claude-opus-4-8' };
+    mockedChatWithFallback.mockReturnValue(
+      streamEvents([{ type: 'text_delta', content: 'ok' }, { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } }]),
+    );
+
+    await collectEvents(agentLoop(makeContext(), [{ role: 'user', content: 't' }]));
+
+    expect(mockedChatWithFallback).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-opus-4-8' }),
+      undefined,
+    );
+  });
+
+  // ── §5.1 case 11: abort mid-stream ──
+  it('case 11: an aborted signal stops the loop and emits done{interrupted}', async () => {
+    const ctl = new AbortController();
+    // Provider stream that aborts partway: emit one delta, then the controller
+    // fires, then the stream ends (mimicking a provider honoring the signal).
+    mockedChatWithFallback.mockImplementation(() =>
+      (async function* () {
+        yield { type: 'text_delta', content: 'partial answer' } as ChatEvent;
+        ctl.abort();
+        // Provider stops yielding once aborted.
+      })(),
+    );
+
+    const events = await collectEvents(
+      agentLoop(makeContext({ abortSignal: ctl.signal }), [{ role: 'user', content: 'long task' }]),
+    );
+
+    expect(events.some((e) => e.type === 'text_delta')).toBe(true);
+    const done = events[events.length - 1];
+    expect(done).toEqual({ type: 'done', usage: { inputTokens: 0, outputTokens: 0 }, stopReason: 'interrupted' });
+  });
+
+  it('case 11b: an already-aborted signal finishes immediately as interrupted', async () => {
+    const ctl = new AbortController();
+    ctl.abort();
+    const events = await collectEvents(
+      agentLoop(makeContext({ abortSignal: ctl.signal }), [{ role: 'user', content: 'x' }]),
+    );
+    expect(events).toEqual([{ type: 'done', usage: { inputTokens: 0, outputTokens: 0 }, stopReason: 'interrupted' }]);
+    expect(mockedChatWithFallback).not.toHaveBeenCalled();
+  });
+
+  it('case 11c: abort before a tool fires discards tool work and interrupts', async () => {
+    const ctl = new AbortController();
+    mockedExecuteTool.mockResolvedValue({ output: {} });
+    mockedChatWithFallback.mockImplementation(() =>
+      (async function* () {
+        yield { type: 'tool_call_start', id: 'tc-1', tool: 'search', input: {} } as ChatEvent;
+        yield { type: 'tool_call_end', id: 'tc-1' } as ChatEvent;
+        yield { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } } as ChatEvent;
+        // Abort *after* the stream, before the loop's pre-tool checkpoint.
+        ctl.abort();
+      })(),
+    );
+
+    const events = await collectEvents(
+      agentLoop(makeContext({ tools: [tool()], abortSignal: ctl.signal }), [{ role: 'user', content: 'go' }]),
+    );
+
+    const done = events[events.length - 1];
+    expect(done).toEqual({ type: 'done', usage: { inputTokens: 1, outputTokens: 1 }, stopReason: 'interrupted' });
+    // Tool never executed (aborted at the checkpoint).
+    expect(mockedExecuteTool).not.toHaveBeenCalled();
+  });
+
+  // ── §5.1 case 14: doom-loop detection ──
+  it('case 14: 3 identical tool fingerprints → warning + toolless summary, no 4th tool call', async () => {
+    mockedExecuteTool.mockResolvedValue({ output: { result: 'same-every-time' } });
+
+    let toolCalls = 0;
+    mockedChatWithFallback.mockImplementation(() => {
+      toolCalls++;
+      if (toolCalls <= 10) {
+        return streamEvents([
+          { type: 'tool_call_start', id: 'tc', tool: 'loop_tool', input: {} },
+          { type: 'tool_call_delta', id: 'tc', input: '{"q":"x"}' },
+          { type: 'tool_call_end', id: 'tc' },
+          { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } },
+        ]);
+      }
+      return streamEvents([
+        { type: 'text_delta', content: 'summary' },
+        { type: 'done', usage: { inputTokens: 2, outputTokens: 2 } },
+      ]);
+    });
+
+    const events = await collectEvents(
+      agentLoop(makeContext({ tools: [tool('loop_tool')] }), [{ role: 'user', content: 'loop' }]),
+    );
+
+    expect(events.some((e) => e.type === 'warning')).toBe(true);
+    const done = events[events.length - 1];
+    expect(done.type).toBe('done');
+    // 3 identical iterations then the summary call = 4 provider calls total.
+    expect(mockedChatWithFallback).toHaveBeenCalledTimes(4);
+    // Exactly 3 tool executions — the loop broke before a 4th.
+    expect(mockedExecuteTool).toHaveBeenCalledTimes(3);
+  });
+
+  // ── §5.1 case 15: graceful degradation at the iteration cap ──
+  it('case 15: maxIterations reached → graceful summary (not a thrown error)', async () => {
+    mockedExecuteTool.mockImplementation(async (_n, input) => ({ output: { echoed: input } }));
+
+    let call = 0;
+    // Every iteration returns a *different* tool input so doom-loop doesn't fire;
+    // we hit the iteration cap instead.
+    mockedChatWithFallback.mockImplementation(() => {
+      call++;
+      if (call <= 3) {
+        return streamEvents([
+          { type: 'tool_call_start', id: `tc${call}`, tool: 'step', input: {} },
+          { type: 'tool_call_delta', id: `tc${call}`, input: `{"n":${call}}` },
+          { type: 'tool_call_end', id: `tc${call}` },
+          { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } },
+        ]);
+      }
+      return streamEvents([
+        { type: 'text_delta', content: 'final summary' },
+        { type: 'done', usage: { inputTokens: 3, outputTokens: 2 } },
+      ]);
+    });
+
+    const events = await collectEvents(
+      agentLoop(makeContext({ tools: [tool('step')], maxIterations: 3 }), [{ role: 'user', content: 'go' }]),
+    );
+
+    expect(events.some((e) => e.type === 'warning')).toBe(true);
+    const done = events[events.length - 1];
+    expect(done).toMatchObject({ type: 'done', stopReason: 'max_iterations' });
+    // 3 tool iterations + 1 summary call.
+    expect(mockedChatWithFallback).toHaveBeenCalledTimes(4);
+  });
+
+  // ── §5.1 case 16: per-run token budget ──
+  it('case 16: maxTokens budget stops the run with done{budget}', async () => {
+    mockedExecuteTool.mockImplementation(async (_n, input) => ({ output: { echoed: input } }));
+
+    let call = 0;
+    mockedChatWithFallback.mockImplementation(() => {
+      call++;
+      // First iteration spends 100 tokens via a tool call, exceeding the budget.
+      if (call === 1) {
+        return streamEvents([
+          { type: 'tool_call_start', id: 'tc1', tool: 'step', input: {} },
+          { type: 'tool_call_delta', id: 'tc1', input: '{"n":1}' },
+          { type: 'tool_call_end', id: 'tc1' },
+          { type: 'done', usage: { inputTokens: 60, outputTokens: 40 } },
+        ]);
+      }
+      // The toolless summary call.
+      return streamEvents([
+        { type: 'text_delta', content: 'budget summary' },
+        { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } },
+      ]);
+    });
+
+    const events = await collectEvents(
+      agentLoop(makeContext({ tools: [tool('step')], maxTokens: 50 }), [{ role: 'user', content: 'go' }]),
+    );
+
+    expect(events.some((e) => e.type === 'warning' && (e as { message: string }).message.includes('budget'))).toBe(true);
+    const done = events[events.length - 1];
+    expect(done).toMatchObject({ type: 'done', stopReason: 'budget' });
   });
 
   it('passes thinking events through', async () => {
@@ -234,9 +369,7 @@ describe('agentLoop', () => {
       ]),
     );
 
-    const events = await collectEvents(
-      agentLoop(makeContext(), [{ role: 'user', content: 'think' }]),
-    );
+    const events = await collectEvents(agentLoop(makeContext(), [{ role: 'user', content: 'think' }]));
 
     expect(events[0]).toEqual({ type: 'thinking', content: 'Let me think...' });
     expect(events[1]).toEqual({ type: 'text_delta', content: 'Answer' });
