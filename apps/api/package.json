@@ -28,9 +28,15 @@
     "seed:gtm-demo": "tsx src/scripts/seed-gtm-demo.ts"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "5.0.113",
+    "@ai-sdk/anthropic": "4.0.78",
+    "@ai-sdk/google": "4.0.93",
+    "@ai-sdk/openai": "4.0.91",
+    "@ai-sdk/openai-compatible": "3.0.67",
     "@anthropic-ai/sdk": "^0.39.0",
     "@hearth/shared": "workspace:*",
     "@prisma/client": "^6.0.0",
+    "ai": "7.0.135",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.0.0",
     "connect-pg-simple": "^10.0.0",
@@ -59,7 +65,6 @@
   "devDependencies": {
     "@faker-js/faker": "^9.6.0",
     "@types/bcrypt": "^5.0.2",
-    "@types/supertest": "^6.0.2",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
@@ -73,6 +78,7 @@
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-local": "^1.0.38",
     "@types/pdf-parse": "^1.1.5",
+    "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^4.1.4",
     "prisma": "^6.0.0",
