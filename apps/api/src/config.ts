@@ -20,6 +20,21 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OLLAMA_BASE_URL: z.string().optional(),
 
+  // Agent-loop modernization (opencode adaptation; see plans/)
+  // When true, the model catalog may refresh from models.dev in the background.
+  // Left false/unset for self-host/air-gapped installs, which run entirely on
+  // the committed snapshot (apps/api/src/llm/models.snapshot.json).
+  HEARTH_MODEL_CATALOG_REFRESH: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  // Deprecation-window kill-switch (W1): re-registers the legacy hand-rolled
+  // providers for one release while the AI SDK provider path is validated.
+  HEARTH_LEGACY_PROVIDERS: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+
   // Google OAuth (optional)
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

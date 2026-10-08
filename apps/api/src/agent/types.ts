@@ -1,4 +1,4 @@
-import type { ChatEvent, NormalizedEvent } from '@hearth/shared';
+import type { AgentMode, ChatEvent, NormalizedEvent } from '@hearth/shared';
 import type { RoutineRunContext } from '../services/routine-context-service.js';
 import type { CitationSource } from './system-prompt.js';
 
@@ -13,6 +13,15 @@ export interface AgentContext {
   activeArtifactId?: string;
   timezone?: string;
   visionEnabled?: boolean;
+  // ── Agent-loop modernization (opencode adaptation; see plans/) ──
+  // W2: unique id for this run (cross-instance stop) + cancellation signal the
+  // loop and providers honor, plus optional per-run budgets.
+  runId?: string;
+  abortSignal?: AbortSignal;
+  maxIterations?: number;
+  maxTokens?: number;
+  // W4: plan vs build. Undefined is treated as 'build' (current behavior).
+  agentMode?: AgentMode;
   // Routine-specific context (Features 1, 2)
   routineRunContext?: RoutineRunContext;
   triggerEvent?: NormalizedEvent;

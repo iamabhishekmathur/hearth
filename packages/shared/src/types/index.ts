@@ -1,4 +1,5 @@
 export * from './llm.js';
+export * from './agent.js';
 export * from './user.js';
 export * from './auth.js';
 export * from './memory.js';

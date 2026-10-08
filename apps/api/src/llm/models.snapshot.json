@@ -1,0 +1,34 @@
+{
+  "_comment": "Committed snapshot of the models.dev catalog. Source of truth for self-host/air-gapped installs; refreshed in cloud when HEARTH_MODEL_CATALOG_REFRESH=true. Regenerated weekly via CI. See plans/opencode-adaptation-plan.md (W1).",
+  "_generatedAt": "2026-10-08",
+  "models": {
+    "claude-opus-4-8": {
+      "id": "claude-opus-4-8",
+      "providerId": "anthropic",
+      "contextWindow": 1000000,
+      "caps": { "vision": true, "tools": true, "reasoning": true },
+      "pricing": { "inputPer1M": 5, "outputPer1M": 25 }
+    },
+    "claude-sonnet-4-6": {
+      "id": "claude-sonnet-4-6",
+      "providerId": "anthropic",
+      "contextWindow": 1000000,
+      "caps": { "vision": true, "tools": true, "reasoning": true },
+      "pricing": { "inputPer1M": 3, "outputPer1M": 15 }
+    },
+    "claude-haiku-4-5-20251001": {
+      "id": "claude-haiku-4-5-20251001",
+      "providerId": "anthropic",
+      "contextWindow": 200000,
+      "caps": { "vision": true, "tools": true, "reasoning": false },
+      "pricing": { "inputPer1M": 1, "outputPer1M": 5 }
+    },
+    "gpt-4o": {
+      "id": "gpt-4o",
+      "providerId": "openai",
+      "contextWindow": 128000,
+      "caps": { "vision": true, "tools": true, "reasoning": false },
+      "pricing": { "inputPer1M": 2.5, "outputPer1M": 10 }
+    }
+  }
+}
