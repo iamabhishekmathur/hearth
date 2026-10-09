@@ -17,7 +17,7 @@ import { MemoryDebugPanel } from '@/components/chat/memory-debug-panel';
 import { IntegrationsIndicator } from '@/components/chat/integrations-indicator';
 import { uploadFile } from '@/lib/upload-client';
 import { getSocket } from '@/lib/socket-client';
-import type { PresenceUser, SessionVisibility } from '@hearth/shared';
+import type { AgentMode, PresenceUser, SessionVisibility } from '@hearth/shared';
 import { HEyebrow, HPill, HChip, HKbd, HButton, HAvatar } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
 
@@ -29,13 +29,14 @@ export function ChatPage() {
   const activeTasks = useActiveSessionTasks(activeSessionId);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const {
-    messages, sendMessage, retryLastMessage, regenerateMessage,
-    isStreaming, thinking, toolCalls, error, presenceUsers,
+    messages, sendMessage, retryLastMessage, regenerateMessage, stopRun,
+    isStreaming, thinking, toolCalls, error, warning, presenceUsers,
     typingUsers, composingUsers,
     messageAuthors, unreadAnchorId, markRead,
     taskChips, taskSuggestions, dismissTaskSuggestion,
     taskToast, dismissTaskToast, unlinkTask,
     sideEffectNotice, dismissSideEffectNotice,
+    permissionRequests, respondToPermission,
   } = useChat(activeSessionId);
   const {
     artifacts, activeArtifact, panelOpen, versions,
@@ -149,8 +150,25 @@ export function ChatPage() {
       .catch(() => {});
   }, []);
 
+  // W2+: org agent feature flags. `interruptible` gates the live input + Stop
+  // button; when off, the input disables during streaming (legacy behavior).
+  const [interruptible, setInterruptible] = useState(false);
+  // W4: `planMode` gates the Plan/Build toggle and plan rendering.
+  const [planModeEnabled, setPlanModeEnabled] = useState(false);
+  // W6: `slashCommands` gates the `/` command menu.
+  const [slashCommandsEnabled, setSlashCommandsEnabled] = useState(false);
+  useEffect(() => {
+    api.get<{ data: { interruptible?: boolean; planMode?: boolean; slashCommands?: boolean } }>('/chat/features')
+      .then((res) => {
+        setInterruptible(res.data.interruptible === true);
+        setPlanModeEnabled(res.data.planMode === true);
+        setSlashCommandsEnabled(res.data.slashCommands === true);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleSendMessage = useCallback(
-    async (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser) => {
+    async (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => {
       let sessionId = activeSessionId;
       if (!sessionId) {
         try {
@@ -165,9 +183,23 @@ export function ChatPage() {
         const results = await Promise.all(attachments.map((att) => uploadFile(att.file)));
         attachmentIds = results.filter((r) => r !== null).map((r) => r!.id);
       }
-      sendMessage(content, sessionId, activeArtifact?.id, attachmentIds.length > 0 ? attachmentIds : undefined, mentionUser ? { subjectUserId: mentionUser.id } : undefined);
+      sendMessage(content, sessionId, activeArtifact?.id, attachmentIds.length > 0 ? attachmentIds : undefined, mentionUser ? { subjectUserId: mentionUser.id } : undefined, modelOverride, agentMode);
     },
     [activeSessionId, createSession, sendMessage, activeArtifact],
+  );
+
+  // W4: "Approve & Build" — approve a plan message's plan and start a Build run.
+  const handleApproveBuild = useCallback(
+    async (messageId: string) => {
+      const sid = activeSessionId;
+      if (!sid) return;
+      try {
+        await api.post(`/chat/sessions/${sid}/messages/${messageId}/approve-build`, {});
+      } catch {
+        // Surface failures silently for now; the plan card stays actionable.
+      }
+    },
+    [activeSessionId],
   );
 
   const handleNewSession = useCallback(() => setActiveSessionId(null), []);
@@ -287,6 +319,13 @@ export function ChatPage() {
             />
           )}
 
+          {/* Warning banner (W2: doom-loop break, budget, max-iterations) */}
+          {warning && (
+            <div className="flex items-center justify-between border-b px-5 py-2 text-sm animate-fade-in" style={{ borderColor: 'var(--hearth-warn)', background: 'color-mix(in srgb, var(--hearth-warn) 8%, transparent)', color: 'var(--hearth-warn)' }}>
+              <span>{warning}</span>
+            </div>
+          )}
+
           {/* Error banner */}
           {error && (
             <div className="flex items-center justify-between border-b px-5 py-2 text-sm animate-fade-in" style={{ borderColor: 'var(--hearth-err)', background: 'color-mix(in srgb, var(--hearth-err) 8%, transparent)', color: 'var(--hearth-err)' }}>
@@ -315,12 +354,22 @@ export function ChatPage() {
             taskSuggestions={taskSuggestions}
             onDismissTaskSuggestion={dismissTaskSuggestion}
             onUnlinkTask={unlinkTask}
+            permissionRequests={permissionRequests}
+            onRespondToPermission={respondToPermission}
+            planMode={planModeEnabled}
+            onApproveBuild={handleApproveBuild}
           />
 
           {/* Input */}
           <ChatInput
             onSend={handleSendMessage}
-            disabled={isStreaming}
+            isStreaming={isStreaming}
+            onStop={stopRun}
+            interruptible={interruptible}
+            planMode={planModeEnabled}
+            slashCommands={slashCommandsEnabled}
+            onShare={() => setShowShareDialog(true)}
+            onNewSession={handleNewSession}
             cognitiveEnabled={cognitiveEnabled}
             sessionId={activeSessionId}
             typingUsers={typingUsers}

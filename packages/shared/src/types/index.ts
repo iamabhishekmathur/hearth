@@ -1,4 +1,7 @@
+import type { StopReason } from './llm.js';
+
 export * from './llm.js';
+export * from './agent.js';
 export * from './user.js';
 export * from './auth.js';
 export * from './memory.js';
@@ -138,15 +141,29 @@ export interface TaskSuggestionResolvedEvent {
   acceptedTaskId?: string;
 }
 
+// NOTE: this UI-facing event union has historically diverged from the live
+// server `ChatEvent` (packages/shared/src/types/llm.ts). The variants below are
+// additive alignment so the client has a typed home for everything the server
+// now actually streams (W2 stop/warning, W3 permission prompts) without
+// breaking the pre-existing artifact/file_created consumers. A full unification
+// of AgentEvent ↔ ChatEvent is tracked as follow-up contract debt.
 export type AgentEvent =
   | { type: 'thinking'; content: string }
   | { type: 'text_delta'; content: string }
   | { type: 'tool_call_start'; tool: string; input: Record<string, unknown> }
+  | { type: 'tool_call_delta'; id: string; input: string }
+  | { type: 'tool_call_end'; id: string }
   | { type: 'tool_call_result'; tool: string; output: Record<string, unknown> }
+  | { type: 'tool_progress'; toolCallId: string; toolName: string; status: 'started' | 'completed' | 'failed'; durationMs?: number }
   | { type: 'side_effect'; toolName: string; provider: string }
+  // W3: interactive per-tool permission prompt (server → client).
+  | { type: 'permission_request'; callId: string; tool: string; input: Record<string, unknown> }
+  // W2: non-fatal mid-run notice (doom-loop break, budget warning).
+  | { type: 'warning'; message: string }
   | { type: 'file_created'; path: string; mime_type: string }
   | { type: 'error'; message: string }
-  | { type: 'done'; usage: { input_tokens: number; output_tokens: number } }
+  // W2: stopReason distinguishes normal completion from interrupted/capped runs.
+  | { type: 'done'; usage: { input_tokens: number; output_tokens: number }; stopReason?: StopReason }
   | { type: 'artifact_create'; artifact: Artifact }
   | { type: 'artifact_update'; artifactId: string; content: string; title: string; version: number };
 

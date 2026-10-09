@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import type { SkillScope, SkillStatus } from '@prisma/client';
+import type { RoutineParameter } from '@hearth/shared';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import * as skillService from '../services/skill-service.js';
 import * as proposalService from '../services/skill-proposal-service.js';
 import { logger } from '../lib/logger.js';
-import { isUniqueViolation } from '../lib/prisma-errors.js';
+import { isUniqueViolation, uniqueViolationTarget } from '../lib/prisma-errors.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -169,12 +170,15 @@ router.post('/', requireAuth, async (req, res, next) => {
       return;
     }
 
-    const { name, description, content, scope, teamId } = req.body as {
+    const { name, description, content, scope, teamId, invocableAsCommand, commandSlug, commandParams } = req.body as {
       name: string;
       description: string;
       content: string;
       scope?: SkillScope;
       teamId?: string;
+      invocableAsCommand?: boolean;
+      commandSlug?: string;
+      commandParams?: RoutineParameter[];
     };
 
     // Only team leads / admins may publish team- or org-scoped skills.
@@ -195,17 +199,30 @@ router.post('/', requireAuth, async (req, res, next) => {
       scope,
       teamId,
       status: effectiveStatus as SkillStatus,
+      invocableAsCommand,
+      commandSlug,
+      commandParams,
     });
 
     res.status(201).json({ data: skill });
   } catch (err) {
+    if (err instanceof skillService.InvalidCommandSlugError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     if (err instanceof Error && err.message.startsWith('Invalid skill:')) {
       res.status(400).json({ error: err.message });
       return;
     }
-    // A skill name must be unique per org — surface the collision as 409, not 500.
+    // A unique collision: either the skill name (per org) or — W6 — the command
+    // slug (per org). Surface as 409, not 500. The slug index name disambiguates.
     if (isUniqueViolation(err)) {
-      res.status(409).json({ error: 'A skill with this name already exists in your organization' });
+      const isSlug = /command_slug/.test(uniqueViolationTarget(err) ?? '');
+      res.status(409).json({
+        error: isSlug
+          ? 'A command with this slug already exists in your organization'
+          : 'A skill with this name already exists in your organization',
+      });
       return;
     }
     next(err);

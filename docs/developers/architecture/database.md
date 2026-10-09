@@ -235,6 +235,9 @@ Skill
   ├── status: draft | pending_review | published | deprecated
   ├── install_count
   ├── source_task_id (nullable: links to task that inspired the skill)
+  ├── invocable_as_command (W6: exposed in the chat `/` command menu)
+  ├── command_slug (W6: unique per org — the slash command, e.g. "standup")
+  ├── command_params (W6: RoutineParameter[] template validated against /slug args)
   └── UserSkill[] (per-user installation tracking)
 
 UserSkill
@@ -421,6 +424,23 @@ AuditLog
 ```
 
 Audit logs record all significant actions across the platform. Indexed by `(org_id, created_at DESC)` for efficient feed queries and `(user_id, created_at DESC)` for per-user history.
+
+### Tool Permission Policies
+
+```
+ToolPermissionPolicy
+  ├── org_id
+  ├── agent_profile_id (nullable: set for agent-profile-scoped rules)
+  ├── user_id (nullable: set for user-override rules)
+  ├── tool_pattern (glob against the tool name, e.g. "slack_post_message", "*_delete")
+  ├── arg_pattern (JSONB, nullable: structural subset match against tool input)
+  ├── level (string: "allow" | "ask" | "deny")
+  ├── user_scope_overridable (nullable boolean: false = org hard-rule a user may not widen)
+  ├── created_by
+  └── created_at
+```
+
+Backs the interactive per-tool permission gate for chat agent runs (gated by the org `permissions` feature flag). Rules are evaluated first-match-wins in order `created_at ASC`, with scope precedence user → agent profile → org default, falling back to built-in Hearth defaults. Scope is encoded by which of `agent_profile_id` / `user_id` are set (both null = org default). These interactive asks are **ephemeral** (WebSocket + in-memory park) and distinct from the durable routine approval gates (`approval_requests`). RLS-isolated by `org_id`.
 
 ### Governance
 
@@ -638,6 +658,7 @@ npx prisma migrate status
 | `20260419000000_add_cognitive_profiles` | Cognitive profiles and thought patterns for the Digital Co-Worker feature |
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
+| `20260615000000_skills_as_commands` | W6: adds `invocable_as_command`, `command_slug`, `command_params` to skills + a per-org unique index on `command_slug` so a slash command can't collide |
 
 ### Migration Best Practices
 

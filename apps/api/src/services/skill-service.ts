@@ -1,7 +1,9 @@
 import type { Prisma, SkillScope, SkillStatus } from '@prisma/client';
+import type { RoutineParameter } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
 import { loadSkillsFromDisk } from './skill-loader.js';
 import { validateSkill } from './skill-validator.js';
+import { isBuiltinSlug } from './command-registry.js';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -24,6 +26,43 @@ export interface CreateSkillInput {
   requiredCapabilities?: string[];
   recommendedModel?: string;
   status?: SkillStatus;
+  // W6 — expose this skill as a `/` command.
+  invocableAsCommand?: boolean;
+  commandSlug?: string;
+  commandParams?: RoutineParameter[];
+}
+
+/** Thrown when a command slug is invalid or shadows a built-in command (W6). */
+export class InvalidCommandSlugError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidCommandSlugError';
+  }
+}
+
+const SLUG_PATTERN = /^[a-z][a-z0-9-]*$/;
+
+/**
+ * Validate the W6 command fields on create/update. A slug is required when
+ * `invocableAsCommand` is set, must match the skill slug format, and must not
+ * shadow a built-in (`/task`, `/plan`, …). Throws `InvalidCommandSlugError`.
+ * The per-org uniqueness of the slug is enforced by the DB index (→ 409).
+ */
+export function assertValidCommandFields(input: {
+  invocableAsCommand?: boolean;
+  commandSlug?: string | null;
+}): void {
+  if (!input.invocableAsCommand) return;
+  const slug = input.commandSlug?.trim();
+  if (!slug) {
+    throw new InvalidCommandSlugError('A command slug is required when a skill is invocable as a command');
+  }
+  if (!SLUG_PATTERN.test(slug)) {
+    throw new InvalidCommandSlugError('Command slug must be lowercase letters, digits, and hyphens only (e.g. "standup")');
+  }
+  if (isBuiltinSlug(slug)) {
+    throw new InvalidCommandSlugError(`"/${slug}" is a reserved built-in command and cannot be used as a skill slug`);
+  }
 }
 
 // ── Queries ──────────────────────────────────────────────────────────
@@ -283,6 +322,9 @@ export async function createSkill(data: CreateSkillInput) {
     throw new Error(`Invalid skill: ${validation.errors.join(', ')}`);
   }
 
+  // W6 — validate the command fields (slug format + no built-in shadowing).
+  assertValidCommandFields({ invocableAsCommand: data.invocableAsCommand, commandSlug: data.commandSlug });
+
   return prisma.skill.create({
     data: {
       orgId: data.orgId,
@@ -296,6 +338,9 @@ export async function createSkill(data: CreateSkillInput) {
       requiredCapabilities: data.requiredCapabilities ?? [],
       recommendedModel: data.recommendedModel ?? null,
       status: data.status ?? 'draft',
+      invocableAsCommand: data.invocableAsCommand ?? false,
+      commandSlug: data.invocableAsCommand ? (data.commandSlug?.trim() ?? null) : null,
+      commandParams: (data.commandParams ?? undefined) as Prisma.InputJsonValue | undefined,
     },
     include: {
       author: { select: { id: true, name: true } },

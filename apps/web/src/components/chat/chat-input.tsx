@@ -1,8 +1,10 @@
-import { useState, useRef, useCallback, useEffect, type KeyboardEvent, type ClipboardEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { api } from '@/lib/api-client';
 import { emitTyping, emitComposing, emitHeartbeat } from '@/lib/socket-client';
-import type { ComposingUser, PresenceUser } from '@hearth/shared';
+import type { AgentMode, ComposingUser, PresenceUser, SlashCommand } from '@hearth/shared';
 import { TaskComposer, type TaskComposerSubmit } from './task-composer';
+import { useAuth } from '@/hooks/use-auth';
+import { useModelSelection, type PickerOption } from '@/hooks/use-model-selection';
 
 export interface PendingAttachment {
   id?: string; // Set after upload completes
@@ -19,8 +21,26 @@ export interface MentionUser {
 }
 
 interface ChatInputProps {
-  onSend: (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser) => void;
+  onSend: (content: string, attachments: PendingAttachment[], mentionUser?: MentionUser, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => void;
   disabled?: boolean;
+  /**
+   * W4: org `planMode` feature flag. When ON a Plan/Build toggle is shown
+   * (Tab toggles it) and the chosen mode is sent with the message. When OFF the
+   * toggle is hidden and messages run in today's single build mode.
+   */
+  planMode?: boolean;
+  /**
+   * W2: whether an agent run is currently streaming. When `interruptible` is on
+   * the input stays enabled during streaming and the Send button becomes Stop.
+   */
+  isStreaming?: boolean;
+  /** W2: stop the in-flight run (shown as the Stop button while streaming). */
+  onStop?: () => void;
+  /**
+   * W2: org `interruptible` feature flag. When OFF the component behaves exactly
+   * as before (input disabled while streaming, no Stop button).
+   */
+  interruptible?: boolean;
   /** If set, shows a prompt instead of the input (e.g. "Join conversation" or "Duplicate to chat") */
   accessPrompt?: {
     label: string;
@@ -36,11 +56,29 @@ interface ChatInputProps {
   composingUsers?: ComposingUser[];
   /** Anchor message id for /task slash composer (typically the latest message in the session) */
   latestMessageId?: string | null;
+  /**
+   * W6: org `slashCommands` feature flag. When ON a `/` command menu is shown
+   * (built-ins + the org's invocable skills) reusing the @-mention menu infra.
+   * When OFF the only slash handled is the legacy `/task` special-case.
+   */
+  slashCommands?: boolean;
+  /** W6: open the share dialog (`/share` built-in). */
+  onShare?: () => void;
+  /** W6: start a new conversation (`/new` built-in). */
+  onNewSession?: () => void;
 }
 
 const ACCEPTED_TYPES = 'image/*,application/pdf,text/*,application/json';
 
-export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, interruptible, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId, slashCommands, onShare, onNewSession }: ChatInputProps) {
+  // W2: when interruptible, the input stays live during streaming (steering).
+  // When the flag is off, streaming disables the input exactly as before.
+  const inputDisabled = interruptible ? !!disabled : (!!disabled || !!isStreaming);
+  // Show a Stop button (in place of Send) while a run streams and the flag is on.
+  const showStop = !!interruptible && !!isStreaming;
+  // W4: plan/build mode (only when the planMode flag is on). Defaults to build.
+  const [agentMode, setAgentMode] = useState<AgentMode>('build');
+  const toggleMode = useCallback(() => setAgentMode((m) => (m === 'plan' ? 'build' : 'plan')), []);
   const [value, setValue] = useState('');
   const [focused, setFocused] = useState(false);
   const [taskSlashOpen, setTaskSlashOpen] = useState(false);
@@ -52,11 +90,55 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionResults, setMentionResults] = useState<MentionUser[]>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
+  // W6: `/` command menu. Reuses the @-mention menu's arrow/Enter/Tab nav and
+  // dropdown rendering — only the trigger char and the data source differ. The
+  // full command list (built-ins + org skills) is fetched once; the open menu
+  // filters it by the typed query. `slashError` shows an inline error for a bad
+  // command WITHOUT ever sending it to the agent.
+  const [allCommands, setAllCommands] = useState<SlashCommand[]>([]);
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashError, setSlashError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mentionStartRef = useRef<number>(-1);
+
+  // W5: in-chat model picker. The picker only offers org-enabled + role-allowed
+  // models; a staged image attachment marks non-vision models unselectable. The
+  // selection is held in a dedicated hook (persisted per-user) so the send path
+  // can read it without this component owning chat transport.
+  const { user } = useAuth();
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const hasImageAttachment = useMemo(
+    () => attachments.some((a) => a.file.type.startsWith('image/')),
+    [attachments],
+  );
+  const modelSelection = useModelSelection(user?.id, hasImageAttachment, !!sessionId);
+
+  // W6: fetch the command list once when the flag is on. Empty when off.
+  useEffect(() => {
+    if (!slashCommands) {
+      setAllCommands([]);
+      return;
+    }
+    api.get<{ data: SlashCommand[] }>('/chat/commands')
+      .then((res) => setAllCommands(res.data))
+      .catch(() => setAllCommands([]));
+  }, [slashCommands]);
+
+  // The command menu entries filtered by the current `/query` (prefix match on
+  // slug, then substring on title/description). Memoized so the open menu is
+  // stable between keystrokes.
+  const slashResults = useMemo(() => {
+    if (slashQuery === null) return [];
+    const q = slashQuery.toLowerCase();
+    if (!q) return allCommands;
+    return allCommands.filter(
+      (c) => c.slug.startsWith(q) || c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
+    );
+  }, [slashQuery, allCommands]);
 
   // Detect an @mention being typed at the cursor — anywhere in the message, not
   // just at the start. @ must begin the line or follow whitespace (so emails
@@ -64,6 +146,25 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const v = e.target.value;
     setValue(v);
+    // Any edit clears a prior inline command error.
+    setSlashError(null);
+
+    // W6: `/` command menu. It opens only while the ENTIRE input is a single
+    // leading `/token` (no spaces yet) — i.e. the user is choosing a command,
+    // not writing prose that happens to contain a slash. Once a space is typed
+    // (args), the menu closes and the value is a full command invocation.
+    if (slashCommands) {
+      const slashMatch = /^\/([A-Za-z0-9_-]*)$/.exec(v);
+      if (slashMatch) {
+        setSlashQuery(slashMatch[1].toLowerCase());
+        setSlashIndex(0);
+        // A command menu and a mention menu never show at once.
+        setMentionQuery(null);
+        setMentionResults([]);
+        return;
+      }
+      setSlashQuery(null);
+    }
 
     const cursor = e.target.selectionStart ?? v.length;
     const before = v.slice(0, cursor);
@@ -140,27 +241,129 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // Reset the composer after a successful dispatch/send.
+  const clearComposer = useCallback(() => {
+    setValue('');
+    setMentionResults([]);
+    setSlashQuery(null);
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+  }, []);
+
+  // Open the /task composer (used both by the built-in dispatch and, when the
+  // slashCommands flag is off, by the legacy /task special-case).
+  const openTaskComposer = useCallback((seed: string) => {
+    setTaskSlashSeed(seed);
+    setTaskSlashOpen(true);
+    clearComposer();
+  }, [clearComposer]);
+
+  // Send a plain prompt to the agent (the normal, non-command path).
+  const sendPrompt = useCallback((content: string) => {
+    const modelOverride = modelSelection.selectedModel
+      ? { model: modelSelection.selectedModel.id, providerId: modelSelection.selectedModel.providerId }
+      : undefined;
+    // W4: only send a mode when the flag is on; otherwise undefined (build).
+    onSend(content, attachments, undefined, modelOverride, planMode ? agentMode : undefined);
+    setAttachments([]);
+    clearComposer();
+  }, [attachments, onSend, modelSelection.selectedModel, planMode, agentMode, clearComposer]);
+
+  /**
+   * W6: dispatch a `/command`. Built-ins run locally (toggle plan, open the
+   * model picker, share, new, /task composer, /skill). Skill commands are
+   * resolved server-side (`POST /chat/commands/resolve`): on success the
+   * expanded prompt is sent; on any error the message is shown INLINE and NOT
+   * sent to the agent.
+   */
+  const dispatchCommand = useCallback(async (trimmed: string) => {
+    const m = /^\/([A-Za-z0-9_-]+)(?:\s+([\s\S]*))?$/.exec(trimmed);
+    if (!m) { sendPrompt(trimmed); return; }
+    const slug = m[1].toLowerCase();
+    const rest = (m[2] ?? '').trim();
+
+    switch (slug) {
+      case 'task':
+        if (sessionId && latestMessageId) { openTaskComposer(rest); return; }
+        // No session/anchor yet — fall through to send as a prompt (legacy).
+        sendPrompt(trimmed);
+        return;
+      case 'plan':
+        if (planMode) { setAgentMode('plan'); clearComposer(); return; }
+        break; // flag off → not a command here; treat as prose below.
+      case 'model':
+        if (!modelSelection.disabledByFlag) { setModelMenuOpen(true); clearComposer(); return; }
+        break;
+      case 'share':
+        if (onShare) { onShare(); clearComposer(); return; }
+        break;
+      case 'new':
+        if (onNewSession) { onNewSession(); clearComposer(); return; }
+        break;
+    }
+
+    // Not a locally-handled built-in → ask the server to resolve it (skill
+    // commands + /skill launcher + unknown-command detection).
+    try {
+      const res = await api.post<{ data: { type: string; prompt?: string } }>(
+        '/chat/commands/resolve',
+        { input: trimmed },
+      );
+      if (res.data.type === 'skill' && res.data.prompt) {
+        sendPrompt(res.data.prompt);
+      } else {
+        setSlashError(`Unknown command: /${slug}`);
+      }
+    } catch (err) {
+      // Inline error — never forwarded to the agent as a prompt. ApiError puts
+      // the server's `error` string on `.message`.
+      const message = (err as Error)?.message || `Unknown command: /${slug}`;
+      setSlashError(message);
+    }
+  }, [sendPrompt, sessionId, latestMessageId, openTaskComposer, planMode, modelSelection.disabledByFlag, onShare, onNewSession, clearComposer]);
+
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
-    if ((!trimmed && attachments.length === 0) || disabled) return;
-    // Intercept /task — open the inline composer instead of sending to the agent.
-    const slashMatch = /^\/task(?:\s+(.*))?$/.exec(trimmed);
-    if (slashMatch && sessionId && latestMessageId) {
-      setTaskSlashSeed(slashMatch[1]?.trim() ?? '');
-      setTaskSlashOpen(true);
-      setValue('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    if ((!trimmed && attachments.length === 0) || inputDisabled) return;
+
+    // W6: when slash commands are on, any leading-/ input is routed through the
+    // command registry (built-ins + skills) — the hardcoded /task special-case
+    // is folded in there. When the flag is off, preserve the legacy /task path.
+    if (slashCommands && trimmed.startsWith('/')) {
+      void dispatchCommand(trimmed);
       return;
     }
-    onSend(trimmed, attachments, undefined);
-    setValue('');
-    setAttachments([]);
-    setMentionResults([]);
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    const legacyTask = /^\/task(?:\s+(.*))?$/.exec(trimmed);
+    if (legacyTask && sessionId && latestMessageId) {
+      openTaskComposer(legacyTask[1]?.trim() ?? '');
+      return;
     }
-  }, [value, attachments, disabled, onSend, sessionId, latestMessageId]);
+
+    sendPrompt(trimmed);
+  }, [value, attachments, inputDisabled, slashCommands, dispatchCommand, sessionId, latestMessageId, openTaskComposer, sendPrompt]);
+
+  // W6: pick a command from the `/` menu. A command with no args (e.g. /plan,
+  // /model, /share, /new) dispatches immediately; one that takes args (/task,
+  // /skill, a parameterized skill) fills `/<slug> ` and leaves the cursor so the
+  // user can type args before Enter.
+  const selectSlash = useCallback(
+    (cmd: SlashCommand) => {
+      setSlashQuery(null);
+      const takesArgs = cmd.action === 'task' || cmd.action === 'skill' || cmd.kind === 'skill';
+      if (takesArgs) {
+        const next = `/${cmd.slug} `;
+        setValue(next);
+        requestAnimationFrame(() => {
+          const ta = textareaRef.current;
+          if (!ta) return;
+          ta.focus();
+          ta.setSelectionRange(next.length, next.length);
+        });
+        return;
+      }
+      void dispatchCommand(`/${cmd.slug}`);
+    },
+    [dispatchCommand],
+  );
 
   const handleTaskSlashSubmit = useCallback((_result: TaskComposerSubmit) => {
     setTaskSlashOpen(false);
@@ -169,6 +372,30 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // W6: `/` command menu navigation — reuses the same arrow/Enter/Tab/Esc
+      // handling as the @-mention menu below (different data source + trigger).
+      if (slashQuery !== null && slashResults.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSlashIndex((prev) => Math.min(prev + 1, slashResults.length - 1));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSlashIndex((prev) => Math.max(prev - 1, 0));
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          selectSlash(slashResults[slashIndex]);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setSlashQuery(null);
+          return;
+        }
+      }
+
       // Handle mention autocomplete navigation
       if (mentionResults.length > 0) {
         if (e.key === 'ArrowDown') {
@@ -193,12 +420,20 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
         }
       }
 
+      // W4: Tab toggles plan/build mode (only when the flag is on and the
+      // mention menu isn't capturing Tab above).
+      if (planMode && e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        toggleMode();
+        return;
+      }
+
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend, mentionResults, mentionIndex, selectMention],
+    [handleSend, mentionResults, mentionIndex, selectMention, planMode, toggleMode, slashQuery, slashResults, slashIndex, selectSlash],
   );
 
   const handleInput = useCallback(() => {
@@ -395,6 +630,49 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
           </div>
         )}
 
+        {/* W6: inline command error — a bad /command never reaches the agent. */}
+        {slashError && (
+          <div
+            data-testid="slash-error"
+            className="mb-1 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--hearth-warn) 40%, transparent)',
+              background: 'color-mix(in srgb, var(--hearth-warn) 10%, transparent)',
+              color: 'var(--hearth-warn)',
+            }}
+          >
+            <span aria-hidden>⚠</span>
+            <span>{slashError}</span>
+          </div>
+        )}
+
+        {/* W6: `/` command menu — reuses the @-mention dropdown rendering. */}
+        {slashQuery !== null && slashResults.length > 0 && (
+          <div data-testid="slash-menu" className="mb-1 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3">
+            <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-hearth-text-faint">
+              Commands
+            </div>
+            {slashResults.map((cmd, i) => (
+              <button
+                key={cmd.slug}
+                type="button"
+                role="option"
+                data-slug={cmd.slug}
+                onClick={() => selectSlash(cmd)}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                  i === slashIndex ? 'bg-hearth-50 text-hearth-700' : 'text-hearth-text hover:bg-hearth-bg'
+                }`}
+              >
+                <span className="font-mono text-xs text-hearth-text-muted">{cmd.title}</span>
+                <span className="truncate text-xs text-hearth-text-faint">{cmd.description}</span>
+                {cmd.kind === 'skill' && (
+                  <span className="ml-auto shrink-0 rounded bg-hearth-100 px-1.5 py-0.5 text-[10px] font-medium text-hearth-600">skill</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* @mention autocomplete dropdown */}
         {mentionResults.length > 0 && mentionQuery !== null && (
           <div className="mb-1 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3">
@@ -445,7 +723,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
           <button
             type="button"
             onClick={handleFileSelect}
-            disabled={disabled}
+            disabled={inputDisabled}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted disabled:cursor-not-allowed disabled:opacity-40"
             title="Attach file"
           >
@@ -462,7 +740,7 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
           <button
             type="button"
             onClick={handleScreenshot}
-            disabled={disabled}
+            disabled={inputDisabled}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-hearth-text-faint transition-colors hover:bg-hearth-chip hover:text-hearth-text-muted disabled:cursor-not-allowed disabled:opacity-40"
             title="Take screenshot"
           >
@@ -483,6 +761,46 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
             onChange={handleFileChange}
             className="hidden"
           />
+
+          {/* W4: plan/build mode toggle — only when the planMode flag is on. */}
+          {planMode && (
+            <button
+              type="button"
+              onClick={toggleMode}
+              disabled={inputDisabled}
+              aria-pressed={agentMode === 'plan'}
+              aria-label={`Mode: ${agentMode === 'plan' ? 'Plan' : 'Build'} (Tab to toggle)`}
+              title={
+                agentMode === 'plan'
+                  ? 'Plan mode: produces a plan to approve (no actions taken). Tab to toggle.'
+                  : 'Build mode: executes directly. Tab to toggle.'
+              }
+              className={`flex h-10 shrink-0 items-center gap-1 rounded-xl border px-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                agentMode === 'plan'
+                  ? 'border-hearth-400 bg-hearth-50 text-hearth-700'
+                  : 'border-hearth-border text-hearth-text-muted hover:bg-hearth-chip'
+              }`}
+            >
+              <span>{agentMode === 'plan' ? 'Plan' : 'Build'}</span>
+            </button>
+          )}
+
+          {/* W5: model picker — only rendered when the org has the flag on. */}
+          {!modelSelection.disabledByFlag && !modelSelection.loading && (
+            <ModelPicker
+              open={modelMenuOpen}
+              onToggle={() => setModelMenuOpen((o) => !o)}
+              onClose={() => setModelMenuOpen(false)}
+              options={modelSelection.options}
+              selectedId={modelSelection.selectedModelId}
+              isEmpty={modelSelection.isEmpty}
+              disabled={inputDisabled}
+              onSelect={(id) => {
+                modelSelection.select(id);
+                setModelMenuOpen(false);
+              }}
+            />
+          )}
 
           {/* Mention-aware input: a transparent textarea over a styled backdrop
               that renders @mentions as chips. The chip is a background tint only
@@ -518,26 +836,43 @@ export function ChatInput({ onSend, disabled, accessPrompt, sessionId, typingUse
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder="Type a message..."
-              disabled={disabled}
+              disabled={inputDisabled}
               rows={1}
               style={{ caretColor: 'var(--hearth-text, #111827)' }}
               className="relative block w-full resize-none rounded-xl border border-hearth-border-strong bg-transparent px-4 py-2.5 text-sm leading-5 text-transparent placeholder-hearth-text-faint outline-none transition-colors focus:border-hearth-400 focus:ring-2 focus:ring-hearth-100 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={disabled || (!value.trim() && attachments.length === 0)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-hearth-1 transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          {showStop ? (
+            // W2: Stop button — same footprint as Send so there's no layout
+            // shift when the agent starts/stops streaming.
+            <button
+              type="button"
+              onClick={() => onStop?.()}
+              aria-label="Stop generating"
+              title="Stop generating"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-hearth-1 transition-colors hover:bg-hearth-600"
             >
-              <path d="M3.105 2.29a.75.75 0 0 0-.826.95l1.414 4.925A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.086L2.28 16.76a.75.75 0 0 0 .826.95l15-4.5a.75.75 0 0 0 0-1.42l-15-4.5Z" />
-            </svg>
-          </button>
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <rect x="4" y="4" width="12" height="12" rx="2" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSend}
+              aria-label="Send message"
+              disabled={inputDisabled || (!value.trim() && attachments.length === 0)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hearth-500 text-white shadow-hearth-1 transition-colors hover:bg-hearth-600 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M3.105 2.29a.75.75 0 0 0-.826.95l1.414 4.925A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.086L2.28 16.76a.75.75 0 0 0 .826.95l15-4.5a.75.75 0 0 0 0-1.42l-15-4.5Z" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -560,6 +895,118 @@ function parseMentionSegments(text: string): Array<{ type: 'text' | 'mention'; v
   }
   if (last < text.length) segs.push({ type: 'text', value: text.slice(last) });
   return segs.length > 0 ? segs : [{ type: 'text', value: text }];
+}
+
+// W5 ── Model picker ────────────────────────────────────────────────────────
+
+/** Compact context-window label, e.g. 1000000 → "1M", 128000 → "128K". */
+export function formatContextWindow(tokens: number): string {
+  if (!tokens) return '';
+  if (tokens >= 1_000_000) {
+    const m = tokens / 1_000_000;
+    return `${Number.isInteger(m) ? m : m.toFixed(1)}M ctx`;
+  }
+  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K ctx`;
+  return `${tokens} ctx`;
+}
+
+interface ModelPickerProps {
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  options: PickerOption[];
+  selectedId: string | null;
+  isEmpty: boolean;
+  disabled?: boolean;
+  onSelect: (modelId: string) => void;
+}
+
+/**
+ * Dropdown over `GET /models`: each row shows the model name, context window and
+ * cost hint. Rows that aren't selectable (role allowlist or vision gate) are
+ * shown disabled with their reason. When the catalog is empty an actionable
+ * empty state is shown instead of a list.
+ */
+function ModelPicker({
+  open,
+  onToggle,
+  onClose,
+  options,
+  selectedId,
+  isEmpty,
+  disabled,
+  onSelect,
+}: ModelPickerProps) {
+  const selected = options.find((o) => o.entry.id === selectedId);
+  const label = selected ? selected.entry.id : 'Model';
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title="Choose model"
+        className="flex h-10 max-w-[180px] items-center gap-1 rounded-xl border border-hearth-border px-2.5 text-xs font-medium text-hearth-text-muted transition-colors hover:bg-hearth-chip disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <span className="truncate">{label}</span>
+        <svg className="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          {/* Click-away backdrop */}
+          <div className="fixed inset-0 z-10" onClick={onClose} aria-hidden="true" />
+          <div
+            role="listbox"
+            aria-label="Model"
+            className="absolute bottom-12 left-0 z-20 max-h-72 w-64 overflow-y-auto rounded-lg border border-hearth-border bg-hearth-card py-1 shadow-hearth-3"
+          >
+            {isEmpty ? (
+              <div className="px-3 py-4 text-center text-xs text-hearth-text-faint">
+                No models available. Ask an admin to enable a provider in LLM settings.
+              </div>
+            ) : (
+              options.map(({ entry, selectable, reason }) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  role="option"
+                  aria-selected={entry.id === selectedId}
+                  disabled={!selectable}
+                  onClick={() => selectable && onSelect(entry.id)}
+                  title={reason}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                    !selectable
+                      ? 'cursor-not-allowed text-hearth-text-faint'
+                      : entry.id === selectedId
+                        ? 'bg-hearth-50 text-hearth-700'
+                        : 'text-hearth-text hover:bg-hearth-bg'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{entry.id}</span>
+                    <span className="block text-[10px] text-hearth-text-faint">
+                      {[formatContextWindow(entry.contextWindow), reason].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                  {entry.costHint && (
+                    <span className="shrink-0 text-[11px] font-medium text-hearth-text-muted">
+                      {entry.costHint}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function formatFileSize(bytes: number): string {

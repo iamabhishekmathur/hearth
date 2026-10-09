@@ -1,9 +1,10 @@
 import { prisma } from '../lib/prisma.js';
 import { buildSystemPrompt, type CitationSource } from './system-prompt.js';
 import { createToolRouter } from './tool-router.js';
-import type { AgentContext } from './types.js';
+import type { AgentContext, AgentPlan } from './types.js';
+import { profileIdForMode } from './agent-profiles.js';
 import type { RoutineRunContext } from '../services/routine-context-service.js';
-import type { NormalizedEvent } from '@hearth/shared';
+import type { AgentMode, NormalizedEvent } from '@hearth/shared';
 
 export interface BuildAgentContextOpts {
   routineRunContext?: RoutineRunContext;
@@ -11,6 +12,15 @@ export interface BuildAgentContextOpts {
   routineId?: string;
   cognitiveQuerySubjectId?: string;
   timezone?: string;
+  /** W4: plan/build mode. Undefined → build (today's behavior). */
+  agentMode?: AgentMode;
+  /** W4: invoked by `submit_plan` with the structured plan (plan mode only). */
+  onPlanSubmitted?: (plan: AgentPlan) => void;
+  /**
+   * W4: an approved plan to seed a build run with. Rendered into the system
+   * prompt so the build agent executes the approved steps in order.
+   */
+  approvedPlan?: AgentPlan;
 }
 
 /**
@@ -42,6 +52,8 @@ export async function buildAgentContext(
   const llmSettings = (orgSettings.llm ?? {}) as Record<string, unknown>;
   const visionEnabled = (llmSettings.visionEnabled as boolean | undefined) ?? true;
 
+  const agentMode = opts?.agentMode;
+
   const partialContext: Partial<AgentContext> = {
     userId,
     orgId,
@@ -54,11 +66,22 @@ export async function buildAgentContext(
     triggerEvent: opts?.triggerEvent,
     routineId: opts?.routineId,
     cognitiveQuerySubjectId: opts?.cognitiveQuerySubjectId,
+    agentMode,
+    approvedPlan: opts?.approvedPlan,
   };
 
   const [promptResult, toolMap] = await Promise.all([
     buildSystemPrompt(partialContext),
-    createToolRouter({ userId, orgId, teamId: teamId ?? null, sessionId, routineId: opts?.routineId, visionEnabled }),
+    createToolRouter({
+      userId,
+      orgId,
+      teamId: teamId ?? null,
+      sessionId,
+      routineId: opts?.routineId,
+      visionEnabled,
+      agentMode,
+      onPlanSubmitted: opts?.onPlanSubmitted,
+    }),
   ]);
   const tools = Array.from(toolMap.values());
 
@@ -74,6 +97,11 @@ export async function buildAgentContext(
     triggerEvent: opts?.triggerEvent,
     routineId: opts?.routineId,
     cognitiveQuerySubjectId: opts?.cognitiveQuerySubjectId,
+    // W4: plan/build. agentProfileId drives the W3 agent-layer policy (read-only
+    // for plan). Undefined mode resolves to the build profile.
+    agentMode,
+    agentProfileId: agentMode ? profileIdForMode(agentMode) : undefined,
+    onPlanSubmitted: opts?.onPlanSubmitted,
     systemPrompt: promptResult.prompt,
     sources: promptResult.sources,
     tools,

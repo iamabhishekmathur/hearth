@@ -227,10 +227,61 @@ Send a message to a session and trigger the AI agent. The response is delivered 
 | `providerId` | string | No | LLM provider override |
 | `activeArtifactId` | string | No | Artifact currently open in the UI for context |
 | `attachmentIds` | string[] | No | IDs of uploaded files to attach |
+| `agentMode` | string | No | `plan` or `build` (requires the `planMode` feature flag). See [Plan → Build mode](#plan-build-mode-planmode). Ignored when the flag is off. |
 
 **Response:** `202 Accepted`
 
 The agent processes the message asynchronously. Streaming responses and tool calls are delivered via WebSocket events on the session channel.
+
+---
+
+#### POST /api/v1/chat/sessions/:id/messages/:messageId/approve-build
+
+Approve the structured plan on a plan-mode assistant message and start a Build run seeded with its steps ("Approve & Build"). Part of [Plan → Build mode](#plan-build-mode-planmode).
+
+**Responses:**
+
+| Status | Meaning |
+|--------|---------|
+| `202 Accepted` | Plan approved; a single Build run was started. |
+| `200 OK` `{ alreadyApproved: true }` | Plan was already approved — idempotent; no second Build run is started (handles double-click / double-approve). |
+| `409 PLAN_NOT_APPROVED` | The message has no actionable plan (empty/degenerate or absent) — nothing to build. |
+| `403` | Caller is not the plan's owner (the user who sent the request that produced the plan). |
+| `404` | Session or plan message not found / not visible to the caller. |
+
+---
+
+#### Plan → Build mode (`planMode`)
+
+When the org has the `planMode` feature flag enabled, a chat message may carry `agentMode`:
+
+- **`plan`** — the agent runs read-only. Write and side-effecting tools are denied by the built-in `plan` agent profile (enforced through the same per-tool permission policy as `permissions`; a denied write returns `blocked_by_policy` and never executes, so no side effect leaks). The agent produces a numbered plan via a `submit_plan` tool; the plan is persisted on the assistant message's `metadata.plan` (`{ steps: [{ index, text }], summary?, approved }`) and the UI renders it with an "Approve & Build" button.
+- **`build`** (default) — full tools, still subject to the `permissions` policy. A Build run started via **Approve & Build** is seeded with the approved plan in its system prompt.
+
+Both the user and assistant messages record the mode in `metadata.agentMode`. When the flag is off, `agentMode` is ignored and runs use the single build-mode behavior.
+
+---
+
+#### POST /api/v1/chat/sessions/:id/permission
+
+Reply to an interactive tool-permission prompt (per-tool permission policy). When the org has the `permissions` feature flag enabled and a tool call resolves to `ask`, the agent emits a `permission_request` WebSocket event (`{ callId, tool, input }`) and pauses the run until a decision arrives. This REST route is a fallback for the primary WebSocket transport (`permission_response`).
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Session ID |
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `callId` | string | Yes | The tool call id from the `permission_request` event |
+| `decision` | string | Yes | One of `allow_once`, `allow_always`, `deny`. `allow_always` persists a user-scope allow rule so identical future calls auto-allow. |
+
+**Response:** `202 Accepted` with `{ data: { resolved: boolean } }`. `resolved` is `false` (still 202, no error) when the run already finished or the `callId` is unknown — a safe no-op.
+
+Permission to respond mirrors stop: the run initiator or a session owner/contributor. A pure viewer gets `403`. Every `ask` and `deny` decision writes an `audit_logs` row with `action: 'tool_permission_decision'`. Policy rules live in `tool_permission_policies` (org / agent-profile / user scope) and default to: reads/recall/get/search = allow; external side-effects (`slack_post_message`, `jira_create_issue`, `send_email`, `*_create`, `*_update`, MCP writes) = ask; destructive (`*_delete`, `integration_*`) = deny (non-overridable).
 
 ---
 
@@ -486,6 +537,54 @@ Fork a session, creating an independent copy that diverges from the original.
 ```
 
 ---
+
+### Slash Commands (`slashCommands`)
+
+The `/` command menu in the composer. Built-in commands (`/task`, `/plan`,
+`/model`, `/share`, `/new`, `/skill`) are dispatched client-side; org/user Skills
+flagged `invocableAsCommand` with a unique `commandSlug` become their own
+top-level commands. Gated behind the `slashCommands` org feature flag — when off
+both endpoints behave as if no commands exist.
+
+#### GET /api/v1/chat/commands
+
+List the commands available for the `/` menu (built-ins + the org's invocable
+skills). Returns an empty list when the flag is off.
+
+**Response:** `200 OK`
+
+```json
+{
+  "data": [
+    { "slug": "task", "title": "/task", "description": "Open the task composer", "kind": "builtin", "action": "task" },
+    { "slug": "standup", "title": "/standup", "description": "Run the \"Standup\" skill", "kind": "skill", "action": "skill", "skillId": "sk_123" }
+  ]
+}
+```
+
+#### POST /api/v1/chat/commands/resolve
+
+Resolve a skill `/slug args` invocation server-side. Built-ins are handled in the
+client and need not be resolved here. On success returns the expanded prompt the
+client then sends as a normal message. On failure returns a structured inline
+error (`422`) — a bad command is **never** forwarded to the agent as a prompt.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `input` | string | Yes | The raw `/command args` string |
+
+**Response:** `200 OK`
+
+```json
+{ "data": { "type": "skill", "skillId": "sk_123", "prompt": "Run the \"Standup\" skill...", "args": { "date": "2026-10-08" } } }
+```
+
+**Errors:** `422` with a `code` of `UNKNOWN_COMMAND`, `MISSING_PARAMS`, or
+`MISSING_INTEGRATION` (the latter carries `details.provider`, e.g. `"jira"`, for
+a "connect X first" prompt). Slug collisions are prevented at skill-save time by
+a per-org unique constraint, so the menu never shows ambiguous entries.
 
 ### User Search
 

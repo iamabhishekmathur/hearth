@@ -3,10 +3,21 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ContentPart, LLMMessage, SessionVisibility } from '@hearth/shared';
 import { requireAuth, requireOrg } from '../middleware/auth.js';
+import { prisma } from '../lib/prisma.js';
 import * as chatService from '../services/chat-service.js';
 import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
 import { emitToSession, emitToUser, emitToSessionEvent } from '../ws/socket-manager.js';
+import {
+  registerRun,
+  unregisterRun,
+  newRunId,
+  requestStop,
+  claimFinalize,
+  getActiveRunsForSession,
+} from '../agent/run-registry.js';
+import { canStopRun } from '../services/run-permission.js';
+import { isFeatureEnabled } from '../lib/feature-flags.js';
 import { logger } from '../lib/logger.js';
 import { evaluateMessage, getGovernanceSettings, hasBlockPolicies } from '../services/governance-service.js';
 import { reflectOnSession } from '../services/experience-service.js';
@@ -18,6 +29,8 @@ import {
   getCognitiveEnabled,
   setCognitiveEnabled,
 } from '../services/cognitive-profile-service.js';
+import { listCommands, resolveCommandForOrg } from '../services/command-service.js';
+import { parseCommandInput, CommandResolveError } from '../services/command-registry.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -30,6 +43,86 @@ router.post('/sessions', requireAuth, requireOrg, async (req, res, next) => {
     const session = await chatService.createSession(req.user!.orgId!, req.user!.id, title);
     res.status(201).json({ data: session });
   } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /features — the current org's agent feature flags (W2–W6). Lets the chat
+ * UI gate new interactive surfaces (e.g. the W2 Stop button / live input)
+ * per-org. Returns all-false when there's no org context.
+ */
+router.get('/features', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.json({ data: {} });
+      return;
+    }
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    const { getOrgFeatureFlags } = await import('../lib/feature-flags.js');
+    res.json({ data: getOrgFeatureFlags(org?.settings) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /commands — the `/` command menu list for the current user's org (W6).
+ *
+ * Built-ins + the org's invocable skills. Gated behind the `slashCommands` flag;
+ * when off (or no org) returns an empty list so the client shows no `/` menu.
+ */
+router.get('/commands', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.json({ data: [] });
+      return;
+    }
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    if (!isFeatureEnabled(org?.settings, 'slashCommands')) {
+      res.json({ data: [] });
+      return;
+    }
+    const commands = await listCommands(orgId);
+    res.json({ data: commands });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /commands/resolve — resolve a `/slug args` skill command (W6).
+ *
+ * Only used for skill commands (built-ins dispatch client-side). Returns the
+ * expanded prompt the client then sends as a normal message, OR a structured
+ * inline error (422) — a bad command is NEVER forwarded to the agent as a prompt.
+ */
+router.post('/commands/resolve', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    if (!isFeatureEnabled(org?.settings, 'slashCommands')) {
+      res.status(404).json({ error: 'Slash commands are not enabled for this org.' });
+      return;
+    }
+
+    const { input } = req.body as { input?: string };
+    const parsed = input ? parseCommandInput(input) : null;
+    if (!parsed) {
+      res.status(400).json({ error: 'input must be a /command string' });
+      return;
+    }
+
+    const resolution = await resolveCommandForOrg(orgId, parsed);
+    res.json({ data: resolution });
+  } catch (err) {
+    if (err instanceof CommandResolveError) {
+      res.status(err.status).json({ error: err.message, code: err.code, details: err.details });
+      return;
+    }
     next(err);
   }
 });
@@ -170,7 +263,7 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
   try {
     const sessionId = req.params.id as string;
     const userId = req.user!.id;
-    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery, timezone } = req.body as {
+    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery, timezone, agentMode } = req.body as {
       content?: string;
       model?: string;
       providerId?: string;
@@ -178,12 +271,26 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       attachmentIds?: string[];
       cognitiveQuery?: { subjectUserId: string };
       timezone?: string;
+      agentMode?: string;
     };
 
     if (!content) {
       res.status(400).json({ error: 'content is required' });
       return;
     }
+
+    if (agentMode !== undefined && agentMode !== 'plan' && agentMode !== 'build') {
+      res.status(400).json({ error: "agentMode must be 'plan' or 'build'" });
+      return;
+    }
+
+    // W4: plan mode is gated behind the `planMode` flag. When off, ignore the
+    // mode entirely and run today's single build-mode behavior.
+    const orgIdForFlag = req.user!.orgId;
+    const resolvedMode: 'plan' | 'build' | undefined =
+      agentMode && orgIdForFlag && (await isPlanModeEnabled(orgIdForFlag))
+        ? (agentMode as 'plan' | 'build')
+        : undefined;
 
     // Check write access (owner or contributor)
     const access = await chatService.getSessionWriteAccess(sessionId, userId);
@@ -244,8 +351,17 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       }
     }
 
-    // Save the user message with attribution (only reached when not blocked)
-    const userMessage = await chatService.addMessage(session.orgId, sessionId, 'user', content, undefined, userId);
+    // Save the user message with attribution (only reached when not blocked).
+    // W4: stamp the resolved agent mode on the user message metadata so the
+    // transcript records which mode produced the following assistant turn.
+    const userMessage = await chatService.addMessage(
+      session.orgId,
+      sessionId,
+      'user',
+      content,
+      resolvedMode ? { agentMode: resolvedMode } : undefined,
+      userId,
+    );
 
     // Link uploaded attachments to this message
     if (attachmentIds && attachmentIds.length > 0) {
@@ -293,7 +409,36 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     // the response and races the next test's DB truncate. The var is only ever
     // set by the integration harness — production/dev behavior is unchanged.
     if (process.env.HEARTH_DISABLE_AGENT_DISPATCH !== 'true') {
-      runAgent(session.orgId, sessionId, session.userId, model, providerId, content, activeArtifactId, cognitiveQuery?.subjectUserId, timezone, userMessage.id).catch((err) => {
+      // ── W2 steering: interrupt-and-continue ──
+      // If a run is already streaming for this session, sending a new message
+      // steers: abort the in-flight run (its partial is persisted + marked
+      // interrupted by its own finalize) and start a fresh run below. The new
+      // run's history read picks up both the interrupted partial and this new
+      // user turn. This is gated behind the `interruptible` flag — when off,
+      // the legacy behavior (overlapping runs) is preserved, matching today.
+      const steerEnabled = await isInterruptibleEnabled(session.orgId);
+      if (steerEnabled) {
+        for (const run of getActiveRunsForSession(sessionId)) {
+          await requestStop(run.runId);
+        }
+      }
+
+      const runId = newRunId();
+      runAgent({
+        orgId: session.orgId,
+        sessionId,
+        ownerUserId: session.userId,
+        model,
+        providerId,
+        latestMessage: content,
+        activeArtifactId,
+        cognitiveQuerySubjectId: cognitiveQuery?.subjectUserId,
+        timezone,
+        respondingToMessageId: userMessage.id,
+        runId,
+        initiatorUserId: userId,
+        agentMode: resolvedMode,
+      }).catch((err) => {
         logger.error({ err, sessionId }, 'Agent loop unhandled error');
       });
 
@@ -314,6 +459,177 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
           { jobId, delay: 8000, removeOnComplete: true, removeOnFail: true },
         );
       })().catch((err) => logger.warn({ err, sessionId }, 'Failed to enqueue chat decision extraction'));
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/stop — stop an in-flight agent run (W2).
+ *
+ * Permission: the run initiator OR a session owner/contributor. A pure viewer
+ * gets 403 and the run continues. The abort is broadcast over Redis pub/sub so
+ * whichever API instance owns the run aborts it (cross-instance). `runId` is
+ * optional in the body; without it, all of the session's runs are stopped.
+ */
+router.post('/sessions/:id/stop', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const userId = req.user!.id;
+    const { runId } = req.body as { runId?: string };
+
+    // 404 vs 403: if the user can't even see the session, treat as not found so
+    // we don't leak session existence. Viewers (read access, no write) → 403.
+    const session = await chatService.getSession(sessionId, userId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const allowed = await canStopRun(sessionId, userId, runId);
+    if (!allowed) {
+      res.status(403).json({ error: 'You do not have permission to stop this run' });
+      return;
+    }
+
+    if (runId) {
+      await requestStop(runId);
+    } else {
+      for (const run of getActiveRunsForSession(sessionId)) {
+        await requestStop(run.runId);
+      }
+    }
+
+    res.status(202).json({ data: { stopped: true, runId: runId ?? null } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/permission — reply to a tool `permission_request` (W3).
+ *
+ * The chat UI primarily answers over WS (`permission_response`), but this REST
+ * route is a transport fallback. The decision resolves the parked ask keyed by
+ * `callId`. A response for an already-finished/aborted run (unknown callId) is
+ * ignored with 202 (no throw) — exactly the "response after run ended" case.
+ * Permission mirrors stop: run initiator or session owner/contributor.
+ */
+router.post('/sessions/:id/permission', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const userId = req.user!.id;
+    const { callId, decision } = req.body as { callId?: string; decision?: string };
+
+    if (!callId || !decision || !['allow_once', 'allow_always', 'deny'].includes(decision)) {
+      res.status(400).json({ error: 'callId and a valid decision (allow_once|allow_always|deny) are required' });
+      return;
+    }
+
+    const session = await chatService.getSession(sessionId, userId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    // Same gate as stop — initiator or owner/contributor may answer a prompt.
+    const allowed = await canStopRun(sessionId, userId);
+    if (!allowed) {
+      res.status(403).json({ error: 'You do not have permission to respond to this prompt' });
+      return;
+    }
+
+    const { resolvePermission } = await import('../agent/run-registry.js');
+    const resolved = resolvePermission(callId, decision as 'allow_once' | 'allow_always' | 'deny');
+    res.status(202).json({ data: { resolved } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /sessions/:id/messages/:messageId/approve-build — "Approve & Build" (W4).
+ *
+ * Approves the structured plan carried on an assistant message's
+ * `metadata.plan` and starts a Build run seeded with the approved steps.
+ *
+ * Contract:
+ *  - 404 — session or plan message not found / not visible to the caller.
+ *  - 409 PLAN_NOT_APPROVED — the message carries no (actionable) plan: either
+ *    no `metadata.plan`, or an empty/degenerate plan (zero steps). There is
+ *    nothing to build.
+ *  - 403 — only the plan's OWNER (the user who sent the request that produced
+ *    the plan) may approve & build it. A collaborator / non-owner gets 403.
+ *  - 200 — idempotent. The approval flips `metadata.plan.approved=true` via a
+ *    guarded conditional update; exactly ONE caller wins the flip and starts
+ *    the single Build run. A double-approve / double-click returns 200 with
+ *    `{ alreadyApproved: true }` and starts NO second run.
+ */
+router.post('/sessions/:id/messages/:messageId/approve-build', requireAuth, async (req, res, next) => {
+  try {
+    const sessionId = req.params.id as string;
+    const messageId = req.params.messageId as string;
+    const userId = req.user!.id;
+
+    const session = await chatService.getSession(sessionId, userId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const { approvePlanForBuild } = await import('../services/plan-service.js');
+    const result = await approvePlanForBuild({
+      sessionId,
+      messageId,
+      userId,
+      sessionOwnerId: session.userId,
+    });
+
+    switch (result.status) {
+      case 'not_found':
+        res.status(404).json({ error: 'Plan message not found' });
+        return;
+      case 'no_plan':
+        res.status(409).json({ error: 'PLAN_NOT_APPROVED', message: 'No actionable plan to build.' });
+        return;
+      case 'forbidden':
+        res.status(403).json({ error: 'Only the plan owner can approve and build this plan.' });
+        return;
+      case 'already_approved':
+        res.status(200).json({ data: { alreadyApproved: true, started: false } });
+        return;
+      case 'approved':
+        break;
+    }
+
+    res.status(202).json({ data: { approved: true, started: true } });
+
+    // Start the single Build run seeded with the approved plan (fire-and-forget).
+    // Only the flip WINNER reaches here, so exactly one Build run starts.
+    if (process.env.HEARTH_DISABLE_AGENT_DISPATCH !== 'true') {
+      // Steer: stop any in-flight run for this session first (flag-gated).
+      const steerEnabled = await isInterruptibleEnabled(session.orgId);
+      if (steerEnabled) {
+        for (const run of getActiveRunsForSession(sessionId)) {
+          await requestStop(run.runId);
+        }
+      }
+
+      const buildRunId = newRunId();
+      runAgent({
+        orgId: result.orgId,
+        sessionId,
+        ownerUserId: session.userId,
+        latestMessage: `Execute the approved plan:\n${result.plan.steps.map((s) => `${s.index}. ${s.text}`).join('\n')}`,
+        respondingToMessageId: messageId,
+        runId: buildRunId,
+        initiatorUserId: userId,
+        agentMode: 'build',
+        approvedPlan: result.plan,
+      }).catch((err) => {
+        logger.error({ err, sessionId }, 'Approve-build run unhandled error');
+      });
     }
   } catch (err) {
     next(err);
@@ -871,6 +1187,51 @@ async function notifyMentions(input: {
 }
 
 /**
+ * Whether the org has the W2 `interruptible` feature flag on. Gates steering
+ * (interrupt-and-continue). When off, overlapping runs behave as they did
+ * before W2. Best-effort: defaults to false on any lookup failure.
+ */
+async function isInterruptibleEnabled(orgId: string): Promise<boolean> {
+  try {
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    return isFeatureEnabled(org?.settings, 'interruptible');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the org has the W3 `permissions` feature flag on. Gates the
+ * interactive per-tool permission gate in the agent loop. When off, tools run
+ * unconditionally (today's behavior). Best-effort: defaults false on failure.
+ */
+async function isPermissionsEnabled(orgId: string): Promise<boolean> {
+  try {
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    return isFeatureEnabled(org?.settings, 'permissions');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the org has the W4 `planMode` feature flag on. Gates plan/build mode
+ * end-to-end: when off, `agentMode` on the message body is ignored and runs use
+ * today's single build-mode behavior. Best-effort: defaults false on failure.
+ */
+async function isPlanModeEnabled(orgId: string): Promise<boolean> {
+  try {
+    const { prisma } = await import('../lib/prisma.js');
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    return isFeatureEnabled(org?.settings, 'planMode');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Derives a short session title from the first user message.
  * Truncates to 60 chars at a word boundary.
  */
@@ -887,34 +1248,86 @@ function deriveSessionTitle(content: string): string {
  * and saving the final assistant message. On error, persists an
  * assistant message describing the failure and emits an error event.
  */
-async function runAgent(
-  orgId: string,
-  sessionId: string,
-  ownerUserId: string,
-  model?: string,
-  providerId?: string,
-  latestMessage?: string,
-  activeArtifactId?: string,
-  cognitiveQuerySubjectId?: string,
-  timezone?: string,
-  respondingToMessageId?: string,
-): Promise<void> {
+interface RunAgentOpts {
+  orgId: string;
+  sessionId: string;
+  ownerUserId: string;
+  model?: string;
+  providerId?: string;
+  latestMessage?: string;
+  activeArtifactId?: string;
+  cognitiveQuerySubjectId?: string;
+  timezone?: string;
+  respondingToMessageId?: string;
+  runId?: string;
+  initiatorUserId?: string;
+  /** W4: plan/build mode for this run. */
+  agentMode?: 'plan' | 'build';
+  /** W4: an approved plan to seed a build run with. */
+  approvedPlan?: import('../agent/types.js').AgentPlan;
+}
+
+async function runAgent(opts: RunAgentOpts): Promise<void> {
+  const {
+    orgId,
+    sessionId,
+    ownerUserId,
+    model,
+    providerId,
+    latestMessage,
+    activeArtifactId,
+    cognitiveQuerySubjectId,
+    timezone,
+    respondingToMessageId,
+    runId,
+    initiatorUserId,
+    agentMode,
+    approvedPlan,
+  } = opts;
+  // W4: captured structured plan from a plan-mode run's `submit_plan` tool.
+  let capturedPlan: import('../agent/types.js').AgentPlan | null = null;
   let assistantContent = '';
   let errorMessage: string | null = null;
   let sawErrorEvent = false;
+  // W2: the stop reason the loop finished with. Drives whether the persisted
+  // assistant message is marked interrupted, and whether finalize was claimed.
+  let stopReason: import('@hearth/shared').StopReason | undefined;
+  // Whether THIS invocation won the single finalize claim for its runId. When
+  // false (lost the stop↔done race), we must not persist a second assistant
+  // message or emit a second `done`.
+  let didFinalize = false;
   const startTime = Date.now();
   let iterationCount = 0;
   let totalTokens = 0;
   const toolFailures: string[] = [];
   let contextSources: Array<{ index: number; type: string; label: string; content: string }> = [];
 
+  // W2: register this run so it can be stopped (locally or cross-instance). The
+  // AbortController's signal is threaded into the agent loop → provider + tools.
+  const effectiveRunId = runId ?? newRunId();
+  const controller = registerRun({
+    runId: effectiveRunId,
+    sessionId,
+    initiatorUserId: initiatorUserId ?? ownerUserId,
+  });
+  // Tell subscribed clients the runId for this turn so they can target a stop.
+  emitToSessionEvent(sessionId, 'chat:run_started', { sessionId, runId: effectiveRunId });
+
   try {
     const context = await buildAgentContext(ownerUserId, sessionId, latestMessage, activeArtifactId, {
       cognitiveQuerySubjectId,
       timezone,
+      agentMode,
+      approvedPlan,
+      onPlanSubmitted: (plan) => { capturedPlan = plan; },
     });
     if (model) context.model = model;
     if (providerId) context.providerId = providerId;
+    context.runId = effectiveRunId;
+    context.abortSignal = controller.signal;
+    // W3: gate the per-tool permission policy behind the `permissions` flag.
+    // Off = today's behavior (no gating). Best-effort lookup — defaults false.
+    context.permissionsEnabled = await isPermissionsEnabled(orgId);
     contextSources = context.sources ?? [];
 
     // Emit memory debug info for dev/debug tools
@@ -1024,6 +1437,25 @@ async function runAgent(
     }
 
     for await (const event of agentLoop(context, finalMessages)) {
+      // W2 idempotent finalize: the loop yields exactly one terminal `done`.
+      // Claim finalization on it so a stop↔natural-done race (or a double
+      // emission from any path) persists/broadcasts exactly one `done`. If the
+      // claim fails, another finalize already won — drop this terminal event.
+      if (event.type === 'done') {
+        if (!claimFinalize(effectiveRunId)) {
+          // Another finalize already won (stop↔done race / double drive).
+          // Don't broadcast or persist a second terminal — bail out; the
+          // `finally` persistence is gated on `didFinalize` below.
+          return;
+        }
+        didFinalize = true;
+        stopReason = event.stopReason;
+        totalTokens += (event.usage?.inputTokens ?? 0) + (event.usage?.outputTokens ?? 0);
+        iterationCount++;
+        emitToSession(sessionId, event);
+        continue;
+      }
+
       emitToSession(sessionId, event);
 
       if (event.type === 'text_delta') {
@@ -1031,9 +1463,6 @@ async function runAgent(
       } else if (event.type === 'error') {
         sawErrorEvent = true;
         errorMessage = event.message;
-      } else if (event.type === 'done') {
-        totalTokens += (event.usage?.inputTokens ?? 0) + (event.usage?.outputTokens ?? 0);
-        iterationCount++;
       } else if (event.type === 'tool_progress' && event.status === 'failed') {
         toolFailures.push(event.toolName);
       }
@@ -1041,15 +1470,29 @@ async function runAgent(
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : 'Agent execution failed';
     logger.error({ err, sessionId }, 'Agent loop threw');
-    emitToSession(sessionId, {
-      type: 'error',
-      message: 'Agent encountered an unexpected error',
-    });
+    // Claim finalize for the exception path too, so an error + a racing stop
+    // don't both persist. If another finalize already won, suppress ours.
+    if (claimFinalize(effectiveRunId)) {
+      didFinalize = true;
+      emitToSession(sessionId, {
+        type: 'error',
+        message: 'Agent encountered an unexpected error',
+      });
+    } else {
+      errorMessage = null;
+    }
   } finally {
+    unregisterRun(effectiveRunId);
+    // Persist only if THIS invocation won the finalize claim. A lost race means
+    // another finalize already persisted exactly one assistant message.
     // Always persist whatever was produced. If there was an error, append
     // a note so the user sees context on page refresh.
     try {
-      if (assistantContent || errorMessage) {
+      const interrupted = stopReason === 'interrupted';
+      // Persist when we won finalize AND there's something to persist — content,
+      // an error, or an interruption (an interrupted run always persists a row,
+      // even an empty partial, so the transcript records the stopped turn).
+      if (didFinalize && (assistantContent || errorMessage || interrupted)) {
         const finalContent = errorMessage
           ? assistantContent
             ? `${assistantContent}\n\n_[Error: ${errorMessage}]_`
@@ -1065,6 +1508,17 @@ async function runAgent(
             error: errorMessage ?? undefined,
             errorSource: sawErrorEvent ? 'llm' : errorMessage ? 'runtime' : undefined,
             sources: contextSources.length > 0 ? contextSources : undefined,
+            // W2: mark interrupted partials so the UI renders a "stopped"
+            // affordance and history stays coherent.
+            interrupted: interrupted ? true : undefined,
+            stopReason: stopReason && stopReason !== 'done' ? stopReason : undefined,
+            // W4: stamp the agent mode + structured plan (plan mode) on the
+            // assistant message. `plan.approved=false` here; "Approve & Build"
+            // flips it. The plan object is what the approve endpoint reads.
+            agentMode: agentMode ?? undefined,
+            plan: capturedPlan
+              ? { ...(capturedPlan as import('../agent/types.js').AgentPlan), approved: false }
+              : undefined,
           },
           undefined,
           respondingToMessageId,

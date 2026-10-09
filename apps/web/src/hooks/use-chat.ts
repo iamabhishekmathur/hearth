@@ -17,12 +17,22 @@ import {
   onTaskSuggested,
   onTaskSuggestionResolved,
   onTaskProgress,
+  onRunStarted,
+  emitStopRun,
+  emitPermissionResponse,
   connectSocket,
 } from '@/lib/socket-client';
 import type {
   ChatMessage, AgentEvent, ApiResponse, PresenceUser, ComposingUser, PresenceState, MessageAuthor,
-  TaskCreatedFromChatEvent, TaskSuggestionEvent,
+  TaskCreatedFromChatEvent, TaskSuggestionEvent, ToolPermissionDecision, AgentMode,
 } from '@hearth/shared';
+
+/** W3: a pending tool permission prompt awaiting the user's decision. */
+export interface PermissionRequestInfo {
+  callId: string;
+  tool: string;
+  input: Record<string, unknown>;
+}
 
 export interface TaskChipInfo {
   taskId: string;
@@ -51,13 +61,17 @@ interface CognitiveQueryMeta {
 
 interface UseChatReturn {
   messages: ChatMessage[];
-  sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => Promise<void>;
+  sendMessage: (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => Promise<void>;
   retryLastMessage: () => void;
   regenerateMessage: () => void;
+  /** W2: stop the current in-flight run (interrupt). No-op if nothing streaming. */
+  stopRun: () => void;
   isStreaming: boolean;
   thinking: string | null;
   toolCalls: ToolCallInfo[];
   error: string | null;
+  /** W2: non-fatal notice surfaced mid-run (doom-loop break, budget, etc.). Null when none. */
+  warning: string | null;
   presenceUsers: PresenceUser[];
   typingUsers: PresenceUser[];
   composingUsers: ComposingUser[];
@@ -83,6 +97,10 @@ interface UseChatReturn {
   /** Most recent side-effecting tool call this session, if any. UI surfaces a hint. */
   sideEffectNotice: { toolName: string; provider: string; shownAt: number } | null;
   dismissSideEffectNotice: () => void;
+  /** W3: open tool permission prompts, in arrival order (concurrent asks queue). */
+  permissionRequests: PermissionRequestInfo[];
+  /** W3: answer a permission prompt; removes it locally and replies over WS. */
+  respondToPermission: (callId: string, decision: ToolPermissionDecision) => void;
 }
 
 export interface ToolCallInfo {
@@ -99,6 +117,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
   const [thinking, setThinking] = useState<string | null>(null);
   const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  // W2: runId for the current turn, learned from the chat:run_started event.
+  // Used to target a stop. Null between runs.
+  const currentRunIdRef = useRef<string | null>(null);
+  // Mirror of isStreaming for use inside stable callbacks without re-creating
+  // them on every stream toggle (avoids stale closures).
+  const isStreamingRef = useRef(false);
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
   const [typingUsers, setTypingUsers] = useState<PresenceUser[]>([]);
   const [composingUsers, setComposingUsers] = useState<ComposingUser[]>([]);
@@ -109,6 +134,10 @@ export function useChat(sessionId: string | null): UseChatReturn {
   const [taskToast, setTaskToast] = useState<TaskToastInfo | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sideEffectNotice, setSideEffectNotice] = useState<{ toolName: string; provider: string; shownAt: number } | null>(null);
+  // W3: queue of open permission prompts. Concurrent asks (multiple tool calls
+  // needing `ask` in one turn) accumulate here in arrival order; answering one
+  // removes only that callId.
+  const [permissionRequests, setPermissionRequests] = useState<PermissionRequestInfo[]>([]);
   // Live last-read tracker (separate from the visual divider anchor). Used to
   // de-dupe markRead network calls so we don't POST for every viewport hit.
   const lastReadMessageIdRef = useRef<string | null>(null);
@@ -125,6 +154,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
   // Stable event handler — only references refs and state setters (stable)
   const handleEvent = useCallback((event: AgentEvent) => {
+    // W2: `warning` is a server ChatEvent not present in the (legacy) AgentEvent
+    // union consumed here. Handle it off the typed switch via a narrow read.
+    if ((event as { type: string }).type === 'warning') {
+      const message = (event as unknown as { message?: string }).message;
+      if (message) setWarning(message);
+      return;
+    }
     switch (event.type) {
       case 'thinking':
         setThinking(event.content);
@@ -198,22 +234,46 @@ export function useChat(sessionId: string | null): UseChatReturn {
         setSideEffectNotice({ toolName: event.toolName, provider: event.provider, shownAt: Date.now() });
         break;
 
-      case 'done':
+      case 'permission_request':
+        // W3: a tool call needs the user's OK. Append to the queue (dedupe by
+        // callId in case of a repaint). The run is parked server-side until we
+        // reply, so there's no race with streaming.
+        setPermissionRequests((prev) => {
+          if (prev.some((p) => p.callId === event.callId)) return prev;
+          return [...prev, { callId: event.callId, tool: event.tool, input: event.input }];
+        });
+        break;
+
+      case 'done': {
         setIsStreaming(false);
         setThinking(null);
+        // `stopReason` is a server ChatEvent field absent from the legacy
+        // AgentEvent union; read it via a narrow cast.
+        const stopReason = (event as unknown as { stopReason?: string }).stopReason;
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last && last.id === '__streaming__') {
+            // W2: stamp the finalized message with its stop reason so the list
+            // can render a "stopped"/"budget reached" affordance on interrupted
+            // or capped partials.
+            const metadata =
+              stopReason && stopReason !== 'done'
+                ? { ...(last.metadata ?? {}), stopReason, interrupted: stopReason === 'interrupted' || undefined }
+                : (last.metadata ?? {});
             return [
               ...prev.slice(0, -1),
-              { ...last, id: `msg_${Date.now()}` },
+              { ...last, id: `msg_${Date.now()}`, metadata },
             ];
           }
           return prev;
         });
+        currentRunIdRef.current = null;
         streamingContentRef.current = '';
         setToolCalls([]);
+        // Any unanswered permission prompts are moot once the run ends.
+        setPermissionRequests([]);
         break;
+      }
     }
   }, []);
 
@@ -231,6 +291,10 @@ export function useChat(sessionId: string | null): UseChatReturn {
       connectSocket();
       joinSession(sid);
       const unsubAgent = onSessionEvent(sid, handleEvent);
+      // W2: capture the runId for the active turn so Stop can target it.
+      const unsubRunStarted = onRunStarted((p) => {
+        if (p.sessionId === sid) currentRunIdRef.current = p.runId;
+      });
 
       // Presence subscriptions
       const unsubList = onPresenceList((members) => {
@@ -411,6 +475,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
       subscribedSessionRef.current = sid;
       cleanupRef.current = () => {
         unsubAgent();
+        unsubRunStarted();
         unsubList();
         unsubJoin();
         unsubLeave();
@@ -443,6 +508,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
     setTaskSuggestions(new Map());
     setTaskToast(null);
     setSideEffectNotice(null);
+    setPermissionRequests([]);
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
       toastTimerRef.current = null;
@@ -523,14 +589,24 @@ export function useChat(sessionId: string | null): UseChatReturn {
   }, [sessionId, subscribe]);
 
   const sendMessage = useCallback(
-    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta) => {
+    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => {
       const sid = overrideSessionId ?? sessionId;
       if (!sid) return;
 
       // CRITICAL: subscribe BEFORE posting so we never miss WebSocket events
       subscribe(sid);
 
+      // W2 steering (interrupt-and-continue): if a run is already streaming,
+      // stop it before sending the new turn. The server also aborts the prior
+      // run when the new message arrives (flag-gated); stopping here makes the
+      // UI snappy and de-risks a race where the client sends before the server
+      // sees the overlap.
+      if (isStreamingRef.current && currentRunIdRef.current) {
+        emitStopRun(sid, currentRunIdRef.current);
+      }
+
       setError(null);
+      setWarning(null);
       streamingContentRef.current = '';
 
       const userMsg: ChatMessage = {
@@ -557,6 +633,19 @@ export function useChat(sessionId: string | null): UseChatReturn {
           body.cognitiveQuery = cognitiveQuery;
         }
 
+        // W5: in-chat model picker. Only sent when the user explicitly picked a
+        // model; otherwise the server resolves the org/user default (and the
+        // catalog derives the provider when providerId is omitted).
+        if (modelOverride?.model) {
+          body.model = modelOverride.model;
+          if (modelOverride.providerId) body.providerId = modelOverride.providerId;
+        }
+
+        // W4: plan/build mode. Only sent when the caller chose a mode (flag on).
+        if (agentMode) {
+          body.agentMode = agentMode;
+        }
+
         await api.post(`/chat/sessions/${sid}/messages`, body);
       } catch (err) {
         lastFailedContentRef.current = content;
@@ -567,6 +656,11 @@ export function useChat(sessionId: string | null): UseChatReturn {
     [sessionId, subscribe],
   );
 
+  // Keep the streaming ref in sync for use inside stable callbacks.
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
+
   const retryLastMessage = useCallback(() => {
     const content = lastFailedContentRef.current;
     if (!content) return;
@@ -575,7 +669,26 @@ export function useChat(sessionId: string | null): UseChatReturn {
     sendMessage(content);
   }, [sendMessage]);
 
+  // W2: stop the in-flight run. Emits over WS (cross-instance via Redis). The
+  // server finalizes the run as interrupted; the `done{interrupted}` event
+  // flips isStreaming off and stamps the partial.
+  const stopRun = useCallback(() => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    emitStopRun(sid, currentRunIdRef.current ?? undefined);
+  }, []);
+
   const dismissSideEffectNotice = useCallback(() => setSideEffectNotice(null), []);
+
+  // W3: answer a tool permission prompt. Replies over WS (cross-instance via
+  // Redis-backed park resolution) and optimistically removes the card. If the
+  // run already ended, the server-side resolve is a harmless no-op.
+  const respondToPermission = useCallback((callId: string, decision: ToolPermissionDecision) => {
+    const sid = sessionIdRef.current;
+    setPermissionRequests((prev) => prev.filter((p) => p.callId !== callId));
+    if (!sid) return;
+    emitPermissionResponse(sid, callId, decision);
+  }, []);
 
   const dismissTaskToast = useCallback(() => {
     if (toastTimerRef.current) {
@@ -658,12 +771,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
   }, [sendMessage]);
 
   return {
-    messages, sendMessage, retryLastMessage, regenerateMessage,
-    isStreaming, thinking, toolCalls, error, presenceUsers,
+    messages, sendMessage, retryLastMessage, regenerateMessage, stopRun,
+    isStreaming, thinking, toolCalls, error, warning, presenceUsers,
     typingUsers, composingUsers,
     messageAuthors, unreadAnchorId, markRead,
     taskChips, taskSuggestions, dismissTaskSuggestion,
     taskToast, dismissTaskToast, unlinkTask,
     sideEffectNotice, dismissSideEffectNotice,
+    permissionRequests, respondToPermission,
   };
 }

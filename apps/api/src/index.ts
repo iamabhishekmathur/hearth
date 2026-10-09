@@ -30,6 +30,7 @@ import adminUsersRouter from './routes/admin/users.js';
 import adminTeamsRouter from './routes/admin/teams.js';
 import adminAnalyticsRouter from './routes/admin/analytics.js';
 import adminLlmConfigRouter from './routes/admin/llm-config.js';
+import modelsRouter from './routes/models.js';
 import adminComplianceRouter from './routes/admin/compliance.js';
 import adminGovernanceRouter from './routes/admin/governance.js';
 import adminCognitiveRouter from './routes/admin/cognitive.js';
@@ -135,6 +136,7 @@ app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/chat', chatRouter);
 app.use('/api/v1/chat', artifactRouter);
 app.use('/api/v1/skills', skillsRouter);
+app.use('/api/v1/models', modelsRouter);
 app.use('/api/v1/admin/integrations', integrationsRouter);
 app.use('/api/v1/admin/audit-logs', auditLogsRouter);
 app.use('/api/v1/admin/setup', setupRouter);
@@ -177,6 +179,12 @@ app.use(errorHandler);
 
 // Socket.io — share session middleware for auth
 setupSocketManager(io, sessionMiddleware);
+
+// W2: subscribe to cross-instance run-stop broadcasts (Redis pub/sub) so a
+// stop on any API instance aborts the run on whichever instance owns it.
+import('./agent/run-registry.js')
+  .then(({ initRunRegistry }) => initRunRegistry())
+  .catch((err) => logger.warn({ err }, 'run-registry init failed at startup'));
 
 // Start server — skip listen when running under tests
 if (process.env.NODE_ENV !== 'test') {

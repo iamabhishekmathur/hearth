@@ -10,6 +10,7 @@
     "test:coverage": "turbo test:coverage",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
+    "lint:deadcode": "bash scripts/check-no-legacy-imports.sh",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "db:migrate": "pnpm --filter @hearth/api exec prisma migrate dev",
