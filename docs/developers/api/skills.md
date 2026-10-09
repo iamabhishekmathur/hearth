@@ -110,6 +110,12 @@ Create a new skill.
 | `content` | string | Yes | Skill instructions/content |
 | `scope` | string | No | `"user"`, `"team"`, or `"org"` (default: `"user"`) |
 | `teamId` | string | No | Team ID (required when scope is `"team"`) |
+| `invocableAsCommand` | boolean | No | W6: expose the skill as a `/` slash command |
+| `commandSlug` | string | No | W6: the slash command slug (required when `invocableAsCommand` is true; lowercase letters/digits/hyphens; must not shadow a built-in like `task`/`plan`/`model`/`share`/`new`/`skill`; unique per org) |
+| `commandParams` | RoutineParameter[] | No | W6: the parameter template `/slug args` is validated against |
+
+**Errors:** `400` for an invalid/built-in-shadowing slug; `409` when the
+`commandSlug` already exists in the org (slug collision prevented at save time).
 
 **Response:** `201 Created`
 

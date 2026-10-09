@@ -155,11 +155,14 @@ export function ChatPage() {
   const [interruptible, setInterruptible] = useState(false);
   // W4: `planMode` gates the Plan/Build toggle and plan rendering.
   const [planModeEnabled, setPlanModeEnabled] = useState(false);
+  // W6: `slashCommands` gates the `/` command menu.
+  const [slashCommandsEnabled, setSlashCommandsEnabled] = useState(false);
   useEffect(() => {
-    api.get<{ data: { interruptible?: boolean; planMode?: boolean } }>('/chat/features')
+    api.get<{ data: { interruptible?: boolean; planMode?: boolean; slashCommands?: boolean } }>('/chat/features')
       .then((res) => {
         setInterruptible(res.data.interruptible === true);
         setPlanModeEnabled(res.data.planMode === true);
+        setSlashCommandsEnabled(res.data.slashCommands === true);
       })
       .catch(() => {});
   }, []);
@@ -364,6 +367,9 @@ export function ChatPage() {
             onStop={stopRun}
             interruptible={interruptible}
             planMode={planModeEnabled}
+            slashCommands={slashCommandsEnabled}
+            onShare={() => setShowShareDialog(true)}
+            onNewSession={handleNewSession}
             cognitiveEnabled={cognitiveEnabled}
             sessionId={activeSessionId}
             typingUsers={typingUsers}

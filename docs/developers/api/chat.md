@@ -538,6 +538,54 @@ Fork a session, creating an independent copy that diverges from the original.
 
 ---
 
+### Slash Commands (`slashCommands`)
+
+The `/` command menu in the composer. Built-in commands (`/task`, `/plan`,
+`/model`, `/share`, `/new`, `/skill`) are dispatched client-side; org/user Skills
+flagged `invocableAsCommand` with a unique `commandSlug` become their own
+top-level commands. Gated behind the `slashCommands` org feature flag — when off
+both endpoints behave as if no commands exist.
+
+#### GET /api/v1/chat/commands
+
+List the commands available for the `/` menu (built-ins + the org's invocable
+skills). Returns an empty list when the flag is off.
+
+**Response:** `200 OK`
+
+```json
+{
+  "data": [
+    { "slug": "task", "title": "/task", "description": "Open the task composer", "kind": "builtin", "action": "task" },
+    { "slug": "standup", "title": "/standup", "description": "Run the \"Standup\" skill", "kind": "skill", "action": "skill", "skillId": "sk_123" }
+  ]
+}
+```
+
+#### POST /api/v1/chat/commands/resolve
+
+Resolve a skill `/slug args` invocation server-side. Built-ins are handled in the
+client and need not be resolved here. On success returns the expanded prompt the
+client then sends as a normal message. On failure returns a structured inline
+error (`422`) — a bad command is **never** forwarded to the agent as a prompt.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `input` | string | Yes | The raw `/command args` string |
+
+**Response:** `200 OK`
+
+```json
+{ "data": { "type": "skill", "skillId": "sk_123", "prompt": "Run the \"Standup\" skill...", "args": { "date": "2026-10-08" } } }
+```
+
+**Errors:** `422` with a `code` of `UNKNOWN_COMMAND`, `MISSING_PARAMS`, or
+`MISSING_INTEGRATION` (the latter carries `details.provider`, e.g. `"jira"`, for
+a "connect X first" prompt). Slug collisions are prevented at skill-save time by
+a per-org unique constraint, so the menu never shows ambiguous entries.
+
 ### User Search
 
 #### GET /api/v1/chat/users/search

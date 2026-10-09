@@ -235,6 +235,9 @@ Skill
   ├── status: draft | pending_review | published | deprecated
   ├── install_count
   ├── source_task_id (nullable: links to task that inspired the skill)
+  ├── invocable_as_command (W6: exposed in the chat `/` command menu)
+  ├── command_slug (W6: unique per org — the slash command, e.g. "standup")
+  ├── command_params (W6: RoutineParameter[] template validated against /slug args)
   └── UserSkill[] (per-user installation tracking)
 
 UserSkill
@@ -655,6 +658,7 @@ npx prisma migrate status
 | `20260419000000_add_cognitive_profiles` | Cognitive profiles and thought patterns for the Digital Co-Worker feature |
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
+| `20260615000000_skills_as_commands` | W6: adds `invocable_as_command`, `command_slug`, `command_params` to skills + a per-org unique index on `command_slug` so a slash command can't collide |
 
 ### Migration Best Practices
 
