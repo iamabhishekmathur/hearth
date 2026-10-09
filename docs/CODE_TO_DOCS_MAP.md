@@ -71,7 +71,7 @@ This file maps source code areas to their corresponding documentation pages. Whe
 
 | Source | Doc Page |
 |---|---|
-| `apps/api/src/routes/chat.ts` | `docs/developers/api/chat.md` |
+| `apps/api/src/routes/chat.ts`, `apps/api/src/services/command-registry.ts`, `apps/api/src/services/command-service.ts` | `docs/developers/api/chat.md` |
 | `apps/api/src/routes/tasks.ts`, `apps/api/src/services/task-context-service.ts`, `apps/api/src/services/task-context-extractor.ts` | `docs/developers/api/tasks.md` |
 | `apps/api/src/routes/memory.ts` | `docs/developers/api/memory.md` |
 | `apps/api/src/routes/skills.ts` | `docs/developers/api/skills.md` |

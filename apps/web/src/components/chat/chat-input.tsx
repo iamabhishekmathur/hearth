@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { api } from '@/lib/api-client';
 import { emitTyping, emitComposing, emitHeartbeat } from '@/lib/socket-client';
-import type { AgentMode, ComposingUser, PresenceUser } from '@hearth/shared';
+import type { AgentMode, ComposingUser, PresenceUser, SlashCommand } from '@hearth/shared';
 import { TaskComposer, type TaskComposerSubmit } from './task-composer';
 import { useAuth } from '@/hooks/use-auth';
 import { useModelSelection, type PickerOption } from '@/hooks/use-model-selection';
@@ -56,11 +56,21 @@ interface ChatInputProps {
   composingUsers?: ComposingUser[];
   /** Anchor message id for /task slash composer (typically the latest message in the session) */
   latestMessageId?: string | null;
+  /**
+   * W6: org `slashCommands` feature flag. When ON a `/` command menu is shown
+   * (built-ins + the org's invocable skills) reusing the @-mention menu infra.
+   * When OFF the only slash handled is the legacy `/task` special-case.
+   */
+  slashCommands?: boolean;
+  /** W6: open the share dialog (`/share` built-in). */
+  onShare?: () => void;
+  /** W6: start a new conversation (`/new` built-in). */
+  onNewSession?: () => void;
 }
 
 const ACCEPTED_TYPES = 'image/*,application/pdf,text/*,application/json';
 
-export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, interruptible, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, interruptible, accessPrompt, sessionId, typingUsers, composingUsers, latestMessageId, slashCommands, onShare, onNewSession }: ChatInputProps) {
   // W2: when interruptible, the input stays live during streaming (steering).
   // When the flag is off, streaming disables the input exactly as before.
   const inputDisabled = interruptible ? !!disabled : (!!disabled || !!isStreaming);
@@ -80,6 +90,15 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionResults, setMentionResults] = useState<MentionUser[]>([]);
   const [mentionIndex, setMentionIndex] = useState(0);
+  // W6: `/` command menu. Reuses the @-mention menu's arrow/Enter/Tab nav and
+  // dropdown rendering — only the trigger char and the data source differ. The
+  // full command list (built-ins + org skills) is fetched once; the open menu
+  // filters it by the typed query. `slashError` shows an inline error for a bad
+  // command WITHOUT ever sending it to the agent.
+  const [allCommands, setAllCommands] = useState<SlashCommand[]>([]);
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashError, setSlashError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,12 +117,54 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
   );
   const modelSelection = useModelSelection(user?.id, hasImageAttachment, !!sessionId);
 
+  // W6: fetch the command list once when the flag is on. Empty when off.
+  useEffect(() => {
+    if (!slashCommands) {
+      setAllCommands([]);
+      return;
+    }
+    api.get<{ data: SlashCommand[] }>('/chat/commands')
+      .then((res) => setAllCommands(res.data))
+      .catch(() => setAllCommands([]));
+  }, [slashCommands]);
+
+  // The command menu entries filtered by the current `/query` (prefix match on
+  // slug, then substring on title/description). Memoized so the open menu is
+  // stable between keystrokes.
+  const slashResults = useMemo(() => {
+    if (slashQuery === null) return [];
+    const q = slashQuery.toLowerCase();
+    if (!q) return allCommands;
+    return allCommands.filter(
+      (c) => c.slug.startsWith(q) || c.title.toLowerCase().includes(q) || c.description.toLowerCase().includes(q),
+    );
+  }, [slashQuery, allCommands]);
+
   // Detect an @mention being typed at the cursor — anywhere in the message, not
   // just at the start. @ must begin the line or follow whitespace (so emails
   // like a@b.com don't trigger it).
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const v = e.target.value;
     setValue(v);
+    // Any edit clears a prior inline command error.
+    setSlashError(null);
+
+    // W6: `/` command menu. It opens only while the ENTIRE input is a single
+    // leading `/token` (no spaces yet) — i.e. the user is choosing a command,
+    // not writing prose that happens to contain a slash. Once a space is typed
+    // (args), the menu closes and the value is a full command invocation.
+    if (slashCommands) {
+      const slashMatch = /^\/([A-Za-z0-9_-]*)$/.exec(v);
+      if (slashMatch) {
+        setSlashQuery(slashMatch[1].toLowerCase());
+        setSlashIndex(0);
+        // A command menu and a mention menu never show at once.
+        setMentionQuery(null);
+        setMentionResults([]);
+        return;
+      }
+      setSlashQuery(null);
+    }
 
     const cursor = e.target.selectionStart ?? v.length;
     const before = v.slice(0, cursor);
@@ -180,31 +241,129 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleSend = useCallback(() => {
-    const trimmed = value.trim();
-    if ((!trimmed && attachments.length === 0) || inputDisabled) return;
-    // Intercept /task — open the inline composer instead of sending to the agent.
-    const slashMatch = /^\/task(?:\s+(.*))?$/.exec(trimmed);
-    if (slashMatch && sessionId && latestMessageId) {
-      setTaskSlashSeed(slashMatch[1]?.trim() ?? '');
-      setTaskSlashOpen(true);
-      setValue('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
-      return;
-    }
+  // Reset the composer after a successful dispatch/send.
+  const clearComposer = useCallback(() => {
+    setValue('');
+    setMentionResults([]);
+    setSlashQuery(null);
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+  }, []);
+
+  // Open the /task composer (used both by the built-in dispatch and, when the
+  // slashCommands flag is off, by the legacy /task special-case).
+  const openTaskComposer = useCallback((seed: string) => {
+    setTaskSlashSeed(seed);
+    setTaskSlashOpen(true);
+    clearComposer();
+  }, [clearComposer]);
+
+  // Send a plain prompt to the agent (the normal, non-command path).
+  const sendPrompt = useCallback((content: string) => {
     const modelOverride = modelSelection.selectedModel
       ? { model: modelSelection.selectedModel.id, providerId: modelSelection.selectedModel.providerId }
       : undefined;
     // W4: only send a mode when the flag is on; otherwise undefined (build).
-    onSend(trimmed, attachments, undefined, modelOverride, planMode ? agentMode : undefined);
-    setValue('');
+    onSend(content, attachments, undefined, modelOverride, planMode ? agentMode : undefined);
     setAttachments([]);
-    setMentionResults([]);
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    clearComposer();
+  }, [attachments, onSend, modelSelection.selectedModel, planMode, agentMode, clearComposer]);
+
+  /**
+   * W6: dispatch a `/command`. Built-ins run locally (toggle plan, open the
+   * model picker, share, new, /task composer, /skill). Skill commands are
+   * resolved server-side (`POST /chat/commands/resolve`): on success the
+   * expanded prompt is sent; on any error the message is shown INLINE and NOT
+   * sent to the agent.
+   */
+  const dispatchCommand = useCallback(async (trimmed: string) => {
+    const m = /^\/([A-Za-z0-9_-]+)(?:\s+([\s\S]*))?$/.exec(trimmed);
+    if (!m) { sendPrompt(trimmed); return; }
+    const slug = m[1].toLowerCase();
+    const rest = (m[2] ?? '').trim();
+
+    switch (slug) {
+      case 'task':
+        if (sessionId && latestMessageId) { openTaskComposer(rest); return; }
+        // No session/anchor yet — fall through to send as a prompt (legacy).
+        sendPrompt(trimmed);
+        return;
+      case 'plan':
+        if (planMode) { setAgentMode('plan'); clearComposer(); return; }
+        break; // flag off → not a command here; treat as prose below.
+      case 'model':
+        if (!modelSelection.disabledByFlag) { setModelMenuOpen(true); clearComposer(); return; }
+        break;
+      case 'share':
+        if (onShare) { onShare(); clearComposer(); return; }
+        break;
+      case 'new':
+        if (onNewSession) { onNewSession(); clearComposer(); return; }
+        break;
     }
-  }, [value, attachments, inputDisabled, onSend, sessionId, latestMessageId, modelSelection.selectedModel, planMode, agentMode]);
+
+    // Not a locally-handled built-in → ask the server to resolve it (skill
+    // commands + /skill launcher + unknown-command detection).
+    try {
+      const res = await api.post<{ data: { type: string; prompt?: string } }>(
+        '/chat/commands/resolve',
+        { input: trimmed },
+      );
+      if (res.data.type === 'skill' && res.data.prompt) {
+        sendPrompt(res.data.prompt);
+      } else {
+        setSlashError(`Unknown command: /${slug}`);
+      }
+    } catch (err) {
+      // Inline error — never forwarded to the agent as a prompt. ApiError puts
+      // the server's `error` string on `.message`.
+      const message = (err as Error)?.message || `Unknown command: /${slug}`;
+      setSlashError(message);
+    }
+  }, [sendPrompt, sessionId, latestMessageId, openTaskComposer, planMode, modelSelection.disabledByFlag, onShare, onNewSession, clearComposer]);
+
+  const handleSend = useCallback(() => {
+    const trimmed = value.trim();
+    if ((!trimmed && attachments.length === 0) || inputDisabled) return;
+
+    // W6: when slash commands are on, any leading-/ input is routed through the
+    // command registry (built-ins + skills) — the hardcoded /task special-case
+    // is folded in there. When the flag is off, preserve the legacy /task path.
+    if (slashCommands && trimmed.startsWith('/')) {
+      void dispatchCommand(trimmed);
+      return;
+    }
+    const legacyTask = /^\/task(?:\s+(.*))?$/.exec(trimmed);
+    if (legacyTask && sessionId && latestMessageId) {
+      openTaskComposer(legacyTask[1]?.trim() ?? '');
+      return;
+    }
+
+    sendPrompt(trimmed);
+  }, [value, attachments, inputDisabled, slashCommands, dispatchCommand, sessionId, latestMessageId, openTaskComposer, sendPrompt]);
+
+  // W6: pick a command from the `/` menu. A command with no args (e.g. /plan,
+  // /model, /share, /new) dispatches immediately; one that takes args (/task,
+  // /skill, a parameterized skill) fills `/<slug> ` and leaves the cursor so the
+  // user can type args before Enter.
+  const selectSlash = useCallback(
+    (cmd: SlashCommand) => {
+      setSlashQuery(null);
+      const takesArgs = cmd.action === 'task' || cmd.action === 'skill' || cmd.kind === 'skill';
+      if (takesArgs) {
+        const next = `/${cmd.slug} `;
+        setValue(next);
+        requestAnimationFrame(() => {
+          const ta = textareaRef.current;
+          if (!ta) return;
+          ta.focus();
+          ta.setSelectionRange(next.length, next.length);
+        });
+        return;
+      }
+      void dispatchCommand(`/${cmd.slug}`);
+    },
+    [dispatchCommand],
+  );
 
   const handleTaskSlashSubmit = useCallback((_result: TaskComposerSubmit) => {
     setTaskSlashOpen(false);
@@ -213,6 +372,30 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // W6: `/` command menu navigation — reuses the same arrow/Enter/Tab/Esc
+      // handling as the @-mention menu below (different data source + trigger).
+      if (slashQuery !== null && slashResults.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setSlashIndex((prev) => Math.min(prev + 1, slashResults.length - 1));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setSlashIndex((prev) => Math.max(prev - 1, 0));
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          selectSlash(slashResults[slashIndex]);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setSlashQuery(null);
+          return;
+        }
+      }
+
       // Handle mention autocomplete navigation
       if (mentionResults.length > 0) {
         if (e.key === 'ArrowDown') {
@@ -250,7 +433,7 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
         handleSend();
       }
     },
-    [handleSend, mentionResults, mentionIndex, selectMention, planMode, toggleMode],
+    [handleSend, mentionResults, mentionIndex, selectMention, planMode, toggleMode, slashQuery, slashResults, slashIndex, selectSlash],
   );
 
   const handleInput = useCallback(() => {
@@ -443,6 +626,49 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
                   </svg>
                 </button>
               </div>
+            ))}
+          </div>
+        )}
+
+        {/* W6: inline command error — a bad /command never reaches the agent. */}
+        {slashError && (
+          <div
+            data-testid="slash-error"
+            className="mb-1 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--hearth-warn) 40%, transparent)',
+              background: 'color-mix(in srgb, var(--hearth-warn) 10%, transparent)',
+              color: 'var(--hearth-warn)',
+            }}
+          >
+            <span aria-hidden>⚠</span>
+            <span>{slashError}</span>
+          </div>
+        )}
+
+        {/* W6: `/` command menu — reuses the @-mention dropdown rendering. */}
+        {slashQuery !== null && slashResults.length > 0 && (
+          <div data-testid="slash-menu" className="mb-1 rounded-lg border border-hearth-border bg-hearth-card shadow-hearth-3">
+            <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-hearth-text-faint">
+              Commands
+            </div>
+            {slashResults.map((cmd, i) => (
+              <button
+                key={cmd.slug}
+                type="button"
+                role="option"
+                data-slug={cmd.slug}
+                onClick={() => selectSlash(cmd)}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                  i === slashIndex ? 'bg-hearth-50 text-hearth-700' : 'text-hearth-text hover:bg-hearth-bg'
+                }`}
+              >
+                <span className="font-mono text-xs text-hearth-text-muted">{cmd.title}</span>
+                <span className="truncate text-xs text-hearth-text-faint">{cmd.description}</span>
+                {cmd.kind === 'skill' && (
+                  <span className="ml-auto shrink-0 rounded bg-hearth-100 px-1.5 py-0.5 text-[10px] font-medium text-hearth-600">skill</span>
+                )}
+              </button>
             ))}
           </div>
         )}

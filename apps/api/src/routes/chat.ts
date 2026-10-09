@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ContentPart, LLMMessage, SessionVisibility } from '@hearth/shared';
 import { requireAuth, requireOrg } from '../middleware/auth.js';
+import { prisma } from '../lib/prisma.js';
 import * as chatService from '../services/chat-service.js';
 import { buildAgentContext } from '../agent/context-builder.js';
 import { agentLoop } from '../agent/agent-runtime.js';
@@ -28,6 +29,8 @@ import {
   getCognitiveEnabled,
   setCognitiveEnabled,
 } from '../services/cognitive-profile-service.js';
+import { listCommands, resolveCommandForOrg } from '../services/command-service.js';
+import { parseCommandInput, CommandResolveError } from '../services/command-registry.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -61,6 +64,65 @@ router.get('/features', requireAuth, async (req, res, next) => {
     const { getOrgFeatureFlags } = await import('../lib/feature-flags.js');
     res.json({ data: getOrgFeatureFlags(org?.settings) });
   } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /commands — the `/` command menu list for the current user's org (W6).
+ *
+ * Built-ins + the org's invocable skills. Gated behind the `slashCommands` flag;
+ * when off (or no org) returns an empty list so the client shows no `/` menu.
+ */
+router.get('/commands', requireAuth, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId;
+    if (!orgId) {
+      res.json({ data: [] });
+      return;
+    }
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    if (!isFeatureEnabled(org?.settings, 'slashCommands')) {
+      res.json({ data: [] });
+      return;
+    }
+    const commands = await listCommands(orgId);
+    res.json({ data: commands });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /commands/resolve — resolve a `/slug args` skill command (W6).
+ *
+ * Only used for skill commands (built-ins dispatch client-side). Returns the
+ * expanded prompt the client then sends as a normal message, OR a structured
+ * inline error (422) — a bad command is NEVER forwarded to the agent as a prompt.
+ */
+router.post('/commands/resolve', requireAuth, requireOrg, async (req, res, next) => {
+  try {
+    const orgId = req.user!.orgId!;
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    if (!isFeatureEnabled(org?.settings, 'slashCommands')) {
+      res.status(404).json({ error: 'Slash commands are not enabled for this org.' });
+      return;
+    }
+
+    const { input } = req.body as { input?: string };
+    const parsed = input ? parseCommandInput(input) : null;
+    if (!parsed) {
+      res.status(400).json({ error: 'input must be a /command string' });
+      return;
+    }
+
+    const resolution = await resolveCommandForOrg(orgId, parsed);
+    res.json({ data: resolution });
+  } catch (err) {
+    if (err instanceof CommandResolveError) {
+      res.status(err.status).json({ error: err.message, code: err.code, details: err.details });
+      return;
+    }
     next(err);
   }
 });

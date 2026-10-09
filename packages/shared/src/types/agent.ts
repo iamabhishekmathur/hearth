@@ -98,3 +98,37 @@ export interface OrgFeatureFlags {
 }
 
 export type OrgFeatureFlag = keyof OrgFeatureFlags;
+
+// ── Slash commands (W6) ────────────────────────────────────────────────────────
+
+/**
+ * What kind of command a `/` entry is. Built-ins are hardcoded in the registry;
+ * `skill` entries are user/org Skills flagged `invocableAsCommand`.
+ */
+export type SlashCommandKind = 'builtin' | 'skill';
+
+/**
+ * A client-facing slash command descriptor. The `/` menu renders a list of these
+ * (built-ins + the org's invocable skills); the client dispatches by `action` for
+ * built-ins (handled locally) or sends `/slug args` to the server for skills.
+ */
+export interface SlashCommand {
+  /** The slug typed after `/` (e.g. `task`, `plan`, `standup`). Unique in the list. */
+  slug: string;
+  /** Short human label shown in the menu. */
+  title: string;
+  /** One-line description shown under the title. */
+  description: string;
+  kind: SlashCommandKind;
+  /**
+   * For built-ins: a stable action id the client switches on (`task`, `plan`,
+   * `model`, `share`, `new`, `skill`). For skill entries this is always `skill`.
+   */
+  action: SlashBuiltinAction;
+  /** For skill entries: the backing skill id (so the client can resolve it). */
+  skillId?: string;
+}
+
+/** The fixed set of built-in command actions the client knows how to dispatch. */
+export type SlashBuiltinAction = 'task' | 'plan' | 'model' | 'share' | 'new' | 'skill';
+

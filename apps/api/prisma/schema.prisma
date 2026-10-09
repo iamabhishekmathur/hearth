@@ -844,6 +844,15 @@ model Skill {
   source               SkillSource @default(manual)
   sourceExperienceId   String?     @map("source_experience_id")
 
+  // W6 — Skills as slash commands. When `invocableAsCommand` is true the skill is
+  // exposed in the chat `/` command menu under `commandSlug` (unique per org, so
+  // two skills can never claim the same slash command — collisions are blocked at
+  // save time by the unique index). `commandParams` holds a `RoutineParameter[]`
+  // template the server validates `/slug args` against before expanding/running.
+  invocableAsCommand   Boolean     @default(false) @map("invocable_as_command")
+  commandSlug          String?     @map("command_slug")
+  commandParams        Json?       @map("command_params")
+
   org              Org              @relation(fields: [orgId], references: [id])
   team             Team?            @relation(fields: [teamId], references: [id])
   author           User             @relation("SkillAuthor", fields: [authorId], references: [id])
@@ -852,6 +861,9 @@ model Skill {
   users            UserSkill[]
 
   @@unique([orgId, name], map: "skills_org_name_unique")
+  // Slug collision guard: a given command slug is unique within an org, so the
+  // `/` menu can never show two ambiguous entries for the same slug.
+  @@unique([orgId, commandSlug], map: "skills_org_command_slug_unique")
   @@map("skills")
 }
 
