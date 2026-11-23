@@ -34,6 +34,8 @@ export interface ConnectionEntry {
 export class ConnectionManager {
   private connections = new Map<string, ConnectionEntry>();
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  /** Called with each background health-check outcome (the gateway persists it). */
+  onHealthResult?: (integrationId: string, healthy: boolean, checkedAt: Date) => Promise<void>;
 
   constructor() {
     this.startHealthChecks();
@@ -138,6 +140,11 @@ export class ConnectionManager {
         entry.healthy = false;
         entry.lastHealthCheck = new Date();
         logger.error({ integrationId, error: err }, 'MCP health check error');
+      }
+      if (this.onHealthResult && entry.lastHealthCheck) {
+        await this.onHealthResult(integrationId, entry.healthy, entry.lastHealthCheck).catch(
+          () => {},
+        );
       }
     }
   }

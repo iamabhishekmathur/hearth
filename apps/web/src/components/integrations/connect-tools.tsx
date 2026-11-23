@@ -97,10 +97,20 @@ function providerGlyph(provider: string): string {
 }
 
 type StatusTone = 'ok' | 'warn' | 'err' | 'neutral';
-function statusTone(status: string, enabled: boolean): { tone: StatusTone; label: string } {
+/** Hearth re-probes connections every 5 minutes; older than this means no recent probe. */
+const HEALTH_STALE_MS = 60 * 60 * 1000;
+
+function statusTone(
+  status: string,
+  enabled: boolean,
+  checkedAt?: string | null,
+): { tone: StatusTone; label: string } {
   if (!enabled) return { tone: 'neutral', label: 'Disabled' };
   switch (status) {
     case 'active':
+      // Only claim "Healthy" when a probe actually succeeded recently.
+      if (!checkedAt || Date.now() - new Date(checkedAt).getTime() > HEALTH_STALE_MS)
+        return { tone: 'neutral', label: 'Connected' };
       return { tone: 'ok', label: 'Healthy' };
     case 'error':
       return { tone: 'err', label: 'Error' };
@@ -135,6 +145,9 @@ export function ConnectTools() {
     // (the server already completed the step + fired INTEGRATION_CONNECTED).
     window.dispatchEvent(new CustomEvent('hearth:onboarding-refresh'));
   }, [fetchMine]);
+
+  const mine = useMemo(() => integrations.filter((i) => i.scope !== 'org'), [integrations]);
+  const shared = useMemo(() => integrations.filter((i) => i.scope === 'org'), [integrations]);
 
   const connectedProviders = useMemo(
     () => new Set(integrations.filter((i) => i.scope !== 'org').map((i) => i.provider)),
@@ -226,7 +239,7 @@ export function ConnectTools() {
           </h2>
           {loading ? (
             <p className="text-[13px] text-hearth-text-faint">Loading…</p>
-          ) : integrations.length === 0 ? (
+          ) : mine.length === 0 ? (
             <div className="rounded-lg border border-dashed border-hearth-border-strong px-4 py-9 text-center">
               <p className="text-[13px] font-medium text-hearth-text-muted">
                 Nothing connected yet
@@ -237,13 +250,32 @@ export function ConnectTools() {
             </div>
           ) : (
             <ul className="space-y-2">
-              {integrations.map((integ) => (
+              {mine.map((integ) => (
                 <ConnectedRow key={integ.id} integ={integ} onChanged={fetchMine} />
               ))}
             </ul>
           )}
         </section>
       </FadeIn>
+
+      {/* Org-level connections an admin manages — visible, not owned. */}
+      {!loading && shared.length > 0 && (
+        <FadeIn delay={160}>
+          <section className="mt-8">
+            <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-hearth-text-faint">
+              Shared by your organization
+            </h2>
+            <p className="mb-3 text-[12px] text-hearth-text-faint">
+              Set up by an admin for everyone. Only admins can change these.
+            </p>
+            <ul className="space-y-2">
+              {shared.map((integ) => (
+                <ConnectedRow key={integ.id} integ={integ} onChanged={fetchMine} />
+              ))}
+            </ul>
+          </section>
+        </FadeIn>
+      )}
 
       {selected && (
         <ConnectModal
@@ -265,7 +297,7 @@ function ConnectedRow({ integ, onChanged }: { integ: MyIntegration; onChanged: (
     healthCheckedAt: integ.healthCheckedAt,
   });
   const isOrg = integ.scope === 'org';
-  const { tone, label } = statusTone(live.status, integ.enabled);
+  const { tone, label } = statusTone(live.status, integ.enabled, live.healthCheckedAt);
 
   const recheck = async () => {
     setChecking(true);
@@ -308,13 +340,15 @@ function ConnectedRow({ integ, onChanged }: { integ: MyIntegration; onChanged: (
         )}
       </div>
       <div className="flex items-center gap-1.5">
-        <HButton variant="ghost" size="sm" onClick={recheck} disabled={checking}>
-          {checking ? 'Checking…' : 'Check'}
-        </HButton>
         {!isOrg && (
-          <HButton variant="ghost" size="sm" onClick={disconnect}>
-            Disconnect
-          </HButton>
+          <>
+            <HButton variant="ghost" size="sm" onClick={recheck} disabled={checking}>
+              {checking ? 'Checking…' : 'Check'}
+            </HButton>
+            <HButton variant="ghost" size="sm" onClick={disconnect}>
+              Disconnect
+            </HButton>
+          </>
         )}
       </div>
     </li>

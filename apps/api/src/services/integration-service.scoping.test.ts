@@ -57,6 +57,18 @@ describe('listUserIntegrations', () => {
     // Never selects encrypted config.
     expect(findMany.mock.calls[0]![0].select).not.toHaveProperty('config');
   });
+
+  it('labels each row as mine (user) or org-level (org)', async () => {
+    findMany.mockResolvedValue([
+      { id: 'i1', userId: ME, provider: 'slack' },
+      { id: 'i2', userId: null, provider: 'gmail' },
+    ]);
+    const rows = await listUserIntegrations(ORG, ME);
+    expect(rows.map((r) => [r.id, r.scope])).toEqual([
+      ['i1', 'user'],
+      ['i2', 'org'],
+    ]);
+  });
 });
 
 describe('getUserManagedIntegration (ownership)', () => {

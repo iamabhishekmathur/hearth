@@ -34,7 +34,8 @@ This file maps source code areas to their corresponding documentation pages. Whe
 |---|---|
 | `apps/web/src/pages/settings.tsx` | `docs/admin/index.md` and the affected admin page |
 | `apps/api/src/routes/admin/users.ts`, `apps/api/src/routes/admin/teams.ts`, `apps/web/src/components/admin/user-management.tsx`, `apps/web/src/components/admin/team-management.tsx` | `docs/admin/users-and-teams.md` |
-| `apps/api/src/mcp/connectors/*`, `apps/api/src/routes/admin/integrations.ts`, `apps/web/src/components/admin/integration-health.tsx` | `docs/admin/integrations.md`, `docs/cloud/integrations.md` |
+| `apps/api/src/mcp/connectors/*`, `apps/api/src/mcp/connection-manager.ts`, `apps/api/src/routes/admin/integrations.ts`, `apps/web/src/components/admin/integration-health.tsx`, `apps/web/src/components/integrations/connect-tools.tsx` | `docs/admin/integrations.md`, `docs/cloud/integrations.md` |
+| `apps/api/src/services/invitation-service.ts`, `apps/web/src/components/invitations/*`, `apps/web/src/pages/accept-invite.tsx` | `docs/admin/users-and-teams.md` |
 | `apps/api/src/routes/admin/llm-config.ts`, `apps/api/src/llm/*`, `apps/web/src/components/admin/llm-config.tsx` | `docs/admin/llm-providers.md`, `docs/self-hosting/configuration.md` when env vars change |
 | `apps/web/src/pages/settings.tsx`, `apps/api/src/routes/identity.ts` | `docs/admin/soul-and-identity.md` |
 | `apps/api/src/services/sso-service.ts`, `apps/api/src/routes/admin/sso.ts`, `POST /auth/sso/callback` in `apps/api/src/routes/auth.ts` | `docs/admin/sso.md` |

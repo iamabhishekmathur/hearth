@@ -48,7 +48,7 @@ export async function listIntegrations(orgId: string) {
  * Never surfaces another member's personal integration.
  */
 export async function listUserIntegrations(orgId: string, userId: string) {
-  return prisma.integration.findMany({
+  const rows = await prisma.integration.findMany({
     where: {
       orgId,
       OR: [{ userId }, { userId: null }],
@@ -56,6 +56,9 @@ export async function listUserIntegrations(orgId: string, userId: string) {
     orderBy: { createdAt: 'desc' },
     select: INTEGRATION_SUMMARY_SELECT,
   });
+  // `scope` tells the client which rows the member owns (and may disconnect)
+  // versus org-level connections an admin manages.
+  return rows.map((r) => ({ ...r, scope: r.userId ? ('user' as const) : ('org' as const) }));
 }
 
 /**
