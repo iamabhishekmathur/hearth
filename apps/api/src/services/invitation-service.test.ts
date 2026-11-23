@@ -94,11 +94,13 @@ describe('createInvite', () => {
       pendingInvite({ token: data.token, email: data.email }),
     );
 
-    const { invite, acceptUrl } = await createInvite({
+    const { invite, acceptUrl, emailSent } = await createInvite({
       orgId: ORG,
       email: 'Teammate@Acme.com',
       invitedByUserId: INVITER,
     });
+    // Nothing was emailed, and the result says so (the UI must not claim "sent").
+    expect(emailSent).toBe(false);
 
     expect(invCreate).toHaveBeenCalledOnce();
     expect(invUpdate).not.toHaveBeenCalled();
@@ -142,8 +144,13 @@ describe('createInvite', () => {
     );
     (prisma.org.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ name: 'Acme' });
 
-    await createInvite({ orgId: ORG, email: 'teammate@acme.com', invitedByUserId: INVITER });
+    const { emailSent } = await createInvite({
+      orgId: ORG,
+      email: 'teammate@acme.com',
+      invitedByUserId: INVITER,
+    });
 
+    expect(emailSent).toBe(true);
     expect(sendEmailMock).toHaveBeenCalledOnce();
     const emailArg = sendEmailMock.mock.calls[0]![0] as { to: string };
     expect(emailArg.to).toBe('teammate@acme.com');

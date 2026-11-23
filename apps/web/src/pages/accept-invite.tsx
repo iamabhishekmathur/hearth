@@ -125,7 +125,9 @@ export function AcceptInvitePage({ token }: AcceptInvitePageProps) {
           </h1>
           <p className="mt-2 text-sm text-hearth-text-muted">
             <span className="font-medium text-hearth-text">{preview.invitedByName}</span> invited you to{' '}
-            <span className="font-medium text-hearth-text">{preview.orgName}</span> on Hearth.
+            <span className="font-medium text-hearth-text">{preview.orgName}</span>
+            {/* Avoid "invited you to Hearth on Hearth" when the org is named Hearth. */}
+            {preview.orgName.trim().toLowerCase() === 'hearth' ? '.' : ' on Hearth.'}
           </p>
           {preview.context && (
             <div className="mt-3 flex items-center justify-center gap-2">

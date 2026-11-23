@@ -50,6 +50,8 @@ export interface CreateInviteInput {
 export interface CreateInviteResult {
   invite: Invitation;
   acceptUrl: string;
+  /** False when email isn't configured or sending failed — share acceptUrl instead. */
+  emailSent: boolean;
 }
 
 /**
@@ -102,21 +104,22 @@ export async function createInvite(
   // onboarding step. Best-effort; never blocks the invite.
   void markStepComplete(input.invitedByUserId, 'invite_teammate').catch(() => {});
 
-  await deliverInviteEmail(invite, acceptUrl);
+  const emailSent = await deliverInviteEmail(invite, acceptUrl);
 
-  return { invite, acceptUrl };
+  return { invite, acceptUrl, emailSent };
 }
 
+/** Returns true only when an invite email was actually handed to the mailer. */
 async function deliverInviteEmail(
   invite: Invitation,
   acceptUrl: string,
-): Promise<void> {
+): Promise<boolean> {
   if (!emailConfigured()) {
     logger.info(
-      { inviteId: invite.id, email: invite.email, acceptUrl },
+      { inviteId: invite.id },
       'Invite email skipped (no SMTP/RESEND configured); acceptUrl returned to caller',
     );
-    return;
+    return false;
   }
 
   try {
@@ -131,9 +134,11 @@ async function deliverInviteEmail(
       text: `You've been invited to join ${orgName} on Hearth.\n\nAccept your invite:\n${acceptUrl}\n\nThis link expires on ${invite.expiresAt.toISOString()}.`,
       html: `<p>You've been invited to join <strong>${orgName}</strong> on Hearth.</p><p><a href="${acceptUrl}">Accept your invite</a></p><p>This link expires on ${invite.expiresAt.toISOString()}.</p>`,
     });
+    return true;
   } catch (err) {
     // Email is best-effort — never fail invite creation on a send error.
     logger.error({ err, inviteId: invite.id }, 'Invite email send failed');
+    return false;
   }
 }
 

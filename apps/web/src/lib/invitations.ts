@@ -39,6 +39,8 @@ export interface Invitation {
   expiresAt: string | null;
   /** The full accept URL (WEB_URL + '#/invite/' + token). Present on create. */
   acceptUrl?: string;
+  /** Present on create: whether an invite email actually went out. */
+  emailSent?: boolean;
 }
 
 /** Public preview shown on the accept page before the invitee has an account. */
@@ -65,8 +67,11 @@ export interface CreateInviteInput {
 export async function createInvite(
   input: CreateInviteInput,
 ): Promise<Invitation> {
-  const res = await api.post<{ data: Invitation }>('/invitations', input);
-  return res.data;
+  const res = await api.post<{
+    data: { invitation: Invitation; acceptUrl: string; emailSent?: boolean };
+  }>('/invitations', input);
+  const { invitation, acceptUrl, emailSent } = res.data;
+  return { ...invitation, acceptUrl, emailSent };
 }
 
 /** GET /invitations — list the org's pending invitations. */

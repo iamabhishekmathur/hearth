@@ -149,11 +149,15 @@ export function InviteTeammates({ source, context, onInviteSent }: InviteTeammat
             <div className="flex items-center gap-2">
               <HIcon name="check" size={14} color="var(--hearth-ok)" />
               <span className="text-[12.5px] font-medium text-hearth-text">
-                Invite sent to {lastInvite.email}
+                {lastInvite.emailSent
+                  ? `Invite emailed to ${lastInvite.email}`
+                  : `Invite created for ${lastInvite.email}`}
               </span>
             </div>
             <p className="mt-1 text-[12px] text-hearth-text-muted">
-              Or share this link directly:
+              {lastInvite.emailSent
+                ? 'Or share this link directly:'
+                : 'Email isn’t set up on this Hearth server, so send them this link yourself:'}
             </p>
             <div className="mt-2 flex items-center gap-2">
               <input

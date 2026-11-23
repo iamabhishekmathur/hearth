@@ -53,7 +53,7 @@ router.post('/', requireAuth, requireOrg, async (req, res, next) => {
       }
     }
 
-    const { invite, acceptUrl } = await invitationService.createInvite({
+    const { invite, acceptUrl, emailSent } = await invitationService.createInvite({
       orgId: req.user!.orgId!,
       email,
       invitedByUserId: req.user!.id,
@@ -62,7 +62,7 @@ router.post('/', requireAuth, requireOrg, async (req, res, next) => {
     });
 
     res.status(201).json({
-      data: { invitation: invitationService.serializeInvitation(invite), acceptUrl },
+      data: { invitation: invitationService.serializeInvitation(invite), acceptUrl, emailSent },
     });
   } catch (err) {
     next(err);
