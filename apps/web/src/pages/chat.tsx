@@ -20,6 +20,7 @@ import { getSocket } from '@/lib/socket-client';
 import type { AgentMode, PresenceUser, SessionVisibility } from '@hearth/shared';
 import { HEyebrow, HPill, HChip, HKbd, HButton, HAvatar } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
+import { ChatGPTPlanErrorNotice, isChatGPTPlanErrorCode } from '@/components/chat/chatgpt-plan-indicator';
 
 export function ChatPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export function ChatPage() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const {
     messages, sendMessage, retryLastMessage, regenerateMessage, stopRun,
-    isStreaming, thinking, toolCalls, error, warning, presenceUsers,
+    isStreaming, thinking, toolCalls, error, errorCode, warning, presenceUsers,
     typingUsers, composingUsers,
     messageAuthors, unreadAnchorId, markRead,
     taskChips, taskSuggestions, dismissTaskSuggestion,
@@ -326,8 +327,15 @@ export function ChatPage() {
             </div>
           )}
 
+          {/* ChatGPT plan errors: actionable notice (Manage usage / Reconnect), never a silent fallback */}
+          {error && isChatGPTPlanErrorCode(errorCode) && (
+            <div className="border-b border-hearth-border px-5 py-3">
+              <ChatGPTPlanErrorNotice code={errorCode!} message={error} />
+            </div>
+          )}
+
           {/* Error banner */}
-          {error && (
+          {error && !isChatGPTPlanErrorCode(errorCode) && (
             <div className="flex items-center justify-between border-b px-5 py-2 text-sm animate-fade-in" style={{ borderColor: 'var(--hearth-err)', background: 'color-mix(in srgb, var(--hearth-err) 8%, transparent)', color: 'var(--hearth-err)' }}>
               <span>{error}</span>
               <HButton size="sm" onClick={retryLastMessage}>Retry</HButton>

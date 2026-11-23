@@ -9,6 +9,12 @@ export interface AgentContext {
   sessionId: string;
   model?: string;
   providerId?: string;
+  /**
+   * User whose personal LLM credential pays for this run when `providerId` is
+   * user-scoped (`chatgpt-plan`). In shared sessions this is the person who sent
+   * the message, not the session owner. Defaults to `userId`.
+   */
+  llmUserId?: string;
   latestMessage?: string;
   activeArtifactId?: string;
   timezone?: string;

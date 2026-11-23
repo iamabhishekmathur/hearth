@@ -11,15 +11,17 @@ import { ComplianceConfig } from '@/components/admin/compliance-config';
 import { GovernanceConfig } from '@/components/admin/governance-config';
 import { CognitiveConfig } from '@/components/admin/cognitive-config';
 import { api } from '@/lib/api-client';
+import { ChatGPTPlanSettings } from '@/components/settings/chatgpt-plan-settings';
 import { HButton, HCard, HEyebrow } from '@/components/ui/primitives';
 
-type Tab = 'profile' | 'identity' | 'users' | 'teams' | 'integrations' | 'llm' | 'compliance' | 'analytics' | 'skills' | 'governance' | 'cognitive' | 'decisions';
+type Tab = 'profile' | 'identity' | 'ai-plan' | 'users' | 'teams' | 'integrations' | 'llm' | 'compliance' | 'analytics' | 'skills' | 'governance' | 'cognitive' | 'decisions';
 
-const VALID_TABS = new Set<Tab>(['profile', 'identity', 'users', 'teams', 'integrations', 'llm', 'compliance', 'analytics', 'skills', 'governance', 'cognitive', 'decisions']);
+const VALID_TABS = new Set<Tab>(['profile', 'identity', 'ai-plan', 'users', 'teams', 'integrations', 'llm', 'compliance', 'analytics', 'skills', 'governance', 'cognitive', 'decisions']);
 
 const ALL_USER_TABS: { value: Tab; label: string }[] = [
   { value: 'profile', label: 'Profile' },
   { value: 'identity', label: 'Soul & Identity' },
+  { value: 'ai-plan', label: 'ChatGPT plan' },
 ];
 
 const ADMIN_TABS: { value: Tab; label: string }[] = [
@@ -268,6 +270,8 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
         )}
 
         {activeTab === 'identity' && <IdentityEditor />}
+
+        {activeTab === 'ai-plan' && <ChatGPTPlanSettings />}
 
         {activeTab === 'users' && isAdmin && (
           <HCard padding="p-6">

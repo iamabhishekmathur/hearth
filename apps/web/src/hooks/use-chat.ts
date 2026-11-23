@@ -70,6 +70,8 @@ interface UseChatReturn {
   thinking: string | null;
   toolCalls: ToolCallInfo[];
   error: string | null;
+  /** Machine-readable code for `error` (e.g. ChatGPT plan usage limit), if any. */
+  errorCode: string | null;
   /** W2: non-fatal notice surfaced mid-run (doom-loop break, budget, etc.). Null when none. */
   warning: string | null;
   presenceUsers: PresenceUser[];
@@ -116,7 +118,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinking, setThinking] = useState<string | null>(null);
   const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorText] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  // Every error update resets the code unless one is supplied explicitly.
+  const setError = useCallback((msg: string | null, code: string | null = null) => {
+    setErrorText(msg);
+    setErrorCode(msg ? code : null);
+  }, []);
   const [warning, setWarning] = useState<string | null>(null);
   // W2: runId for the current turn, learned from the chat:run_started event.
   // Used to target a stop. Null between runs.
@@ -222,7 +230,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
         break;
 
       case 'error':
-        setError(event.message);
+        setError(event.message, (event as { code?: string }).code ?? null);
         setIsStreaming(false);
         setThinking(null);
         // lastFailedContentRef is set by the sendMessage catch block for HTTP errors.
@@ -772,7 +780,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
   return {
     messages, sendMessage, retryLastMessage, regenerateMessage, stopRun,
-    isStreaming, thinking, toolCalls, error, warning, presenceUsers,
+    isStreaming, thinking, toolCalls, error, errorCode, warning, presenceUsers,
     typingUsers, composingUsers,
     messageAuthors, unreadAnchorId, markRead,
     taskChips, taskSuggestions, dismissTaskSuggestion,

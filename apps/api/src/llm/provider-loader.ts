@@ -8,6 +8,9 @@ import { OllamaProvider } from './ollama-provider.js';
 import { refreshCatalog } from './model-catalog.js';
 import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
+import { CHATGPT_PLAN_PROVIDER_ID } from '@hearth/shared';
+import { ChatGPTPlanProvider } from './chatgpt-plan-provider.js';
+import * as chatgptPlan from '../services/chatgpt-plan-service.js';
 
 /**
  * Loads LLM providers from env vars and DB-stored encrypted keys.
@@ -27,6 +30,19 @@ export async function loadProviders(): Promise<void> {
   // Kick off a catalog refresh (no-op unless HEARTH_MODEL_CATALOG_REFRESH=true).
   // Fire-and-forget: the snapshot is already authoritative, so boot never blocks.
   refreshCatalog().catch((err) => logger.warn({ err }, 'Model catalog refresh failed'));
+
+  // ── User-scoped: Sign in with ChatGPT ("Use your ChatGPT plan") ──
+  if (chatgptPlan.isChatGPTPlanEnabled()) {
+    providerRegistry.registerUserProvider(
+      CHATGPT_PLAN_PROVIDER_ID,
+      (userId) =>
+        new ChatGPTPlanProvider({
+          apiBaseUrl: env.CHATGPT_API_BASE_URL,
+          getAccessToken: () => chatgptPlan.getAccessToken(userId),
+          onUsageLimit: () => chatgptPlan.recordUsageLimit(userId),
+        }),
+    );
+  }
 
   // ── Register from env vars ──
   if (env.ANTHROPIC_API_KEY) {

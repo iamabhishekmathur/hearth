@@ -30,6 +30,11 @@ export interface ChatParams {
    * support cancellation may ignore it.
    */
   signal?: AbortSignal;
+  /**
+   * User whose *personal* LLM credential should pay for this call when the
+   * provider is user-scoped (e.g. `chatgpt-plan`). Ignored by org providers.
+   */
+  userId?: string;
 }
 
 export interface LLMMessage {
@@ -70,5 +75,22 @@ export type ChatEvent =
   | { type: 'permission_request'; callId: string; tool: string; input: Record<string, unknown> }
   // W2: non-fatal notice surfaced mid-run (e.g. doom-loop break, budget warning).
   | { type: 'warning'; message: string }
-  | { type: 'error'; message: string }
+  // `code` lets clients render an actionable state instead of raw text, e.g.
+  // the ChatGPT plan "Manage usage" prompt. See CHATGPT_PLAN_ERROR_CODES.
+  | { type: 'error'; message: string; code?: string }
   | { type: 'done'; usage: { inputTokens: number; outputTokens: number }; stopReason?: StopReason };
+
+/** Error codes emitted by the user-scoped ChatGPT plan provider. */
+export const CHATGPT_PLAN_ERROR_CODES = {
+  /** Plan or per-app usage cap reached → show "Manage usage". */
+  usageLimit: 'chatgpt_plan_usage_limit',
+  /** Plan usage unavailable for this account/workspace. */
+  unavailable: 'chatgpt_plan_unavailable',
+  /** Tokens revoked/expired → reconnect. */
+  reauth: 'chatgpt_plan_reauth',
+  /** User asked for their plan but hasn't connected one. */
+  notConnected: 'chatgpt_plan_not_connected',
+} as const;
+
+/** Provider id for "use the signed-in user's ChatGPT plan". */
+export const CHATGPT_PLAN_PROVIDER_ID = 'chatgpt-plan';

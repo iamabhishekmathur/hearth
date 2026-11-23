@@ -341,6 +341,7 @@ model Org {
   notifications        Notification[]
   pipelineRuns         PipelineRun[]
   toolPermissionPolicies ToolPermissionPolicy[]
+  userLlmCredentials   UserLlmCredential[]
 
   @@map("orgs")
 }
@@ -405,6 +406,7 @@ model User {
   notifications      Notification[]
   notificationPreference NotificationPreference?
   taskSuggestions    TaskSuggestion[]
+  llmCredentials     UserLlmCredential[]
 
   @@map("users")
 }
@@ -1075,6 +1077,46 @@ model ToolPermissionPolicy {
 
   @@index([orgId, agentProfileId, userId])
   @@map("tool_permission_policies")
+}
+
+// ──────────────────────────────────────────────
+// Per-user LLM credentials (Sign in with ChatGPT — "Use your ChatGPT plan")
+// ──────────────────────────────────────────────
+
+/// A user's own LLM credential, used instead of the org's API key when the user
+/// opts in. Today the only provider is `chatgpt` (OAuth tokens that spend the
+/// user's ChatGPT plan allowance). Tokens are AES-256-GCM encrypted at rest.
+model UserLlmCredential {
+  id                    String    @id @default(uuid())
+  orgId                 String    @map("org_id")
+  userId                String    @map("user_id")
+  provider              String // 'chatgpt'
+  /// Verified `sub` of the connected ChatGPT account (stable identity).
+  accountSubject        String    @map("account_subject")
+  accountEmail          String?   @map("account_email")
+  /// OAuth client id issued to this Hearth install for this account.
+  clientId              String    @map("client_id")
+  encryptedAccessToken  String    @map("encrypted_access_token")
+  encryptedRefreshToken String?   @map("encrypted_refresh_token")
+  accessTokenExpiresAt  DateTime  @map("access_token_expires_at")
+  scopes                String[]
+  /// active | needs_reauth (refresh failed / revoked) | plan_unavailable
+  status                String    @default("active")
+  /// User toggle: route my chats through my ChatGPT plan.
+  useForChat            Boolean   @default(true) @map("use_for_chat")
+  defaultModel          String?   @map("default_model")
+  /// First-use disclosure ("You're using your ChatGPT plan") acknowledged.
+  welcomeAcknowledgedAt DateTime? @map("welcome_acknowledged_at")
+  lastUsageLimitAt      DateTime? @map("last_usage_limit_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([orgId])
+  @@map("user_llm_credentials")
 }
 
 // ──────────────────────────────────────────────

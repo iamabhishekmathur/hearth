@@ -31,6 +31,7 @@ const guideSidebar = [
     items: [
       { text: 'Overview', link: '/guide/' },
       { text: 'Chat', link: '/guide/chat' },
+      { text: 'Use Your ChatGPT Plan', link: '/guide/chatgpt-plan' },
       { text: 'Artifacts', link: '/guide/artifacts' },
       { text: 'Tasks', link: '/guide/tasks' },
       { text: 'Memory', link: '/guide/memory' },
@@ -139,6 +140,7 @@ const developerSidebar = [
       { text: 'Developer Overview', link: '/developers/' },
       { text: 'API Reference', link: '/developers/api/' },
       { text: 'Chat and Sessions', link: '/developers/api/chat' },
+      { text: 'ChatGPT Plan', link: '/developers/api/chatgpt-plan' },
       { text: 'Tasks', link: '/developers/api/tasks' },
       { text: 'Memory', link: '/developers/api/memory' },
       { text: 'Skills', link: '/developers/api/skills' },

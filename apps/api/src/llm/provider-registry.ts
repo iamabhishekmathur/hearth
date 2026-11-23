@@ -2,11 +2,28 @@ import type { ChatParams, ChatEvent } from '@hearth/shared';
 import type { LLMProvider } from './types.js';
 import type { ChatInterceptor, EmbedInterceptor } from '../compliance/types.js';
 
+/** Builds a provider bound to one user's credential. */
+export type UserProviderResolver = (userId: string) => LLMProvider;
+
 export class ProviderRegistry {
   private providers = new Map<string, LLMProvider>();
   private defaultId: string | null = null;
   private chatInterceptor: ChatInterceptor | null = null;
   private embedInterceptor: EmbedInterceptor | null = null;
+  /**
+   * Resolvers for user-scoped providers (e.g. `chatgpt-plan`): built per call
+   * from the requesting user's own credential rather than registered globally.
+   */
+  private userProviderResolvers = new Map<string, UserProviderResolver>();
+
+  /** Register a resolver for a user-scoped provider id. */
+  registerUserProvider(id: string, resolver: UserProviderResolver): void {
+    this.userProviderResolvers.set(id, resolver);
+  }
+
+  isUserScoped(id: string | undefined): boolean {
+    return !!id && this.userProviderResolvers.has(id);
+  }
 
   register(provider: LLMProvider, isDefault = false): void {
     this.providers.set(provider.id, provider);
@@ -108,6 +125,19 @@ export class ProviderRegistry {
     params: ChatParams,
     preferredId?: string,
   ): AsyncIterable<ChatEvent> {
+    // User-scoped provider: the user explicitly chose to spend their own plan.
+    // Never fall back to the org's key — surface the error so the UI can show
+    // an actionable state (e.g. "Manage usage") instead.
+    const userResolver = preferredId ? this.userProviderResolvers.get(preferredId) : undefined;
+    if (userResolver) {
+      if (!params.userId) {
+        yield { type: 'error', message: `Provider "${preferredId}" requires a user context` };
+        return;
+      }
+      yield* userResolver(params.userId).chat(params);
+      return;
+    }
+
     const ordered = this.getFallbackOrder(preferredId);
 
     if (ordered.length === 0) {

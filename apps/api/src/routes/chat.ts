@@ -30,6 +30,8 @@ import {
   setCognitiveEnabled,
 } from '../services/cognitive-profile-service.js';
 import { listCommands, resolveCommandForOrg } from '../services/command-service.js';
+import { CHATGPT_PLAN_PROVIDER_ID } from '@hearth/shared';
+import * as chatgptPlan from '../services/chatgpt-plan-service.js';
 import { parseCommandInput, CommandResolveError } from '../services/command-registry.js';
 
 const router: ReturnType<typeof Router> = Router();
@@ -1267,6 +1269,47 @@ interface RunAgentOpts {
   approvedPlan?: import('../agent/types.js').AgentPlan;
 }
 
+/**
+ * Route a run through the sender's ChatGPT plan when appropriate. An explicit
+ * picker choice of another model always wins; the plan never silently falls
+ * back to the org's key (the provider surfaces a coded error instead).
+ * Exported for tests.
+ */
+export async function applyChatGPTPlanRouting(
+  context: { model?: string; providerId?: string; llmUserId?: string },
+  req: { model?: string; providerId?: string; payingUserId: string },
+): Promise<void> {
+  const explicitPlan = req.providerId === CHATGPT_PLAN_PROVIDER_ID;
+  if (!chatgptPlan.isChatGPTPlanEnabled()) {
+    // Feature off: don't let an unknown provider id fall through to defaults
+    // with a plan-only model slug.
+    if (explicitPlan) {
+      delete context.providerId;
+      delete context.model;
+    }
+    return;
+  }
+  const explicitOther = !explicitPlan && (req.providerId !== undefined || req.model !== undefined);
+  if (explicitOther) return;
+
+  const routing = await chatgptPlan.resolveChatRouting(req.payingUserId);
+  if (!explicitPlan && !routing.useChatGPTPlan) return;
+
+  context.providerId = CHATGPT_PLAN_PROVIDER_ID;
+  context.llmUserId = req.payingUserId;
+  if (explicitPlan && req.model) {
+    context.model = req.model;
+    return;
+  }
+  let planModel = routing.defaultModel;
+  if (!planModel) {
+    // No saved preference: use the first model the account exposes. If this
+    // fails the provider will surface the actionable error on send.
+    planModel = (await chatgptPlan.listPlanModels(req.payingUserId).catch(() => []))[0]?.id ?? null;
+  }
+  if (planModel) context.model = planModel;
+}
+
 async function runAgent(opts: RunAgentOpts): Promise<void> {
   const {
     orgId,
@@ -1323,6 +1366,9 @@ async function runAgent(opts: RunAgentOpts): Promise<void> {
     });
     if (model) context.model = model;
     if (providerId) context.providerId = providerId;
+    // Sign in with ChatGPT: spend the *sender's* ChatGPT plan when they chose it
+    // explicitly, or when they turned it on and didn't pick another model.
+    await applyChatGPTPlanRouting(context, { model, providerId, payingUserId: initiatorUserId ?? ownerUserId });
     context.runId = effectiveRunId;
     context.abortSignal = controller.signal;
     // W3: gate the per-tool permission policy behind the `permissions` flag.

@@ -21,6 +21,8 @@ declare module 'express-session' {
   interface SessionData {
     userId?: string;
     impersonationContext?: ImpersonationContext;
+    /** CSRF `state` for an in-flight Slack OAuth install. */
+    slackOAuthState?: string;
   }
 }
 
