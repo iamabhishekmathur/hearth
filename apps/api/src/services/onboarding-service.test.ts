@@ -16,6 +16,13 @@ vi.mock('../config.js', () => ({
   env: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined, OLLAMA_BASE_URL: undefined },
 }));
 
+// The ChatGPT plan lets a member chat without an org AI provider.
+const chatgpt = vi.hoisted(() => ({ enabled: false, routed: false }));
+vi.mock('./chatgpt-plan-service.js', () => ({
+  isChatGPTPlanEnabled: () => chatgpt.enabled,
+  resolveChatRouting: async () => ({ useChatGPTPlan: chatgpt.routed, defaultModel: null }),
+}));
+
 import { prisma } from '../lib/prisma.js';
 import {
   normalizeState,
@@ -63,6 +70,8 @@ function withStoredState(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  chatgpt.enabled = false;
+  chatgpt.routed = false;
 });
 
 describe('normalizeState', () => {
@@ -258,5 +267,38 @@ describe('dismiss', () => {
     });
     await dismiss(USER);
     expect(read().dismissedAt).toBe('2026-06-01T00:00:00.000Z');
+  });
+});
+
+describe('getStatus — aiReady', () => {
+  const ORG_WITH_KEY = { llm: { encryptedKeys: { anthropic: 'enc' } } };
+
+  it('is ready when the org has an AI provider', async () => {
+    withStoredState({}, { role: 'member', orgSettings: ORG_WITH_KEY });
+    const status = await getStatus(USER);
+    expect(status.aiReady).toBe(true);
+  });
+
+  it('is NOT ready for a member when the org has no provider and no plan is connected', async () => {
+    chatgpt.enabled = true;
+    withStoredState({}, { role: 'member', orgSettings: {} });
+    const status = await getStatus(USER);
+    expect(status.aiReady).toBe(false);
+    expect(status.chatgptPlanAvailable).toBe(true);
+  });
+
+  it('is ready when the member routes chats through their own ChatGPT plan', async () => {
+    chatgpt.enabled = true;
+    chatgpt.routed = true;
+    withStoredState({}, { role: 'member', orgSettings: {} });
+    const status = await getStatus(USER);
+    expect(status.aiReady).toBe(true);
+  });
+
+  it('does not offer the ChatGPT plan when the server has it disabled', async () => {
+    withStoredState({}, { role: 'member', orgSettings: {} });
+    const status = await getStatus(USER);
+    expect(status.aiReady).toBe(false);
+    expect(status.chatgptPlanAvailable).toBe(false);
   });
 });

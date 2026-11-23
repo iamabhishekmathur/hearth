@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { stepsForRole } from '@hearth/shared';
+import { HIcon } from '@/components/ui/icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboarding } from './use-onboarding';
 import { OnboardingWelcome } from './onboarding-welcome';
@@ -29,6 +31,21 @@ export function OnboardingSurface() {
     useOnboarding(enabled);
 
   const prevCompleted = useRef<Set<string> | null>(null);
+
+  // "Away" = the user clicked a step's CTA and is doing it on another page.
+  // The full-screen takeover steps aside (it would otherwise cover the very
+  // page the CTA opened) and a compact pill offers the way back. Kept in
+  // sessionStorage so it survives in-app navigation and reloads in this tab.
+  const [away, setAwayState] = useState(() => readAway());
+  const setAway = useCallback((v: boolean) => {
+    setAwayState(v);
+    try {
+      if (v) sessionStorage.setItem(AWAY_KEY, '1');
+      else sessionStorage.removeItem(AWAY_KEY);
+    } catch {
+      /* storage unavailable — in-memory state still works */
+    }
+  }, []);
 
   // Re-pull onboarding state when the tab regains focus — step completions
   // happen on other pages (Track B) and we want the tick to appear on return.
@@ -80,6 +97,29 @@ export function OnboardingSurface() {
 
   const started = Boolean(status.state.startedAt);
 
+  if (started && away) {
+    const steps = stepsForRole(user?.role);
+    const done = steps.filter((s) => status.state.completedSteps.includes(s)).length;
+    return (
+      <div className="pointer-events-none absolute bottom-24 right-4 z-30">
+        <button
+          type="button"
+          onClick={() => {
+            setAway(false);
+            void refresh();
+          }}
+          className="pointer-events-auto flex items-center gap-2 rounded-pill border border-hearth-border bg-hearth-card px-4 py-2.5 text-sm font-medium text-hearth-text shadow-hearth-2 transition-colors hover:border-hearth-accent animate-fade-in"
+        >
+          <HIcon name="check" size={14} color="var(--hearth-accent)" />
+          Continue setup
+          <span className="text-hearth-text-muted">
+            {done}/{steps.length}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   // Full takeover of the main content area for the whole flow — front and
   // centre on first login. Scrollable in case the viewport is short.
   return (
@@ -94,9 +134,20 @@ export function OnboardingSurface() {
             onDismiss={() => void handleDismiss()}
             onRefresh={refresh}
             onFinish={() => void handleDismiss()}
+            onStepAction={() => setAway(true)}
           />
         )}
       </div>
     </div>
   );
+}
+
+const AWAY_KEY = 'hearth.onboarding.away';
+
+function readAway(): boolean {
+  try {
+    return sessionStorage.getItem(AWAY_KEY) === '1';
+  } catch {
+    return false;
+  }
 }

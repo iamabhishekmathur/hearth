@@ -10,6 +10,7 @@ import {
 } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
 import { env } from '../config.js';
+import * as chatgptPlan from './chatgpt-plan-service.js';
 
 // ──────────────────────────────────────────────
 // Onboarding service (growth-loop activation foundation, TRACK 1).
@@ -148,18 +149,22 @@ export async function getStatus(userId: string): Promise<OnboardingStatus> {
   const state = normalizeState(user.onboardingState);
   let steps = stepsForRole(user.role);
 
-  if (
-    user.role === 'admin' &&
-    steps.includes('configure_llm') &&
-    orgHasLlmProvider(user.team?.org?.settings)
-  ) {
+  const orgReady = orgHasLlmProvider(user.team?.org?.settings);
+  if (user.role === 'admin' && steps.includes('configure_llm') && orgReady) {
     steps = steps.filter((s) => s !== 'configure_llm');
   }
+
+  const chatgptPlanAvailable = chatgptPlan.isChatGPTPlanEnabled();
+  const aiReady =
+    orgReady ||
+    (chatgptPlanAvailable && (await chatgptPlan.resolveChatRouting(userId)).useChatGPTPlan);
 
   return {
     state,
     nextStep: computeNextStep(state, steps),
     needsOnboarding: computeNeedsOnboarding(state, steps),
+    aiReady,
+    chatgptPlanAvailable,
   };
 }
 

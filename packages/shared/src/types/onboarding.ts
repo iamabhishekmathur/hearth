@@ -94,4 +94,13 @@ export interface OnboardingStatus {
   state: OnboardingState;
   nextStep: OnboardingStep | null;
   needsOnboarding: boolean;
+  /**
+   * Whether this user's chats have a model to run on: the org has an AI
+   * provider, or the user connected their own ChatGPT plan. When false, chat
+   * and tasks can't work yet, so onboarding says so instead of sending the
+   * user into a dead end.
+   */
+  aiReady?: boolean;
+  /** Whether "Use your ChatGPT plan" is offered on this server. */
+  chatgptPlanAvailable?: boolean;
 }

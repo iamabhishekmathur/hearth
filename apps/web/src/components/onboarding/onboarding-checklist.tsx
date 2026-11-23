@@ -40,6 +40,8 @@ interface OnboardingChecklistProps {
   onRefresh: () => void;
   /** Finish the flow without dismissing (all real steps done — flips needsOnboarding via dismiss). */
   onFinish: () => void;
+  /** The user left the checklist to do a step on another page. */
+  onStepAction?: () => void;
 }
 
 export function OnboardingChecklist({
@@ -48,6 +50,7 @@ export function OnboardingChecklist({
   onDismiss,
   onRefresh,
   onFinish,
+  onStepAction,
 }: OnboardingChecklistProps) {
   // The applicable step set for this role — must match the server's role-scoped
   // computation (see stepsForRole) so progress and nextStep line up.
@@ -68,9 +71,10 @@ export function OnboardingChecklist({
 
   const handleStepClick = (step: OnboardingStep) => {
     const navigated = runStepAction(step);
-    if (!navigated) return; // placeholder (invite_teammate) — no-op
-    // Completion is recorded server-side once the user does the thing; re-pull
-    // when they come back so the tick appears.
+    if (!navigated) return; // placeholder — no-op
+    // Step aside so the target page is usable; completion is recorded
+    // server-side once the user does the thing, and the tick shows on return.
+    onStepAction?.();
     onRefresh();
   };
 
@@ -102,6 +106,37 @@ export function OnboardingChecklist({
           />
         </div>
       </div>
+
+      {/* No model to run on yet (org has no AI provider and the user hasn't
+          connected their own plan): say so up front instead of letting them
+          hit a failing chat. Admins get this via the configure_llm step. */}
+      {status.aiReady === false && role !== 'admin' && (
+        <div
+          role="status"
+          className="mb-5 rounded-lg border border-hearth-border bg-hearth-card px-4 py-3 text-sm shadow-hearth-1"
+        >
+          <p className="font-semibold text-hearth-text">Hearth’s AI isn’t set up yet</p>
+          <p className="mt-0.5 text-hearth-text-muted">
+            Your organization hasn’t added an AI provider, so chat and tasks won’t answer until an
+            admin does.
+            {status.chatgptPlanAvailable && ' You can start now with your own ChatGPT plan.'}
+          </p>
+          {status.chatgptPlanAvailable && (
+            <div className="mt-3">
+              <HButton
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  window.location.hash = '/settings/ai-plan';
+                  onStepAction?.();
+                }}
+              >
+                Use my ChatGPT plan
+              </HButton>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Hero card — the current/next step, benefit-led. */}
       <div
