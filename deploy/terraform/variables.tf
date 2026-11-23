@@ -90,3 +90,12 @@ variable "worker_memory" {
   type    = number
   default = 1024
 }
+
+# "Use your ChatGPT plan" on Hearth Cloud needs an OpenAI-approved client id
+# (Sign in with ChatGPT interest form). Leave empty to keep the feature off;
+# setting it enables the plan with the redirect URI below registered at OpenAI.
+variable "chatgpt_client_id" {
+  description = "OpenAI-issued Sign in with ChatGPT client id (empty = feature off)"
+  type        = string
+  default     = ""
+}

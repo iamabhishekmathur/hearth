@@ -33,8 +33,8 @@ Let each user connect their own ChatGPT plan ([guide](/guide/chatgpt-plan)). Off
 
 | Variable | Purpose |
 |---|---|
-| `CHATGPT_PLAN_ENABLED` | `true` to enable Sign in with ChatGPT plan usage. |
-| `CHATGPT_CLIENT_ID` | Static client id for OpenAI-approved hosted deployments. Unset = open-source dynamic registration. |
+| `CHATGPT_PLAN_ENABLED` | `true` to enable Sign in with ChatGPT plan usage. Without `CHATGPT_CLIENT_ID`, it only turns on when `WEB_URL` is `localhost` or `127.0.0.1` (OpenAI's open-source flow); on a remote host Hearth keeps it off and logs why. |
+| `CHATGPT_CLIENT_ID` | Static client id for OpenAI-approved hosted deployments. Unset = open-source dynamic registration. Requires `CHATGPT_REDIRECT_URI`. |
 | `CHATGPT_REDIRECT_URI` | OAuth redirect URI. Defaults to `http://127.0.0.1:<API_PORT>/api/v1/auth/chatgpt/callback`; OpenAI's open-source flow only accepts a `127.0.0.1` loopback URI. |
 | `CHATGPT_AUTH_BASE_URL` | Defaults to `https://auth.openai.com`. |
 | `CHATGPT_API_BASE_URL` | Defaults to `https://api.openai.com/v1`. |

@@ -20,6 +20,13 @@ services:
       NODE_ENV: production
       API_PORT: '8000'
       WEB_URL: http://localhost:3000
+      # Optional. "Use your ChatGPT plan" works on a local install (OpenAI's
+      # open-source flow returns to 127.0.0.1). See docs/guide/chatgpt-plan.md.
+      CHATGPT_PLAN_ENABLED: '${CHATGPT_PLAN_ENABLED:-false}'
+      CHATGPT_CLIENT_ID: '${CHATGPT_CLIENT_ID:-}'
+      CHATGPT_REDIRECT_URI: '${CHATGPT_REDIRECT_URI:-}'
+      # Optional. Required only if an SSO proxy calls POST /auth/sso/callback.
+      SSO_CALLBACK_SECRET: '${SSO_CALLBACK_SECRET:-}'
     depends_on:
       postgres:
         condition: service_healthy

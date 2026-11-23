@@ -160,11 +160,24 @@ env:
   webUrl: "http://hearth.local"
   redisUrl: "redis://hearth-redis:6379"
 
+# -- "Use your ChatGPT plan" (Sign in with ChatGPT). A cluster is a remote
+# host, so OpenAI's open-source flow (127.0.0.1 redirect) can't work here: you
+# need an OpenAI-approved client id and the redirect URI registered for it.
+# Hearth keeps the feature off unless both are set.
+chatgptPlan:
+  enabled: false
+  clientId: ""
+  # e.g. https://hearth.example.com/api/v1/auth/chatgpt/callback
+  redirectUri: ""
+
 # -- Secrets (override in production - NEVER commit real values)
 secrets:
   databaseUrl: "postgresql://hearth:hearth@hearth-postgres:5432/hearth"
   encryptionKey: ""
   sessionSecret: ""
+  # Optional: shared secret for an SSO proxy calling POST /auth/sso/callback
+  # (min 32 chars). Unset disables that endpoint.
+  ssoCallbackSecret: ""
 
 # -- File storage (shared between api and worker)
 fileStorage:

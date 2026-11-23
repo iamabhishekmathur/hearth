@@ -51,6 +51,19 @@ Route:
 
 Enable TLS before production use.
 
+## Optional Features
+
+A cluster is a remote host, so **Use your ChatGPT plan** needs an OpenAI-approved client id:
+
+```yaml
+chatgptPlan:
+  enabled: true
+  clientId: "<OpenAI-issued client id>"
+  redirectUri: "https://hearth.example.com/api/v1/auth/chatgpt/callback"
+```
+
+To let an SSO proxy call `POST /api/v1/auth/sso/callback`, set `secrets.ssoCallbackSecret` (at least 32 characters).
+
 ## Scaling
 
 Scale API and workers independently. Workers handle background jobs such as routines, memory synthesis, work intake, task planning, and task execution.

@@ -85,6 +85,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   (env as { CHATGPT_PLAN_ENABLED: boolean }).CHATGPT_PLAN_ENABLED = true;
   (env as { CHATGPT_CLIENT_ID?: string }).CHATGPT_CLIENT_ID = undefined;
+  (env as { CHATGPT_REDIRECT_URI?: string }).CHATGPT_REDIRECT_URI = undefined;
+  (env as { WEB_URL: string }).WEB_URL = 'http://localhost:3000';
   cred.findUnique.mockResolvedValue(null);
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -135,6 +137,8 @@ describe('startAuthorization', () => {
 
   it('uses the static hosted client id when configured', async () => {
     (env as { CHATGPT_CLIENT_ID?: string }).CHATGPT_CLIENT_ID = 'hosted_client';
+    (env as { CHATGPT_REDIRECT_URI?: string }).CHATGPT_REDIRECT_URI =
+      'https://app.example.com/api/v1/auth/chatgpt/callback';
     const { url } = await start();
     expect(url.searchParams.get('client_id')).toBe('hosted_client');
     expect(svc.chatgptMode()).toBe('hosted');
@@ -413,5 +417,36 @@ describe('disconnect', () => {
     });
     await svc.disconnect('user-1');
     expect(cred.deleteMany).toHaveBeenCalled();
+  });
+});
+
+describe('chatgptPlanConfigProblem (where the plan can work)', () => {
+  const set = (k: string, v: string | undefined) => ((env as Record<string, unknown>)[k] = v);
+
+  it('allows open-source mode when Hearth runs on this computer', () => {
+    for (const web of ['http://localhost:3000', 'http://127.0.0.1:3000']) {
+      set('WEB_URL', web);
+      expect(svc.chatgptPlanConfigProblem()).toBeNull();
+      expect(svc.isChatGPTPlanEnabled()).toBe(true);
+    }
+  });
+
+  it('stays off in open-source mode on a remote host (cloud, team server)', () => {
+    set('WEB_URL', 'https://app.hearth-app.xyz');
+    expect(svc.chatgptPlanConfigProblem()).toMatch(/own computer/);
+    expect(svc.isChatGPTPlanEnabled()).toBe(false);
+  });
+
+  it('allows a remote host in hosted mode with client id + redirect URI', () => {
+    set('WEB_URL', 'https://app.hearth-app.xyz');
+    set('CHATGPT_CLIENT_ID', 'approved_client');
+    set('CHATGPT_REDIRECT_URI', 'https://app.hearth-app.xyz/api/v1/auth/chatgpt/callback');
+    expect(svc.isChatGPTPlanEnabled()).toBe(true);
+  });
+
+  it('stays off in hosted mode without a redirect URI', () => {
+    set('CHATGPT_CLIENT_ID', 'approved_client');
+    expect(svc.chatgptPlanConfigProblem()).toMatch(/CHATGPT_REDIRECT_URI/);
+    expect(svc.isChatGPTPlanEnabled()).toBe(false);
   });
 });

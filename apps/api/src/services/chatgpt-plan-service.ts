@@ -75,7 +75,35 @@ export class ChatGPTAuthError extends Error {
 // ── Config helpers ────────────────────────────────────────────────────────────
 
 export function isChatGPTPlanEnabled(): boolean {
-  return env.CHATGPT_PLAN_ENABLED === true;
+  return env.CHATGPT_PLAN_ENABLED === true && chatgptPlanConfigProblem() === null;
+}
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+/**
+ * Why an enabled ChatGPT plan can't work on this deployment, or null.
+ *
+ * - Open-source mode (no CHATGPT_CLIENT_ID): OpenAI only redirects to a
+ *   127.0.0.1 loopback, which reaches Hearth only when the browser runs on the
+ *   same machine. A Hearth served from a remote host (Hearth Cloud, a team
+ *   server, Kubernetes) would show a button that always fails, so stay off.
+ * - Hosted mode: needs the redirect URI registered for the approved client.
+ */
+export function chatgptPlanConfigProblem(): string | null {
+  if (env.CHATGPT_CLIENT_ID) {
+    return env.CHATGPT_REDIRECT_URI
+      ? null
+      : 'CHATGPT_CLIENT_ID is set but CHATGPT_REDIRECT_URI is not; set the redirect URI registered with OpenAI';
+  }
+  let host: string;
+  try {
+    host = new URL(env.WEB_URL).hostname;
+  } catch {
+    return 'WEB_URL is not a valid URL';
+  }
+  return LOOPBACK_HOSTS.has(host)
+    ? null
+    : `open-source mode only works when Hearth runs on the user's own computer (WEB_URL is ${host}); a hosted deployment needs an OpenAI-approved CHATGPT_CLIENT_ID and CHATGPT_REDIRECT_URI`;
 }
 
 /** Hosted (OpenAI-approved static client) vs open-source dynamic registration. */

@@ -32,6 +32,10 @@ export async function loadProviders(): Promise<void> {
   refreshCatalog().catch((err) => logger.warn({ err }, 'Model catalog refresh failed'));
 
   // ── User-scoped: Sign in with ChatGPT ("Use your ChatGPT plan") ──
+  const chatgptProblem = env.CHATGPT_PLAN_ENABLED ? chatgptPlan.chatgptPlanConfigProblem() : null;
+  if (chatgptProblem) {
+    logger.warn({ reason: chatgptProblem }, 'CHATGPT_PLAN_ENABLED is set but the ChatGPT plan stays off');
+  }
   if (chatgptPlan.isChatGPTPlanEnabled()) {
     providerRegistry.registerUserProvider(
       CHATGPT_PLAN_PROVIDER_ID,

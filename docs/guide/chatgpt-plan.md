@@ -6,6 +6,16 @@ You can connect your own ChatGPT account so your chats in Hearth use your **Chat
 
 [[toc]]
 
+## Where It's Available
+
+| Deployment | Available? |
+| --- | --- |
+| Hearth running on your own computer (Docker Compose or `pnpm dev`) | Yes. Set `CHATGPT_PLAN_ENABLED=true`. |
+| Hearth Cloud | Not yet. It needs OpenAI to approve Hearth as a hosted partner. |
+| Self-hosted on a team server or Kubernetes | Only with your own OpenAI-approved client id. Set `CHATGPT_CLIENT_ID` and `CHATGPT_REDIRECT_URI`. |
+
+OpenAI's self-serve flow for open-source apps sends you back to `127.0.0.1`, which only reaches Hearth when your browser runs on the same machine. On a remote server without an approved client id, Hearth keeps the feature off and logs why, instead of showing a button that can't work.
+
 ## Connect ChatGPT
 
 1. Open **Settings → ChatGPT plan**.

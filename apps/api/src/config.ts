@@ -5,6 +5,12 @@ import { z } from 'zod';
 // Load .env from project root (two levels up from apps/api/)
 dotenv.config({ path: path.resolve(import.meta.dirname, '../../../.env') });
 
+/**
+ * Deploy templates (docker-compose `${VAR:-}`, Helm, ECS) pass optional
+ * settings through as empty strings when unset; treat those as not set.
+ */
+const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   API_PORT: z.coerce.number().default(8000),
@@ -65,21 +71,20 @@ const envSchema = z.object({
   // only be reachable from an upstream component that has already verified the
   // SAML assertion / OIDC token. That component proves itself with this shared
   // secret (header `x-hearth-sso-secret`). Unset ⇒ the callback is disabled.
-  SSO_CALLBACK_SECRET: z.string().min(32).optional(),
+  SSO_CALLBACK_SECRET: z.preprocess(emptyToUndefined, z.string().min(32).optional()),
 
   // Sign in with ChatGPT — per-user ChatGPT plan usage (see services/chatgpt-auth/).
   // Off unless explicitly enabled.
   CHATGPT_PLAN_ENABLED: z
-    .enum(['true', 'false'])
-    .optional()
+    .preprocess(emptyToUndefined, z.enum(['true', 'false']).optional())
     .transform((v) => v === 'true'),
   // Statically-issued client id (hosted/commercial partners approved by OpenAI).
   // Unset ⇒ open-source dynamic registration (`dynamic_agent_client`).
-  CHATGPT_CLIENT_ID: z.string().optional(),
+  CHATGPT_CLIENT_ID: z.preprocess(emptyToUndefined, z.string().optional()),
   // OAuth redirect URI. The open-source flow only accepts a 127.0.0.1 loopback
   // URI, so the default points at the local API. Hosted deployments override
   // this with the URI registered for their approved client.
-  CHATGPT_REDIRECT_URI: z.string().url().optional(),
+  CHATGPT_REDIRECT_URI: z.preprocess(emptyToUndefined, z.string().url().optional()),
   CHATGPT_AUTH_BASE_URL: z.string().url().default('https://auth.openai.com'),
   CHATGPT_API_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
 });

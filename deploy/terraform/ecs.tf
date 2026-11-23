@@ -19,6 +19,12 @@ locals {
     { name = "WEB_URL", value = "https://${local.app_host}" },
     { name = "API_URL", value = "https://${local.app_host}" },
     { name = "GOOGLE_CALLBACK_URL", value = "https://${local.app_host}/api/v1/auth/oauth/google/callback" },
+    # ChatGPT plan: off until OpenAI approves Hearth Cloud and issues a client id
+    # (open-source mode can't work on a hosted app). Register the redirect URI
+    # below with OpenAI when you get the client id.
+    { name = "CHATGPT_PLAN_ENABLED", value = var.chatgpt_client_id != "" ? "true" : "false" },
+    { name = "CHATGPT_CLIENT_ID", value = var.chatgpt_client_id },
+    { name = "CHATGPT_REDIRECT_URI", value = var.chatgpt_client_id != "" ? "https://${local.app_host}/api/v1/auth/chatgpt/callback" : "" },
   ]
 }
 
