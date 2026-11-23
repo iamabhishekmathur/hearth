@@ -38,6 +38,8 @@ For Hearth Cloud, use the callback URLs and settings provided for your workspace
 
 For self-hosted deployments, ensure `WEB_URL`, `API_URL`, and callback URLs match the public URL behind your reverse proxy or ingress.
 
+`POST /api/v1/auth/sso/callback` provisions and signs in the user named in its request body. It must only be called by the component that has already verified the SAML assertion or OIDC token. That component must send the `x-hearth-sso-secret` header, matching `SSO_CALLBACK_SECRET` (at least 32 characters). If `SSO_CALLBACK_SECRET` is unset, the endpoint returns `503`. Without the secret, anyone could sign in as any member of an SSO-enabled org.
+
 ## API Reference
 
 See [Admin Endpoints](/developers/api/admin).

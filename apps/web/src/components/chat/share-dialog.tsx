@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import type { ApiResponse, CollaboratorRole } from '@hearth/shared';
+import { InviteTeammates } from '@/components/invitations/invite-teammates';
 
 type ContentFilter = 'all' | 'responses' | 'prompts';
 
@@ -338,6 +339,16 @@ export function ShareDialog({
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Section 3b: Invite someone new (contextual) — brings a non-member
+              into the org AND lands them in this chat once they accept. */}
+          <div className="border-t border-hearth-border pt-4">
+            <p className="mb-2 text-sm font-medium text-hearth-text">Invite someone new</p>
+            <InviteTeammates
+              source="contextual"
+              context={{ type: 'chat_session', id: sessionId }}
+            />
           </div>
 
           {/* Section 4: Duplicate */}

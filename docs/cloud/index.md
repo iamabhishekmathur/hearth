@@ -31,6 +31,8 @@ Cloud docs focus on the responsibilities that differ from self-hosting:
 - Integration setup from a managed workspace.
 - Billing, limits, and support policy.
 
+Not yet on Hearth Cloud: [Use Your ChatGPT Plan](/guide/chatgpt-plan). It's available on self-hosted Hearth that runs on your own computer, and comes to Cloud once OpenAI approves Hearth as a hosted partner.
+
 ## Cloud Setup Path
 
 1. [Create and configure a workspace](/cloud/workspace-setup).

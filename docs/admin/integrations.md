@@ -38,6 +38,22 @@ Connected tools let Hearth:
 4. Test the connection.
 5. Save the connector.
 6. Confirm it appears as connected.
+
+## Personal and Organization Connections
+
+Members can connect their own Slack, Gmail, or Granola from **Tools**. Only they can see and disconnect those.
+
+Connections an admin sets up in **Settings > Integrations** belong to the organization. Members see them on the **Tools** page under **Shared by your organization**, but only admins can check or disconnect them.
+
+## Connection Health
+
+Hearth re-checks every active connection about every five minutes and records the result.
+
+- **Healthy**: the last check, within the past hour, succeeded.
+- **Connected**: connected, but not checked in the past hour (for example, right after Hearth restarts).
+- **Error**: the last check failed. Reconnect or update the credentials.
+
+Click **Check** on a connection to re-check it immediately.
 7. Try one low-risk action from chat or a routine.
 
 ## Credential Handling

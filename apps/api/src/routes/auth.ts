@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { timingSafeEqual } from 'node:crypto';
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
@@ -9,6 +10,7 @@ import { setCsrfCookie } from '../middleware/csrf.js';
 import * as authService from '../services/auth-service.js';
 import { sanitizeUser } from '../services/user-service.js';
 import * as ssoService from '../services/sso-service.js';
+import * as onboardingService from '../services/onboarding-service.js';
 import { logger } from '../lib/logger.js';
 
 // ──────────────────────────────────────────────
@@ -155,10 +157,19 @@ router.post('/logout', (req, res, next) => {
 });
 
 /**
- * GET /me — current user info (requires auth)
+ * GET /me — current user info (requires auth).
+ *
+ * Augments the session user with onboarding state so the web can gate the
+ * onboarding UI without a second request. `needsOnboarding` is the computed
+ * activation gate (not dismissed AND has incomplete steps).
  */
-router.get('/me', requireAuth, (req, res) => {
-  res.json({ data: req.user });
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const { state, needsOnboarding } = await onboardingService.getStatus(req.user!.id);
+    res.json({ data: { ...req.user, onboardingState: state, needsOnboarding } });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -200,8 +211,31 @@ router.get('/oauth/google/callback', (req, res, next) => {
  * tokens must be validated against the discovery document. This endpoint
  * handles the JIT provisioning flow once the IdP has been verified.
  */
+/**
+ * The SSO callback trusts the identity in its body, so it is only callable by an
+ * upstream verifier holding `SSO_CALLBACK_SECRET`. Without the secret configured
+ * the endpoint is disabled (it used to accept any caller, which allowed signing
+ * in as any email of an SSO-enabled org). Exported for tests.
+ */
+export function isTrustedSsoCaller(headerValue: unknown, secret: string | undefined): boolean {
+  if (!secret || typeof headerValue !== 'string') return false;
+  const a = Buffer.from(headerValue);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 router.post('/sso/callback', authRateLimit, async (req, res, next) => {
   try {
+    if (!env.SSO_CALLBACK_SECRET) {
+      res.status(503).json({ error: 'SSO verification is not configured on this server' });
+      return;
+    }
+    if (!isTrustedSsoCaller(req.get('x-hearth-sso-secret'), env.SSO_CALLBACK_SECRET)) {
+      logger.warn({ ip: req.ip }, 'Rejected SSO callback without a valid verifier secret');
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
     const { orgSlug, email, name } = req.body as {
       orgSlug?: string;
       email?: string;

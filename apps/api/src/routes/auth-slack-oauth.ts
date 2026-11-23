@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { env } from '../config.js';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -7,10 +8,18 @@ import { encrypt } from '../mcp/token-store.js';
 
 const router: ReturnType<typeof Router> = Router();
 
+/** Constant-time `state` comparison. Exported for tests. */
+export function isValidOAuthState(received: unknown, expected: string | undefined): boolean {
+  if (!expected || typeof received !== 'string') return false;
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 /**
  * GET /auth/slack — initiate Slack OAuth flow
  */
-router.get('/', requireAuth, (_req, res) => {
+router.get('/', requireAuth, (req, res) => {
   const clientId = env.SLACK_CLIENT_ID;
   if (!clientId) {
     res.status(500).json({ error: 'Slack OAuth not configured' });
@@ -19,7 +28,10 @@ router.get('/', requireAuth, (_req, res) => {
 
   const scopes = 'channels:read,chat:write,search:read,im:read,groups:read';
   const redirectUri = `${env.API_URL}/api/v1/auth/slack/callback`;
-  const url = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  // CSRF protection: bind the install to this session with a one-time `state`.
+  const state = randomBytes(24).toString('base64url');
+  req.session.slackOAuthState = state;
+  const url = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
 
   res.json({ data: { url } });
 });
@@ -29,7 +41,13 @@ router.get('/', requireAuth, (_req, res) => {
  */
 router.get('/callback', requireAuth, async (req, res, next) => {
   try {
-    const { code } = req.query as { code?: string };
+    const { code, state } = req.query as { code?: string; state?: string };
+    const expectedState = req.session.slackOAuthState;
+    delete req.session.slackOAuthState;
+    if (!isValidOAuthState(state, expectedState)) {
+      res.status(400).json({ error: 'Invalid or expired OAuth state' });
+      return;
+    }
     if (!code) {
       res.status(400).json({ error: 'Missing authorization code' });
       return;

@@ -8,3 +8,8 @@ data:
   NODE_ENV: {{ .Values.env.nodeEnv | quote }}
   API_PORT: {{ .Values.env.apiPort | quote }}
   WEB_URL: {{ .Values.env.webUrl | quote }}
+  {{- if .Values.chatgptPlan.enabled }}
+  CHATGPT_PLAN_ENABLED: "true"
+  CHATGPT_CLIENT_ID: {{ .Values.chatgptPlan.clientId | quote }}
+  CHATGPT_REDIRECT_URI: {{ .Values.chatgptPlan.redirectUri | quote }}
+  {{- end }}

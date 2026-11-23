@@ -21,6 +21,7 @@
   "dependencies": {
     "@hearth/shared": "workspace:*",
     "dompurify": "^3.4.0",
+    "posthog-js": "^1.250.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^9.0.0",

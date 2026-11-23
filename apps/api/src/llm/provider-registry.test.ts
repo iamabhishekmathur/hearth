@@ -195,3 +195,41 @@ describe('ProviderRegistry', () => {
     });
   });
 });
+
+describe('ProviderRegistry — user-scoped providers (ChatGPT plan)', () => {
+  it('routes to the per-user provider and never falls back to org providers', async () => {
+    const registry = new ProviderRegistry();
+    const org = createMockProvider('openai', [{ type: 'text_delta', content: 'ORG KEY' }]);
+    registry.register(org, true);
+    const userProvider = createMockProvider('chatgpt-plan', [
+      { type: 'error', message: 'limit', code: 'chatgpt_plan_usage_limit' },
+    ]);
+    const resolver = vi.fn(() => userProvider);
+    registry.registerUserProvider('chatgpt-plan', resolver);
+
+    const events = await collectEvents(
+      registry.chatWithFallback({ ...defaultParams, userId: 'u1' }, 'chatgpt-plan'),
+    );
+    expect(resolver).toHaveBeenCalledWith('u1');
+    expect(events).toEqual([{ type: 'error', message: 'limit', code: 'chatgpt_plan_usage_limit' }]);
+    expect(events.some((e) => e.type === 'text_delta')).toBe(false);
+  });
+
+  it('errors when a user-scoped provider is requested without a user', async () => {
+    const registry = new ProviderRegistry();
+    registry.register(createMockProvider('openai'), true);
+    registry.registerUserProvider('chatgpt-plan', () => createMockProvider('chatgpt-plan'));
+    const events = await collectEvents(registry.chatWithFallback(defaultParams, 'chatgpt-plan'));
+    expect(events[0]).toMatchObject({ type: 'error' });
+  });
+
+  it('does not affect normal provider routing', async () => {
+    const registry = new ProviderRegistry();
+    registry.register(createMockProvider('openai', [{ type: 'text_delta', content: 'ok' }]), true);
+    registry.registerUserProvider('chatgpt-plan', () => createMockProvider('chatgpt-plan'));
+    const events = await collectEvents(registry.chatWithFallback({ ...defaultParams, userId: 'u1' }));
+    expect(events).toEqual([{ type: 'text_delta', content: 'ok' }]);
+    expect(registry.isUserScoped('chatgpt-plan')).toBe(true);
+    expect(registry.isUserScoped('openai')).toBe(false);
+  });
+});

@@ -1,34 +1,44 @@
 # Getting Started
 
-Hearth is available in two deployment paths: a managed cloud workspace and an open-source self-hosted stack. The product concepts are the same across both paths; setup and operational responsibilities are different.
+Hearth helps a team turn successful AI work into repeatable ways of working.
+Evaluate the product in Hearth Cloud first, then choose self-hosting when your
+organization requires direct infrastructure or source control.
 
 [[toc]]
 
-## Pick a Path
+## Recommended: Hearth Cloud
 
-| Path | Choose this when | Start here |
-|---|---|---|
-| **Hearth Cloud** | You want a hosted workspace and do not want to run Postgres, Redis, workers, upgrades, backups, or ingress yourself. | [Start with Hearth Cloud](/getting-started/cloud) |
-| **Self-hosted OSS** | You want source access, infrastructure control, custom deployment, local model support, or on-prem operation. | [Start self-hosted](/getting-started/self-hosted) |
+Hearth Cloud is the default evaluation path. It lets a team validate a real
+workflow without first operating Postgres, Redis, workers, backups, upgrades,
+or ingress.
 
-For a side-by-side breakdown of responsibilities, see [Cloud vs Self-Hosted](/getting-started/comparison).
+[Start with Hearth Cloud](/getting-started/cloud)
 
-## After Setup
+## Adopt Your First Workflow
 
-Once your workspace is available, continue with the shared product docs:
+Begin with a small team and one repeated, useful process:
 
-- [Product Guide](/guide/) for chat, tasks, routines, memory, skills, activity, and decisions.
-- [Admin Guide](/admin/) for users, teams, integrations, LLM providers, governance, compliance, SSO, audit logs, and analytics.
-- [Developer Docs](/developers/) for the API, WebSocket events, architecture, skills, and MCP connectors.
+1. Create or join a workspace and invite the people who know the process.
+2. Connect the system that holds the work and its context.
+3. Complete the workflow once in [Chat](/guide/chat) or [Tasks](/guide/tasks).
+4. Publish the successful pattern as a [Skill](/guide/skills).
+5. Use [Activity](/guide/activity) to help teammates inspect and install it.
+6. Review [governance](/admin/governance), approvals, and access before expanding.
 
-## First Value Checklist
+## Open-Source Alternative
 
-Use this checklist for either edition:
+Self-host Hearth when source inspection, private-network deployment, local
+models, source-level customization, or direct operational control is a
+requirement. Your team will operate the application stack, databases, secrets,
+backups, upgrades, monitoring, and networking.
 
-1. Create or join a workspace.
-2. Confirm at least one LLM provider is configured.
-3. Invite the initial team members.
-4. Connect the first high-value integration, usually Slack, Google Calendar, GitHub, Jira, or Notion.
-5. Start a Chat session with teammates and create one task from the conversation.
-6. Create one routine from a repeated workflow.
-7. Review admin settings for governance, compliance, audit logs, and access controls.
+[Start self-hosted](/getting-started/self-hosted)
+
+For a side-by-side responsibility breakdown, see
+[Cloud or Self-Hosted](/getting-started/comparison).
+
+## Continue Exploring
+
+- [Product Guide](/guide/) for Chat, Tasks, Routines, Activity, and supporting capabilities.
+- [Admin Guide](/admin/) for teams, integrations, governance, compliance, and audit history.
+- [Developer Docs](/developers/) for APIs, architecture, skills, and connectors.

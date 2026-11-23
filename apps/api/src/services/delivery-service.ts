@@ -1,8 +1,9 @@
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
-import { emitToUser } from '../ws/socket-manager.js';
 import * as slackService from './slack-service.js';
 import * as emailService from './email-service.js';
+import * as notificationService from './notification-service.js';
+import type { NotificationType } from './notification-service.js';
 import { decrypt } from '../mcp/token-store.js';
 
 export type DeliveryChannel = 'in_app' | 'slack' | 'email';
@@ -15,6 +16,16 @@ export interface DeliveryPayload {
   entityId: string;
   channels: DeliveryChannel[];
   metadata?: Record<string, unknown>;
+  /**
+   * Org the recipient belongs to. Required to persist a Notification row for
+   * the in_app channel. If omitted, it is resolved from the user (best-effort).
+   */
+  orgId?: string;
+  /**
+   * NotificationType to persist for the in_app channel. Defaults to
+   * 'routine_result' (the original transient-event type) for back-compat.
+   */
+  notificationType?: NotificationType;
 }
 
 /**
@@ -25,17 +36,40 @@ export async function deliver(payload: DeliveryPayload): Promise<void> {
   for (const channel of payload.channels) {
     try {
       switch (channel) {
-        case 'in_app':
-          emitToUser(payload.userId, 'notification', {
-            type: 'routine_result',
+        case 'in_app': {
+          // Persist a real Notification row (and emit 'notification:new' via
+          // notify) so proactive results reach the bell even if the user was
+          // offline — this is the return trigger that powers retention. The
+          // prior transient 'notification' socket emit wrote nothing and was
+          // lost for offline users.
+          let orgId = payload.orgId;
+          if (!orgId) {
+            const u = await prisma.user.findUnique({
+              where: { id: payload.userId },
+              include: { team: { select: { orgId: true } } },
+            });
+            orgId = u?.team?.orgId;
+          }
+          if (!orgId) {
+            logger.info(
+              { userId: payload.userId },
+              'in_app delivery skipped: could not resolve orgId for notification row',
+            );
+            break;
+          }
+          await notificationService.notify({
+            orgId,
+            userId: payload.userId,
+            type: payload.notificationType ?? 'routine_result',
             title: payload.title,
             body: payload.body,
             entityType: payload.entityType,
             entityId: payload.entityId,
-            metadata: payload.metadata,
-            timestamp: new Date().toISOString(),
+            // Routine results / digests are not tied to a chat session.
+            sessionId: undefined,
           });
           break;
+        }
 
         case 'slack': {
           // Find the Slack integration for the user's org

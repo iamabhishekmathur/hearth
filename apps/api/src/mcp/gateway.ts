@@ -5,6 +5,7 @@ import { ConnectionManager } from './connection-manager.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { decrypt } from './token-store.js';
+import { runWithTenant } from '../lib/tenant-context.js';
 
 export interface HealthStatus {
   connected: boolean;
@@ -32,6 +33,13 @@ export class MCPGatewayImpl implements MCPGateway {
 
   constructor() {
     this.connectionManager = new ConnectionManager();
+    // Persist the 5-minute background checks too, so "Healthy · last checked"
+    // reflects a recent probe rather than whenever someone last clicked Check.
+    // System job across orgs: a single-row update by id, so RLS bypass is scoped.
+    this.connectionManager.onHealthResult = (integrationId, healthy, checkedAt) =>
+      runWithTenant({ orgId: null, userId: null, bypass: true }, () =>
+        this.persistHealth(integrationId, healthy ? 'active' : 'error', checkedAt),
+      );
   }
 
   async connect(integrationId: string, config: ConnectorConfig): Promise<void> {

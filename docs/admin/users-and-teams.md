@@ -22,7 +22,7 @@ Teams group people for collaboration and context. Use teams to mirror real worki
 ## Common Tasks
 
 1. Open **Settings > Users** to review accounts.
-2. Add or invite users.
+2. Add or invite users. To invite someone, open **Settings > Invite Teammates** and enter their email. If email (SMTP or Resend) is configured, Hearth emails the invite; otherwise Hearth says so and gives you a link to send them yourself.
 3. Assign each user a role.
 4. Open **Settings > Teams**.
 5. Create teams.

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { ChatEvent, LLMMessage, StopReason, ToolDefinition, ToolPermissionLevel } from '@hearth/shared';
 import { providerRegistry } from '../llm/provider-registry.js';
 import { resolveModel, UnknownModelError } from '../llm/model-catalog.js';
+import { CHATGPT_PLAN_PROVIDER_ID } from '@hearth/shared';
 import { executeTool } from './tool-router.js';
 import type { AgentContext, ToolResult } from './types.js';
 import { getUsageRecorder } from '../extensions/usage-metering.js';
@@ -126,6 +127,7 @@ export async function* agentLoop(
         systemPrompt: context.systemPrompt,
         sessionId: context.sessionId,
         signal,
+        userId: context.llmUserId ?? context.userId,
       },
       context.providerId,
     );
@@ -383,6 +385,13 @@ export async function* agentLoop(
  * Throws `UnknownModelError` for any explicitly-requested-but-unknown id.
  */
 async function resolveRunModel(context: AgentContext): Promise<string> {
+  // 0. ChatGPT plan: models come from the user's account (`GET /v1/models`),
+  //    not Hearth's catalog — the slug was chosen by applyChatGPTPlanRouting.
+  if (context.providerId === CHATGPT_PLAN_PROVIDER_ID) {
+    // An empty model still goes to the provider, which first checks the
+    // connection and surfaces the actionable (reconnect / not connected) error.
+    return context.model ?? '';
+  }
   // 1. Explicit request model — if provided it MUST be valid (no silent swap).
   if (context.model) {
     resolveModel(context.model); // throws UnknownModelError if unknown
@@ -441,6 +450,7 @@ async function* gracefulSummary(
       messages: conversationMessages,
       systemPrompt: context.systemPrompt,
       signal,
+      userId: context.llmUserId ?? context.userId,
       // No tools — force a text-only response.
     },
     context.providerId,

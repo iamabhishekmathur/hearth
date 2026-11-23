@@ -45,6 +45,7 @@ export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarPro
         <HRailItem icon="clock" label="Routines" active={active('/routines')} onClick={() => onNavigate('/routines')} />
         <HRailItem icon="skills" label="Skills" active={active('/skills')} onClick={() => onNavigate('/skills')} />
         <HRailItem icon="memory" label="Memory" active={active('/memory')} onClick={() => onNavigate('/memory')} />
+        <HRailItem icon="link" label="Tools" active={active('/integrations')} onClick={() => onNavigate('/integrations')} />
       </nav>
 
       {/* Bottom nav */}

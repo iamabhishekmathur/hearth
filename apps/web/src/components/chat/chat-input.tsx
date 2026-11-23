@@ -2,9 +2,12 @@ import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent, 
 import { api } from '@/lib/api-client';
 import { emitTyping, emitComposing, emitHeartbeat } from '@/lib/socket-client';
 import type { AgentMode, ComposingUser, PresenceUser, SlashCommand } from '@hearth/shared';
+import { CHATGPT_PLAN_PROVIDER_ID } from '@hearth/shared';
 import { TaskComposer, type TaskComposerSubmit } from './task-composer';
 import { useAuth } from '@/hooks/use-auth';
 import { useModelSelection, type PickerOption } from '@/hooks/use-model-selection';
+import { useChatGPTPlan } from '@/hooks/use-chatgpt-plan';
+import { ChatGPTPlanIndicator } from './chatgpt-plan-indicator';
 
 export interface PendingAttachment {
   id?: string; // Set after upload completes
@@ -116,6 +119,9 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
     [attachments],
   );
   const modelSelection = useModelSelection(user?.id, hasImageAttachment, !!sessionId);
+  // When the user routes chats through their ChatGPT plan, the org model picker
+  // is replaced by the plan indicator and the server picks the plan model.
+  const chatgptPlan = useChatGPTPlan();
 
   // W6: fetch the command list once when the flag is on. Empty when off.
   useEffect(() => {
@@ -259,14 +265,18 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
 
   // Send a plain prompt to the agent (the normal, non-command path).
   const sendPrompt = useCallback((content: string) => {
-    const modelOverride = modelSelection.selectedModel
-      ? { model: modelSelection.selectedModel.id, providerId: modelSelection.selectedModel.providerId }
-      : undefined;
+    const modelOverride = chatgptPlan.active
+      ? chatgptPlan.status?.defaultModel
+        ? { model: chatgptPlan.status.defaultModel, providerId: CHATGPT_PLAN_PROVIDER_ID }
+        : undefined // server routes to the plan via the user's toggle
+      : modelSelection.selectedModel
+        ? { model: modelSelection.selectedModel.id, providerId: modelSelection.selectedModel.providerId }
+        : undefined;
     // W4: only send a mode when the flag is on; otherwise undefined (build).
     onSend(content, attachments, undefined, modelOverride, planMode ? agentMode : undefined);
     setAttachments([]);
     clearComposer();
-  }, [attachments, onSend, modelSelection.selectedModel, planMode, agentMode, clearComposer]);
+  }, [attachments, onSend, modelSelection.selectedModel, chatgptPlan.active, chatgptPlan.status?.defaultModel, planMode, agentMode, clearComposer]);
 
   /**
    * W6: dispatch a `/command`. Built-ins run locally (toggle plan, open the
@@ -785,8 +795,10 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
             </button>
           )}
 
+          {chatgptPlan.active && <ChatGPTPlanIndicator disabled={inputDisabled} />}
+
           {/* W5: model picker — only rendered when the org has the flag on. */}
-          {!modelSelection.disabledByFlag && !modelSelection.loading && (
+          {!chatgptPlan.active && !modelSelection.disabledByFlag && !modelSelection.loading && (
             <ModelPicker
               open={modelMenuOpen}
               onToggle={() => setModelMenuOpen((o) => !o)}

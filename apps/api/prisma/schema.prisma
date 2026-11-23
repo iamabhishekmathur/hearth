@@ -279,6 +279,20 @@ enum Plan {
   enterprise
 }
 
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+// What artifact a CONTEXTUAL invite lands the invitee in. Null = plain invite.
+enum InvitationContextType {
+  decision
+  chat_session
+  task
+}
+
 // ──────────────────────────────────────────────
 // Core Models
 // ──────────────────────────────────────────────
@@ -341,6 +355,8 @@ model Org {
   notifications        Notification[]
   pipelineRuns         PipelineRun[]
   toolPermissionPolicies ToolPermissionPolicy[]
+  userLlmCredentials   UserLlmCredential[]
+  invitations          Invitation[]
 
   @@map("orgs")
 }
@@ -371,12 +387,17 @@ model User {
   authProvider AuthProvider? @map("auth_provider")
   passwordHash String?       @map("password_hash")
   preferences  Json          @default("{}")
+  // Per-user onboarding progress (growth-loop activation). Shape documented in
+  // @hearth/shared OnboardingState. Empty object = not started. Merged into,
+  // never wholesale-replaced, by onboarding-service.
+  onboardingState Json       @default("{}") @map("onboarding_state")
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
   team             Team?                 @relation(fields: [teamId], references: [id])
   chatSessions     ChatSession[]
   tasks            Task[]
+  assignedTasks    Task[]                @relation("TaskAssignee")
   taskComments     TaskComment[]
   taskReviews      TaskReview[]
   memoryEntries    MemoryEntry[]
@@ -405,6 +426,10 @@ model User {
   notifications      Notification[]
   notificationPreference NotificationPreference?
   taskSuggestions    TaskSuggestion[]
+  llmCredentials     UserLlmCredential[]
+  integrations       Integration[]
+  invitationsSent     Invitation[]         @relation("InvitationInviter")
+  invitationsAccepted Invitation[]         @relation("InvitationAcceptedUser")
 
   @@map("users")
 }
@@ -610,6 +635,10 @@ model Task {
   id              String     @id @default(uuid())
   orgId           String     @map("org_id")
   userId          String     @map("user_id")
+  // Optional explicit assignee (growth loop: a teammate can be assigned a task,
+  // e.g. via a contextual invite). Nullable — most tasks are owned by `userId`
+  // (the creator) and have no separate assignee.
+  assigneeId      String?    @map("assignee_id")
   title           String
   description     String?
   status          TaskStatus @default(auto_detected)
@@ -626,6 +655,7 @@ model Task {
 
   org            Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user           User                @relation(fields: [userId], references: [id])
+  assignee       User?               @relation("TaskAssignee", fields: [assigneeId], references: [id])
   parentTask     Task?               @relation("SubTasks", fields: [parentTaskId], references: [id])
   subTasks       Task[]              @relation("SubTasks")
   comments       TaskComment[]
@@ -1078,6 +1108,46 @@ model ToolPermissionPolicy {
 }
 
 // ──────────────────────────────────────────────
+// Per-user LLM credentials (Sign in with ChatGPT — "Use your ChatGPT plan")
+// ──────────────────────────────────────────────
+
+/// A user's own LLM credential, used instead of the org's API key when the user
+/// opts in. Today the only provider is `chatgpt` (OAuth tokens that spend the
+/// user's ChatGPT plan allowance). Tokens are AES-256-GCM encrypted at rest.
+model UserLlmCredential {
+  id                    String    @id @default(uuid())
+  orgId                 String    @map("org_id")
+  userId                String    @map("user_id")
+  provider              String // 'chatgpt'
+  /// Verified `sub` of the connected ChatGPT account (stable identity).
+  accountSubject        String    @map("account_subject")
+  accountEmail          String?   @map("account_email")
+  /// OAuth client id issued to this Hearth install for this account.
+  clientId              String    @map("client_id")
+  encryptedAccessToken  String    @map("encrypted_access_token")
+  encryptedRefreshToken String?   @map("encrypted_refresh_token")
+  accessTokenExpiresAt  DateTime  @map("access_token_expires_at")
+  scopes                String[]
+  /// active | needs_reauth (refresh failed / revoked) | plan_unavailable
+  status                String    @default("active")
+  /// User toggle: route my chats through my ChatGPT plan.
+  useForChat            Boolean   @default(true) @map("use_for_chat")
+  defaultModel          String?   @map("default_model")
+  /// First-use disclosure ("You're using your ChatGPT plan") acknowledged.
+  welcomeAcknowledgedAt DateTime? @map("welcome_acknowledged_at")
+  lastUsageLimitAt      DateTime? @map("last_usage_limit_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([orgId])
+  @@map("user_llm_credentials")
+}
+
+// ──────────────────────────────────────────────
 // Feature 7: Cross-Routine Chaining
 // ──────────────────────────────────────────────
 
@@ -1139,6 +1209,11 @@ model RoutineHealthAlert {
 model Integration {
   id              String            @id @default(uuid())
   orgId           String            @map("org_id")
+  // The user who connected this integration as a PERSONAL/user-connected source.
+  // null = org-level / admin-managed (the original behavior, visible org-wide);
+  // set = personal, scoped to and manageable only by that user. MCP connectors
+  // authenticate per-user, so members connect their own Slack/Gmail/Granola here.
+  userId          String?           @map("user_id")
   provider        String
   config          Json
   status          IntegrationStatus @default(active)
@@ -1148,8 +1223,10 @@ model Integration {
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
   org              Org               @relation(fields: [orgId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id])
   webhookEndpoints WebhookEndpoint[]
 
+  @@index([userId])
   @@map("integrations")
 }
 
@@ -1650,4 +1727,45 @@ model Edge {
   @@index([orgId, fromType, fromId, kind])
   @@index([orgId, toType, toId, kind])
   @@map("edges")
+}
+
+// ──────────────────────────────────────────────
+// Invitations (growth loop)
+//
+// A pending invite to join an org. The unguessable `token` is the secret used
+// for the two PUBLIC endpoints (preview + accept) that run BEFORE any session
+// exists. Because those endpoints have no tenant context, this table is
+// intentionally NOT under Row-Level Security — access is gated by the token
+// (public flows) or by an explicit orgId filter in invitation-service (authed
+// flows). Do NOT add `invitations` to the RLS migration table list, or the
+// public token lookup would return zero rows.
+//
+// contextType/contextId nullable: null = a plain invite; set = a CONTEXTUAL
+// invite that lands the invitee directly in that artifact after accepting.
+// ──────────────────────────────────────────────
+model Invitation {
+  id              String                 @id @default(uuid())
+  orgId           String                 @map("org_id")
+  email           String
+  token           String                 @unique
+  invitedByUserId String                 @map("invited_by_user_id")
+  role            UserRole               @default(member)
+  status          InvitationStatus       @default(pending)
+  contextType     InvitationContextType? @map("context_type")
+  contextId       String?                @map("context_id")
+  expiresAt       DateTime               @map("expires_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  acceptedAt      DateTime?              @map("accepted_at")
+  acceptedUserId  String?                @map("accepted_user_id")
+
+  org           Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy     User  @relation("InvitationInviter", fields: [invitedByUserId], references: [id])
+  acceptedUser  User? @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id])
+
+  // One pending invite per (org, email) — enforces idempotent re-invite. Once
+  // an invite is accepted/revoked it stays in history; a partial unique index
+  // (in the migration) scopes uniqueness to status='pending' only.
+  @@index([orgId])
+  @@index([email])
+  @@map("invitations")
 }

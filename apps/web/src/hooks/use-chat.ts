@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api-client';
+import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 import {
   joinSession,
   leaveSession,
+  onSocketReconnect,
   onSessionEvent,
   onPresenceList,
   onPresenceJoin,
@@ -70,6 +72,8 @@ interface UseChatReturn {
   thinking: string | null;
   toolCalls: ToolCallInfo[];
   error: string | null;
+  /** Machine-readable code for `error` (e.g. ChatGPT plan usage limit), if any. */
+  errorCode: string | null;
   /** W2: non-fatal notice surfaced mid-run (doom-loop break, budget, etc.). Null when none. */
   warning: string | null;
   presenceUsers: PresenceUser[];
@@ -116,7 +120,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinking, setThinking] = useState<string | null>(null);
   const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorText] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  // Every error update resets the code unless one is supplied explicitly.
+  const setError = useCallback((msg: string | null, code: string | null = null) => {
+    setErrorText(msg);
+    setErrorCode(msg ? code : null);
+  }, []);
   const [warning, setWarning] = useState<string | null>(null);
   // W2: runId for the current turn, learned from the chat:run_started event.
   // Used to target a stop. Null between runs.
@@ -222,7 +232,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
         break;
 
       case 'error':
-        setError(event.message);
+        setError(event.message, (event as { code?: string }).code ?? null);
         setIsStreaming(false);
         setThinking(null);
         // lastFailedContentRef is set by the sendMessage catch block for HTTP errors.
@@ -588,6 +598,43 @@ export function useChat(sessionId: string | null): UseChatReturn {
     };
   }, [sessionId, subscribe]);
 
+  // After a reconnect (API restart, deploy, network blip) the room is re-joined
+  // automatically, but anything emitted while we were disconnected is gone.
+  // Re-sync from the server: pick up messages we missed and, if the run we
+  // were streaming finished meanwhile, end the streaming state.
+  useEffect(() => {
+    if (!sessionId) return;
+    return onSocketReconnect(() => {
+      api
+        .get<ApiResponse<{ messages: ChatMessage[] }>>(`/chat/sessions/${sessionId}`)
+        .then((res) => {
+          const serverMessages = res.data?.messages;
+          if (!serverMessages) return;
+          const last = serverMessages[serverMessages.length - 1];
+          const runFinished = last?.role === 'assistant';
+          setMessages((prev) => {
+            const serverKeys = new Set(serverMessages.map((m) => `${m.role}:${m.content}`));
+            const optimistic = prev.filter(
+              (m) =>
+                ((m.id.startsWith('user_') && !serverKeys.has(`${m.role}:${m.content}`)) ||
+                  (m.id === '__streaming__' && !runFinished)),
+            );
+            return [...serverMessages, ...optimistic];
+          });
+          if (runFinished && isStreamingRef.current) {
+            setIsStreaming(false);
+            setThinking(null);
+            setToolCalls([]);
+            streamingContentRef.current = '';
+            currentRunIdRef.current = null;
+          }
+        })
+        .catch(() => {
+          /* best-effort; live events resume regardless */
+        });
+    });
+  }, [sessionId]);
+
   const sendMessage = useCallback(
     async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => {
       const sid = overrideSessionId ?? sessionId;
@@ -647,6 +694,11 @@ export function useChat(sessionId: string | null): UseChatReturn {
         }
 
         await api.post(`/chat/sessions/${sid}/messages`, body);
+        trackEvent(AnalyticsEvent.FIRST_MESSAGE_SENT, {
+          sessionId: sid,
+          length: content.length,
+          hasAttachments: Boolean(attachmentIds && attachmentIds.length > 0),
+        });
       } catch (err) {
         lastFailedContentRef.current = content;
         setError(err instanceof Error ? err.message : 'Failed to send message');
@@ -772,7 +824,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
 
   return {
     messages, sendMessage, retryLastMessage, regenerateMessage, stopRun,
-    isStreaming, thinking, toolCalls, error, warning, presenceUsers,
+    isStreaming, thinking, toolCalls, error, errorCode, warning, presenceUsers,
     typingUsers, composingUsers,
     messageAuthors, unreadAnchorId, markRead,
     taskChips, taskSuggestions, dismissTaskSuggestion,

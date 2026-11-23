@@ -3,7 +3,8 @@ import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { generateDigest } from '../services/activity-feed-service.js';
-import { deliver } from '../services/delivery-service.js';
+import * as notificationService from '../services/notification-service.js';
+import * as emailService from '../services/email-service.js';
 
 const QUEUE_NAME = 'activity-digest';
 const connection = { url: env.REDIS_URL };
@@ -56,25 +57,58 @@ export function createActivityDigestWorker() {
           where: {
             team: { orgId: org.id },
           },
-          select: { id: true, preferences: true },
+          select: { id: true, email: true, name: true, preferences: true },
         });
+
+        const digestUrl = env.WEB_URL ? `${env.WEB_URL}/activity` : '';
+        const emailReady = emailService.isEmailConfigured();
+        let delivered = 0;
 
         for (const member of members) {
           const localHour = getUserLocalHour(member.preferences);
           if (localHour !== 9) continue;
 
-          await deliver({
+          const title = `Daily Activity Digest — ${org.name}`;
+
+          // (1) Persist a real Notification row so the digest reaches the bell
+          // even when the user is offline. notify() is best-effort and never
+          // throws — failures here must not abort the digest job.
+          await notificationService.notify({
+            orgId: org.id,
             userId: member.id,
-            title: `Daily Activity Digest — ${org.name}`,
+            type: 'digest',
+            title,
             body: digest.summary,
             entityType: 'org',
             entityId: org.id,
-            channels: ['in_app'],
-            metadata: { eventCount: digest.eventCount },
           });
+
+          // (2) Gated re-engagement email (only when SMTP/RESEND configured).
+          if (emailReady && member.email) {
+            try {
+              const linkHtml = digestUrl
+                ? `<p><a href="${digestUrl}">Open Hearth</a></p>`
+                : '';
+              const linkText = digestUrl ? `\n\nOpen Hearth: ${digestUrl}` : '';
+              await emailService.sendEmail({
+                to: member.email,
+                subject: title,
+                text: `${digest.summary}${linkText}`,
+                html: `<h2>${title}</h2><p>${digest.summary.replace(/\n/g, '<br/>')}</p>${linkHtml}<br/><small><em>Powered by Hearth</em></small>`,
+              });
+            } catch (err) {
+              // Email is best-effort; never break the digest job.
+              logger.error({ err, userId: member.id }, 'Digest email failed');
+            }
+          }
+
+          delivered += 1;
         }
 
-        logger.info({ orgId: org.id, eventCount: digest.eventCount }, 'Activity digest delivered');
+        logger.info(
+          { orgId: org.id, eventCount: digest.eventCount, delivered },
+          'Activity digest delivered',
+        );
       }
 
       return { processed: true };

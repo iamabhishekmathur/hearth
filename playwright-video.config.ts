@@ -5,6 +5,7 @@ export default defineConfig({
   testMatch: /video-(tour|jtbd|gtm-demo)/,
   timeout: 300_000,
   use: {
+    ...devices['Desktop Chrome'],
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',
     headless: true,
     screenshot: 'on',
@@ -13,7 +14,6 @@ export default defineConfig({
       size: { width: 1440, height: 900 },
     },
     viewport: { width: 1440, height: 900 },
-    ...devices['Desktop Chrome'],
   },
   outputDir: 'test-results/videos',
 });

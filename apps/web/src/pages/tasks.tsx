@@ -6,6 +6,7 @@ import { KanbanColumn } from '@/components/tasks/kanban-column';
 import { TaskDetailPanel } from '@/components/tasks/task-detail-panel';
 import { HButton, HCard, HEyebrow, HPill } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
+import { OnboardingNudge } from '@/components/onboarding/onboarding-nudge';
 
 const KANBAN_COLUMNS: TaskStatus[] = [
   'auto_detected',
@@ -200,6 +201,12 @@ export function TasksPage() {
               >
                 Create your first task
               </HButton>
+            </div>
+            {/* If onboarding isn't there yet, point at the next step (the aha:
+                connect a tool so Hearth can auto-detect tasks). Hidden when the
+                next step IS first_task — the button above already covers it. */}
+            <div className="mt-6 flex justify-center">
+              <OnboardingNudge hideForStep="first_task" />
             </div>
           </div>
         </div>

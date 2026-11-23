@@ -54,3 +54,7 @@ Governance policies can also monitor or block prompts before completion. See [Go
 ## Self-Hosted Notes
 
 Self-hosted deployments can configure providers with `.env` variables such as `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `OLLAMA_BASE_URL`. See [Configuration](/self-hosting/configuration).
+
+## Per-User ChatGPT Plans
+
+When the server sets `CHATGPT_PLAN_ENABLED=true`, each member can connect their own ChatGPT plan in **Settings → ChatGPT plan**. Their chats then run on their plan instead of the org keys configured here. Plan runs never fall back to org keys; when a user hits their plan limit, Hearth prompts them to manage usage or switch back to org models. Background jobs always use org keys. See [Use Your ChatGPT Plan](/guide/chatgpt-plan).

@@ -24,6 +24,13 @@ OPENAI_API_KEY=sk-...
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 ```
 
+Generate the required secrets (Compose refuses to start without them):
+
+```bash
+echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
+echo "SESSION_SECRET=$(openssl rand -hex 32)" >> .env
+```
+
 Start the stack:
 
 ```bash

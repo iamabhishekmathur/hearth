@@ -442,6 +442,26 @@ ToolPermissionPolicy
 
 Backs the interactive per-tool permission gate for chat agent runs (gated by the org `permissions` feature flag). Rules are evaluated first-match-wins in order `created_at ASC`, with scope precedence user → agent profile → org default, falling back to built-in Hearth defaults. Scope is encoded by which of `agent_profile_id` / `user_id` are set (both null = org default). These interactive asks are **ephemeral** (WebSocket + in-memory park) and distinct from the durable routine approval gates (`approval_requests`). RLS-isolated by `org_id`.
 
+### User LLM Credentials
+
+```
+UserLlmCredential
+  ├── org_id
+  ├── user_id
+  ├── provider ("chatgpt")
+  ├── account_subject (verified OIDC `sub` of the connected account)
+  ├── account_email (nullable)
+  ├── client_id (OAuth client issued to this install for the account)
+  ├── encrypted_access_token / encrypted_refresh_token (AES-256-GCM)
+  ├── access_token_expires_at
+  ├── scopes (text[]; must include chatgpt.tokens.use.direct)
+  ├── status ("active" | "needs_reauth" | "plan_unavailable")
+  ├── use_for_chat, default_model, welcome_acknowledged_at, last_usage_limit_at
+  └── created_at / updated_at
+```
+
+A user's own LLM credential (Sign in with ChatGPT, "Use your ChatGPT plan"). Unique on `(user_id, provider)`. Refresh tokens rotate; access token, expiry, scopes and refresh token are replaced together under a Redis lock. RLS-isolated by `org_id`; cascades on org or user deletion.
+
 ### Governance
 
 ```
@@ -658,6 +678,7 @@ npx prisma migrate status
 | `20260419000000_add_cognitive_profiles` | Cognitive profiles and thought patterns for the Digital Co-Worker feature |
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
+| `20261117000000_user_llm_credentials` | Per-user LLM credentials (`user_llm_credentials`) for Sign in with ChatGPT plan usage, RLS-isolated by `org_id` |
 | `20260615000000_skills_as_commands` | W6: adds `invocable_as_command`, `command_slug`, `command_params` to skills + a per-org unique index on `command_slug` so a slash command can't collide |
 
 ### Migration Best Practices
