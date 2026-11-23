@@ -106,7 +106,9 @@ describe('startAuthorization', () => {
     expect(q.get('response_type')).toBe('code');
     expect(q.get('client_id')).toBe('dynamic_agent_client');
     expect(q.get('agent_name_hint')).toBe('Hearth');
-    expect(q.get('ext_agent_host_id')).toMatch(/^hearth-[0-9a-f]{32}$/);
+    expect(q.get('ext_agent_host_id')).toMatch(
+      /^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
     expect(q.get('scope')!.split(' ')).toEqual(
       expect.arrayContaining(['openid', 'offline_access', 'resource.invoke', PLAN_USAGE_SCOPE]),
     );
@@ -127,6 +129,8 @@ describe('startAuthorization', () => {
     const { url } = await start();
     expect(url.searchParams.get('client_id')).toBe('oaiapp_abc');
     expect(url.searchParams.has('agent_name_hint')).toBe(false);
+    // Host id is sent on every open-source authorize, and stays the same.
+    expect(url.searchParams.get('ext_agent_host_id')).toMatch(/^urn:uuid:/);
   });
 
   it('uses the static hosted client id when configured', async () => {

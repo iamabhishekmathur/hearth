@@ -17,6 +17,7 @@
 import type { ChatEvent, ChatParams, LLMMessage } from '@hearth/shared';
 import { CHATGPT_PLAN_ERROR_CODES, CHATGPT_PLAN_PROVIDER_ID, getTextContent } from '@hearth/shared';
 import type { LLMProvider } from './types.js';
+import { logger } from '../lib/logger.js';
 
 export interface ChatGPTPlanProviderDeps {
   /** Resolve a fresh access token for the user (refreshing if needed). */
@@ -285,6 +286,11 @@ export class ChatGPTPlanProvider implements LLMProvider {
             inputTokens = usage?.input_tokens ?? inputTokens;
             outputTokens = usage?.output_tokens ?? outputTokens;
             completed = true;
+            // No content or tokens: model + usage only, for operating the feature.
+            logger.info(
+              { provider: this.id, userId: params.userId, model: params.model, inputTokens, outputTokens },
+              'ChatGPT plan response completed',
+            );
             break;
           }
 

@@ -17,8 +17,9 @@ On self-hosted installs that use OpenAI's open-source flow, ChatGPT redirects ba
 
 ## How Chats Use Your Plan
 
-- While **Use my ChatGPT plan for my chats** is on, the composer shows **Using ChatGPT plan · Manage usage** in place of the model picker.
-- Choose which ChatGPT model to use in **Settings → ChatGPT plan → Model**. The list comes from your ChatGPT account.
+- While **Use my ChatGPT plan for my chats** is on, the composer shows the current model and **ChatGPT plan** (for example, *GPT-6.2-Sol · ChatGPT plan*) in place of the organization's model picker.
+- Click it to switch to another model from your plan, open **Manage usage**, or choose **Use my organization's models instead**. The list comes from your ChatGPT account, and your choice is remembered. You can also change it in **Settings → ChatGPT plan → Model**.
+- If your organization hasn't set up an AI provider yet, onboarding offers **Use my ChatGPT plan** so you can start chatting right away.
 - In shared sessions, a message runs on the plan of the person who **sent** it.
 - Background features (summaries, decision extraction, scheduled routines) still use your organization's configured models.
 

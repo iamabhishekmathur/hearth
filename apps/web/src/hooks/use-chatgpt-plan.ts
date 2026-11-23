@@ -27,7 +27,11 @@ let cached: ChatGPTPlanStatus | null = null;
 let inflight: Promise<ChatGPTPlanStatus | null> | null = null;
 const listeners = new Set<(s: ChatGPTPlanStatus | null) => void>();
 
+let modelsPromise: Promise<ChatGPTPlanModel[]> | null = null;
+
 function publish(s: ChatGPTPlanStatus | null) {
+  // A different (or no) connection may expose a different model list.
+  if (!s?.connected || s.accountEmail !== cached?.accountEmail) modelsPromise = null;
   cached = s;
   for (const l of listeners) l(s);
 }
@@ -90,10 +94,20 @@ export function useChatGPTPlan() {
     publish(res.data);
   }, []);
 
-  const listModels = useCallback(
-    () => api.get<{ data: ChatGPTPlanModel[] }>('/me/chatgpt-plan/models').then((r) => r.data),
-    [],
-  );
+  // Cached for the tab: the plan's model list rarely changes, and both the
+  // settings tab and the composer dropdown read it.
+  const listModels = useCallback(() => {
+    if (!modelsPromise) {
+      modelsPromise = api
+        .get<{ data: ChatGPTPlanModel[] }>('/me/chatgpt-plan/models')
+        .then((r) => r.data)
+        .catch((err) => {
+          modelsPromise = null; // allow a retry after a failure
+          throw err;
+        });
+    }
+    return modelsPromise;
+  }, []);
 
   /** Plan routing is in effect for this user's chats. */
   const active = !!status?.enabled && !!status.connected && !!status.useForChat;

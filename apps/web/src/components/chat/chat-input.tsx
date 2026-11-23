@@ -795,7 +795,7 @@ export function ChatInput({ onSend, disabled, planMode, isStreaming, onStop, int
             </button>
           )}
 
-          {chatgptPlan.active && <ChatGPTPlanIndicator />}
+          {chatgptPlan.active && <ChatGPTPlanIndicator disabled={inputDisabled} />}
 
           {/* W5: model picker — only rendered when the org has the flag on. */}
           {!chatgptPlan.active && !modelSelection.disabledByFlag && !modelSelection.loading && (

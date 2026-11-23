@@ -95,10 +95,16 @@ export function chatgptRedirectUri(): string {
  * encryption key makes it unguessable without revealing the key.
  */
 export function agentHostId(): string {
-  const digest = createHash('sha256')
+  // OpenAI expects a URN UUID (`urn:uuid:...`). Build a name-based (v5-style)
+  // UUID from the digest so the value stays stable for this install.
+  const b = createHash('sha256')
     .update(`hearth-agent-host:${env.API_URL}:${env.ENCRYPTION_KEY}`)
-    .digest('hex');
-  return `hearth-${digest.slice(0, 32)}`;
+    .digest()
+    .subarray(0, 16);
+  b[6] = (b[6]! & 0x0f) | 0x50; // version 5
+  b[8] = (b[8]! & 0x3f) | 0x80; // RFC 4122 variant
+  const h = b.toString('hex');
+  return `urn:uuid:${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 function authUrl(path: string): string {
@@ -168,9 +174,11 @@ export async function startAuthorization(user: { id: string; orgId: string }): P
     code_challenge: pkceChallenge(verifier),
     code_challenge_method: 'S256',
   });
-  if (clientId === DYNAMIC_CLIENT_ID) {
-    params.set('agent_name_hint', 'Hearth');
+  // Open-source mode: the host id is required on every authorize request
+  // (same value each time); the name hint only on first, dynamic registration.
+  if (chatgptMode() === 'open_source') {
     params.set('ext_agent_host_id', agentHostId());
+    if (clientId === DYNAMIC_CLIENT_ID) params.set('agent_name_hint', 'Hearth');
   }
   return `${authUrl('/api/accounts/authorize')}?${params.toString()}`;
 }
