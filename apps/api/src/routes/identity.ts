@@ -2,6 +2,8 @@ import { Router } from 'express';
 import type { AgentFileType } from '@prisma/client';
 import { requireAuth } from '../middleware/auth.js';
 import * as identityService from '../services/identity-service.js';
+import { markStepComplete } from '../services/onboarding-service.js';
+import { logger } from '../lib/logger.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -55,6 +57,13 @@ router.put('/:level/:fileType', requireAuth, async (req, res, next) => {
     }
 
     const doc = await identityService.upsertIdentity(scope, fileType, level, content);
+
+    // Onboarding: saving identity/soul preferences completes set_preferences.
+    // Real server-side action — best-effort + non-blocking + idempotent.
+    void markStepComplete(scope.userId, 'set_preferences').catch((err) => {
+      logger.error({ err, userId: scope.userId }, 'Failed to mark set_preferences onboarding step (non-fatal)');
+    });
+
     res.json({ data: doc });
   } catch (err) {
     if ((err as Error).message.includes('Only admins') || (err as Error).message.includes('only available')) {

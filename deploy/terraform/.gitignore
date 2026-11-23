@@ -1,0 +1,10 @@
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+# Saved plans embed resolved secret values in plaintext — never commit.
+tfplan
+tfplan-*
+*.tfplan

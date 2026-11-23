@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '@/lib/api-client';
+import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 import type {
   Task,
   TaskStatus,
@@ -45,6 +46,10 @@ export function useTasks() {
 
   const createTask = useCallback(async (data: { title: string; description?: string; source: TaskSource }) => {
     const res = await api.post<{ data: Task }>('/tasks', data);
+    trackEvent(AnalyticsEvent.FIRST_TASK_CREATED, {
+      taskId: res.data?.id,
+      source: data.source,
+    });
     return res.data;
   }, []);
 

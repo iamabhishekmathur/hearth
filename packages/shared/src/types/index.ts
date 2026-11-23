@@ -8,6 +8,8 @@ export * from './memory.js';
 export * from './task.js';
 export * from './compliance.js';
 export * from './decision.js';
+export * from './onboarding.js';
+export * from './invitation.js';
 
 export type ChatMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
@@ -100,7 +102,10 @@ export type NotificationType =
   | 'handoff'
   | 'governance_block'
   | 'comment_on_your_message'
-  | 'reaction_on_your_message';
+  | 'reaction_on_your_message'
+  | 'task_assigned'
+  | 'routine_result'
+  | 'digest';
 
 export interface NotificationItem {
   id: string;

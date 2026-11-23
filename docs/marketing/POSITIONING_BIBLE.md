@@ -1,1344 +1,706 @@
 # Hearth Positioning Bible
 
-Status: Working source of truth  
-Last updated: 2026-06-10  
-Purpose: Align Hearth's website, README, docs, launch content, Product Hunt copy, sales conversations, demos, and founder narrative around the current governed-AI positioning.
+This document is the commercial source of truth for Hearth.
 
-This document should pass the skim test. A reader should quickly understand:
+It defines the acquisition wedge, buyer, promise, product story, terminology,
+website narrative, and claims we should make. It is intentionally narrower than
+the full product. Hearth has more capabilities than first-touch marketing should
+ask a buyer to understand.
 
-- What Hearth is.
-- Who it is for.
-- Why a team would use it.
-- Why a CTO, VP Engineering, CISO, IT leader, or exec sponsor would approve it.
-- How Hearth is different from ChatGPT, Claude, Slack, project tools, prompt libraries, and automation tools.
+---
 
 ## 0. The Skimmable Version
 
-### Current strategic frame
+### What Hearth is
 
-Hearth is now positioned around the executive buyer's real blocker:
+Hearth Cloud is a team AI workspace that turns the AI workflows your best people
+build into repeatable ways of working the whole team can use.
 
-> Teams want to use AI, but leaders need governance, sensitive-data protection, compliance, visibility, and company-owned memory.
+### The customer problem
 
-Agent execution is still central to the product, but it is not the whole positioning. It is the proof that Hearth is useful once AI usage is governed.
+Companies have bought AI access, but adoption is uneven. A few power users get
+meaningfully faster while everyone else keeps rebuilding prompts, gathering
+context, and starting from scratch. Useful AI workflows remain trapped in
+private histories and do not become company capability.
 
-### Primary positioning
+### The promise
 
-> Governed AI for teams.
+> Turn what your best AI users learn into the company playbook.
 
-### Primary homepage H1
+### Primary homepage headline
 
-> Let your team use AI without losing control.
+> Your best AI users are getting faster. Everyone else keeps starting from scratch.
 
 ### Primary homepage subhead
 
-> A governed AI workspace for shared chat and agent work across Slack, meetings, docs, and tools. Sensitive data stays protected by company policies, and context and memory stay owned by your organization.
+> Hearth turns the AI workflows your best people build into shared routines the
+> whole team can run, with company context, approvals, and policies built in.
 
-### One-line description
+### The mechanism
 
-> Hearth is a governed AI workspace where teams use chat and agents safely, company policies protect sensitive data, and the organization owns the context and memory.
+1. Someone completes useful work with Hearth.
+2. The successful pattern is saved as a Routine.
+3. It appears in Activity for teammates to inspect.
+4. A teammate adds it to their own workflow.
+5. Improvements become reusable instead of remaining private.
 
-### Short pitch
+### The concrete proof
 
-Hearth gives teams one governed workspace for AI work. People can chat with AI together, agents can help across Slack, meetings, docs, and tools, repeated work can become routines, and teammates can reuse what works. Leaders get policy controls, approval history, auditability, deployment choice, and company-owned context instead of scattered private AI histories.
+Hearth can detect work assigned in Slack, Gmail, and meeting notes, gather the
+relevant context, plan and execute the allowed steps, and bring the result back
+for approval. Successful work can then become a reusable Routine.
 
-### Longer pitch
+### The product in four surfaces
 
-Most companies are already using AI. The problem is that usage is happening in private tabs, unmanaged chat histories, pasted internal context, and invisible workflows. Hearth gives teams a governed AI workspace where Chat, Tasks, Routines, and Activity work together. Teams can collaborate with AI, stage agent work for approval, turn repeated work into governed routines, and discover useful workflows from teammates. Admins can define policies for sensitive data, route risky requests for review, audit what happened, and keep context, decisions, workflows, approvals, and memory owned by the organization.
+- **Chat:** teammates and AI work together in shared sessions.
+- **Tasks:** agents plan and execute accountable work with human review.
+- **Routines:** saved workflows run on demand, on a schedule, or from a trigger.
+- **Activity:** teammates discover and adopt the workflows that work.
 
-### The transformation
+### The trust layer
 
-Before Hearth:
+Company policies, sensitive-data controls, approval points, model choice, and
+organizational memory stay attached to the work.
 
-- Employees paste sensitive context into private AI tabs.
-- AI workflows live with individual power users.
-- Teams cannot see which AI workflows are working.
-- Leaders cannot tell what context reached an LLM.
-- Work created by AI has weak approval and audit history.
-- Company memory scatters across vendor accounts, chat histories, docs, and individual habits.
-- Security teams choose between shadow AI and blocking tools people want to use.
+### The commercial product
 
-After Hearth:
+Hearth Cloud is the default product. It is the managed path for teams that want
+to start quickly without operating infrastructure.
 
-- Teams get a shared AI workspace with company policies attached.
-- Chat, agent work, routines, and activity live in one place.
-- Sensitive data can be blocked, redacted, routed, or reviewed before it reaches an LLM.
-- Agents can draft, search, create, update, and stage work under approval rules.
-- Repeated work becomes governed routines.
-- Teammates can inspect and reuse workflows that already work.
-- Context, decisions, workflows, outputs, approvals, and memory belong to the organization.
-- Leaders can offer AI access without losing visibility or control.
+The open-source core is an important trust signal and deployment option. Buyers
+can inspect it, export their data, or self-host when infrastructure control is a
+requirement. It is not an equal first-screen choice.
 
-### Main promise
-
-> Let teams use AI safely, visibly, and usefully.
-
-### Strongest problem line
-
-> Your team is already using AI. The question is whether you control it.
-
-### Strongest governance line
-
-> Company policy should travel with AI work.
-
-### Strongest product line
-
-> Chat, Tasks, Routines, and Activity in one governed AI workspace.
-
-### Strongest memory line
-
-> Your company's AI memory should not live inside OpenAI or Anthropic account histories.
-
-### Strongest open-source line
-
-> Inspect it, self-host it, or use Hearth Cloud.
+---
 
 ## 1. Category And Positioning
 
-### Primary category
+### Category
 
-> Governed AI workspace for teams.
+> Team AI workspace
 
-### Category explanation
+This is a descriptor, not the complete value proposition. It tells the buyer
+what kind of software Hearth is. The adoption problem tells them why it matters.
 
-Hearth is a team AI workspace that combines:
+### Positioning statement
 
-- Chat for teammates working with AI together.
-- Tasks where agents can plan and stage work for approval.
-- Routines for repeated workflows agents can run.
-- Activity so teammates can discover and reuse what works.
-- Governance controls for policies, approvals, sensitive data, audit, and memory ownership.
+For companies where a few employees have become strong AI users while the rest
+of the team is still starting from scratch, Hearth Cloud is the team AI
+workspace that turns successful AI work into reusable team workflows. Unlike
+private AI chats or isolated automation tools, Hearth connects collaborative
+work, agent execution, routines, discovery, memory, and company controls in one
+place.
 
-### Who it is for
+### The acquisition wedge
 
-Primary buyer:
+The wedge is not generic productivity, chat, compliance, or self-hosting.
 
-- CTO.
-- VP Engineering.
-- CISO-adjacent security leader.
-- IT leader.
-- COO or operations leader responsible for AI rollout.
-- Founder or exec sponsor at a startup or SMB moving beyond ad hoc AI usage.
+The wedge is:
 
-Primary company type:
+> Scale successful AI behavior from a few power users to the whole team.
 
-- 200-1000 person tech-aware companies.
-- Startups and SMBs with teams already using AI.
-- Companies where AI adoption is happening faster than governance.
-- Companies with sensitive customer, product, code, deal, roadmap, R&D, PHI, PII, PCI, or proprietary context.
+### The broader platform
 
-Primary user:
+The full product includes proactive work detection, agent tasks, collaborative
+chat, artifacts, Skills, Routines, Activity, multi-layer memory, Decisions,
+governance, compliance packs, MCP integrations, model choice, and self-hosting.
 
-- Product, engineering, support, sales, marketing, operations, and leadership team members who want AI to help with real work without starting from a blank chat every time.
+Those capabilities support the wedge. They should not compete to become the
+first sentence.
 
-### Positioning spine
+---
 
-> Teams need AI adoption. Leaders need control. Hearth gives both.
+## 2. Ideal Customer And Buying Committee
 
-This means:
+### Ideal company
 
-- Teams get a useful AI workspace, not just policy documents.
-- Leaders get governance, visibility, and ownership, not just trust-me usage.
-- Agents can help with work, but important work can be staged for human approval.
-- Sensitive information can be protected before it reaches an LLM.
-- Useful workflows become team assets instead of individual hacks.
-- Company context becomes company memory.
+- 100 to 1,000 employees.
+- Technology or technology-enabled business.
+- Already paying for ChatGPT, Claude, Copilot, or multiple AI tools.
+- Several visible AI power users but inconsistent adoption across the team.
+- Work happens across Slack or Teams, email, meetings, and shared knowledge tools.
+- Leadership has an AI-adoption mandate and security has legitimate concerns.
+- Willing to begin with one 20-to-100-person function and expand from proof.
 
-### What Hearth is not
+### Primary champion
 
-Hearth is not:
+- Head of AI or Automation.
+- VP Operations or Product Operations.
+- Chief of Staff responsible for an AI initiative.
+- RevOps, Support Ops, or another functional leader with repeated workflows.
 
-- A Slack replacement.
-- A project management replacement.
-- A prompt library.
-- A generic chatbot wrapper.
-- A compliance-only dashboard.
-- A single-player AI tab.
-- A pure automation tool with no human judgment.
+The champion owns the adoption problem and can identify an initial workflow.
 
-### What Hearth is
+### Economic buyer
 
-Hearth is:
+- COO.
+- CTO or CIO with an AI-adoption mandate.
 
-- A governed AI workspace for teams.
-- A place where team AI work is visible, reusable, and controlled.
-- A way for teams to use AI across existing tools without scattering context.
-- A way for leaders to protect sensitive data and maintain auditability.
-- An open-source path for companies that want to inspect or self-host the AI workspace.
+### Approver
 
-## 2. Strategic Narrative
+- IT.
+- Security.
+- Privacy or compliance leadership when applicable.
 
-### The old world
-
-Companies gave employees access to AI tools. That unlocked experimentation, but it created a control problem.
-
-People now use ChatGPT, Claude, and other tools to summarize meetings, draft customer replies, analyze docs, plan projects, review code, write launch copy, and answer support questions. But most of that work happens in private tabs.
-
-That creates three problems:
-
-1. **Sensitive context leaks into unmanaged places.** Employees paste customer data, roadmap details, deal terms, security answers, code, R&D notes, or regulated information into tools the company does not fully govern.
-2. **Useful AI workflows do not spread.** A few power users get faster. Everyone else starts from scratch.
-3. **Company memory gets lost.** Decisions, context, prompts, outputs, approvals, and reasoning live inside vendor histories or individual accounts instead of a company-owned system.
-
-### The new world
-
-Teams need a shared AI workspace where the company can define the rules.
-
-Hearth lets teams use AI together while keeping policy, approval, audit, and memory attached to the work.
-
-### The central contrast
-
-Unmanaged AI:
-
-- Private tabs.
-- Manual context copying.
-- Invisible workflows.
-- Vendor-owned histories.
-- Weak policy enforcement.
-- No clear approval trail.
-
-Hearth:
-
-- Team workspace.
-- Connected context.
-- Governed agent work.
-- Reusable routines.
-- Visible activity.
-- Company-owned memory.
-- Cloud or self-hosted deployment.
-
-### The buyer insight
-
-The buyer is not asking, "Can my team use another AI tool?"
-
-They are asking:
-
-- Can I let the team use AI without leaking sensitive context?
-- Can I avoid shadow AI?
-- Can I give employees something more useful than a policy memo?
-- Can I see what AI is doing across the organization?
-- Can I keep approvals and audit history attached?
-- Can the company own the context instead of donating it to vendor histories?
-- Can we self-host or inspect the product if needed?
-
-## 3. Product Surfaces
-
-The product should be explained with four everyday surfaces plus the trust layer beneath them.
-
-The full product still includes Skills, memory, decisions, artifacts, integrations, admin controls, cloud hosting, open-source self-hosting, and BYO LLM paths. Those capabilities are real, but first-touch marketing should not make the buyer assemble the whole architecture. Lead with governed AI adoption, then show the product surfaces that make it usable.
-
-### Chat
-
-Feature name:
-
-> Chat
-
-How to describe it:
-
-> Chat is where teammates work with AI in the same place.
-
-What it does:
-
-- Lets teammates and AI work in the same session.
-- Keeps files, notes, context, and outputs visible to the team.
-- Supports shared AI conversations instead of private ChatGPT or Claude tabs.
-- Produces artifacts, summaries, drafts, plans, or answers that stay in the workspace.
-
-Why it matters:
-
-- Team context does not get trapped in one person's private AI history.
-- Multiple people can inspect and improve the work.
-- AI work becomes easier to review, reuse, and govern.
-
-Messaging guardrail:
-
-- The feature name is **Chat**, not "Shared Chat."
-- It is okay to say Chat supports shared AI sessions.
-
-### Tasks
-
-Feature name:
-
-> Tasks
-
-How to describe it:
-
-> Tasks are where agent work becomes accountable.
-
-What it does:
-
-- Detects or accepts assigned work from meetings, Slack, Teams, email, docs, tickets, and tools.
-- Keeps the human owner clear.
-- Gathers relevant context.
-- Breaks work into subtasks.
-- Executes allowed parts through connected tools.
-- Stages results for approval, replan, or rejection.
-
-Why it matters:
-
-- AI work becomes visible and reviewable.
-- Users do not have to manually paste context into a blank chat.
-- Leaders can see what was done, what was approved, and what policy applied.
-
-Execution boundary:
-
-- Hearth can draft, search, summarize, create, update, and stage work.
-- Admin policy decides what can send or update automatically.
-- Important work should default to staged review unless a company explicitly permits automatic action.
-
-### Routines
-
-Feature name:
-
-> Routines
-
-How to describe it:
-
-> Routines are saved workflows for repeated work.
-
-What it does:
-
-- Packages repeatable steps, sources, policies, and approval rules.
-- Runs manually, on a schedule, or when a trigger appears.
-- Can use connected tools and company context.
-- Can stage outputs for review.
-
-Why it matters:
-
-- Teams stop redoing the same AI setup every week.
-- A good workflow becomes a team asset.
-- Recurring work can be governed consistently.
-
-Examples:
-
-- After every sales call, draft the follow-up, pull approved answers, update Salesforce, and queue next steps for approval.
-- Every Friday, summarize launch blockers from Slack, Linear, docs, and meetings, then draft owner updates.
-- Every Monday, prepare a customer-risk digest from support tickets, account notes, and product issues.
-
-### Skills
-
-Feature name:
-
-> Skills
-
-How to describe it:
-
-> Skills are reusable recipes for how AI should do a type of work.
-
-What it does:
-
-- Defines the steps, sources, constraints, and expected output for a repeatable capability.
-- Gives teams a consistent way to perform specialized AI work.
-- Can be used inside Chat, Tasks, or Routines.
-
-Why it matters:
-
-- Teams can standardize how good work gets done.
-- A useful prompt pattern becomes a governed capability.
-- A Skill can inform a Routine, but a Routine does not have to be tied to a Skill.
-
-### Activity
-
-Feature name:
-
-> Activity
-
-How to describe it:
-
-> Activity shows the useful AI work happening across the team.
-
-What it does:
-
-- Shows routines, chats, tasks, and outputs teammates are creating.
-- Lets people inspect the pattern behind useful work.
-- Helps teammates copy or adapt workflows into their own work.
-- Gives leaders visibility into team AI adoption.
-
-Why it matters:
-
-- AI best practices stop living only with power users.
-- Teammates learn by seeing what others actually do.
-- Useful work becomes discoverable and reusable.
-
-### Memory
-
-Feature name:
-
-> Memory
-
-How to describe it:
-
-> Memory is the company-owned record of context, decisions, workflows, and approvals.
-
-What it does:
-
-- Stores relevant context at user, team, and organization levels.
-- Preserves decisions, workflow history, task history, approval history, and useful outputs.
-- Makes prior context available to future AI work.
-- Supports exportability for cloud customers.
-- Stays in the customer's database for self-hosted deployments.
-
-Why it matters:
-
-- The company owns the useful context created through AI work.
-- Memory does not disappear when an employee leaves or a vendor changes.
-- Leaders can maintain institutional history instead of scattered chat histories.
-
-### Governance
-
-Feature name:
-
-> Governance
-
-How to describe it:
-
-> Governance is how company policy travels with AI work.
-
-What it does:
-
-- Defines what agents can send, redact, route, or block.
-- Applies policies before sensitive context reaches an LLM.
-- Supports PHI, PII, PCI, and internal policies.
-- Supports company-specific restrictions like R&D formula data, roadmap data, deal terms, unreleased product information, security answers, and proprietary code.
-- Keeps approval, replan, rejection, and audit history attached to the work.
-
-Why it matters:
-
-- Leaders can enable AI usage without relying on employee judgment alone.
-- Security teams can move from blanket lockdown to governed rollout.
-- Companies can enforce internal policy at the point of AI use.
-
-## 4. Governance-First Messaging
-
-### Core governance promise
-
-> Let teams use AI with company policies attached.
-
-### Three governance pillars
-
-#### 1. Protect sensitive context
-
-Hearth can block, redact, or route sensitive information before it reaches an LLM.
-
-Policy examples:
-
-- Block R&D formula data from being sent to external LLM providers.
-- Strip PHI before a healthcare support response is drafted.
-- Redact PII before sending customer history to a model.
-- Route PCI-related requests to security review.
-- Block unreleased roadmap details from external model calls.
-- Prevent source code or secrets from being sent to unapproved providers.
-
-#### 2. Approve important work
-
-Users remain responsible for judgment.
-
-Hearth can:
-
-- Stage drafts before sending.
-- Stage CRM updates before writing.
-- Stage ticket updates before posting.
-- Let users approve, replan, or reject.
-- Keep approval history attached to the task.
-
-#### 3. Own company memory
-
-The organization owns:
-
-- Context.
-- Decisions.
-- Workflows.
-- Outputs.
-- Approval history.
-- Audit history.
-- Memory.
-
-Self-hosted:
-
-- Context and memory stay in the customer's database.
-
-Cloud:
-
-- Context and memory can be exported.
-
-Important line:
-
-> The company should own the memory created by AI work, not OpenAI, Anthropic, or individual employee accounts.
-
-## 5. Deployment And Trust
-
-### Open source
-
-Open source is a major trust signal.
-
-Say:
-
-- Inspect the code.
-- Self-host the open-source core.
-- Extend the workspace.
-- Bring governance closer to your infrastructure.
-
-Avoid:
-
-- Making open source sound like the only way to use Hearth.
-- Making cloud sound less secure by default.
-
-### Hearth Cloud
-
-Position:
-
-> Hearth Cloud is the fastest path to governed AI rollout.
-
-Use when:
-
-- Teams want managed operations.
-- Speed matters.
-- The team wants to start without running infrastructure.
-
-### Self-hosted
-
-Position:
-
-> Self-hosted Hearth gives maximum infrastructure control.
-
-Use when:
-
-- The organization needs control over infrastructure, storage, network boundaries, or deployment process.
-- Data residency or security review requires it.
-- The company wants context and memory in its own database.
-
-### BYO LLM
-
-Position:
-
-> BYO LLM applies to both Hearth Cloud and self-hosted.
-
-Supported framing:
-
-- Use OpenAI, Anthropic, Azure OpenAI, OpenAI-compatible providers, local providers, or OSS/local models through paths like Ollama where appropriate.
-- Model choice is separate from deployment choice.
-- Self-hosting is about infrastructure control, not the only path to model choice.
-
-## 6. Persona Messaging
-
-### CTO / VP Engineering
-
-What they care about:
-
-- AI usage is already happening.
-- Sensitive context may be leaving approved systems.
-- They need a practical alternative to banning AI.
-- They need auditability, deployment choice, model choice, and integration control.
-- They want AI to improve team throughput, not just individual experimentation.
-
-Message:
-
-> Hearth gives your team a governed AI workspace: people can use AI together, agents can help with real work, and policies keep sensitive context under control.
-
-Proof points:
-
-- Policies before model calls.
-- Approval gates before important work ships.
-- Audit history attached to work.
-- Cloud or self-hosted.
-- BYO LLM across both paths.
-- Open-source core.
-- Company-owned memory.
-
-### CISO / Security / IT
-
-What they care about:
-
-- Sensitive context in unapproved AI tools.
-- PHI, PII, PCI, secrets, source code, roadmap, deal, R&D, and customer data.
-- Policy enforcement.
-- Audit logs.
-- Data retention.
-- Provider and deployment control.
-
-Message:
-
-> Hearth lets teams use AI inside governed boundaries instead of private tabs.
-
-Proof points:
-
-- Block, redact, route, or review.
-- Custom internal policies.
-- Approval and audit history.
-- Cloud and self-hosted options.
-- Company-owned memory.
-
-### Team lead / Functional leader
-
-What they care about:
-
-- The team is inconsistent with AI.
-- Power users are faster than everyone else.
-- Workflows are not reusable.
-- Repeated work keeps restarting from scratch.
-- They need visibility into useful AI work.
-
-Message:
-
-> Hearth turns useful AI workflows into team workflows.
-
-Proof points:
-
-- Chat for team AI sessions.
-- Routines for repeated work.
-- Activity to discover what works.
-- Tasks to make agent work accountable.
+Security is usually an approver, not the initial source of demand. Governance
+helps a deal close; it should not create a security-platform buying process
+before the product has demonstrated operational value.
 
 ### End user
 
-What they care about:
+Knowledge workers in product, support, operations, sales, marketing, and
+engineering who already use AI or want to benefit from what stronger AI users
+have learned.
 
-- AI should help with real work, not make them write perfect prompts.
-- They want context gathered for them.
-- They want draft work, not another blank tab.
-- They need to approve what actually ships.
-- They want to learn from teammates.
+### Buying triggers
 
-Message:
+- Leadership has purchased AI seats but cannot see consistent adoption or ROI.
+- Employees are copying company context into private AI histories.
+- A few power users have workflows the rest of the team cannot reproduce.
+- The company is forming an AI council, enablement group, or rollout program.
+- Teams are creating duplicate prompts and automations for the same work.
+- Security wants policy and approval controls before broader rollout.
 
-> Hearth helps AI do more of the setup, drafting, and follow-through while you stay in control.
+### Poor initial fits
 
-Proof points:
+- Individuals looking for a better personal chatbot.
+- Companies that only need enterprise search.
+- Buyers seeking a developer framework for building customer-facing agents.
+- Enterprise-wide CISO procurement before a small operational workflow is proven.
+- Teams unwilling to connect real work or adopt a shared workflow.
 
-- Agents can gather context.
-- Tasks can be staged for review.
-- Routines handle repeated work.
-- Activity shows workflows worth copying.
+---
 
-## 7. Website Messaging Architecture
+## 3. Strategic Narrative
 
-### Homepage
+### The old world
 
-Job:
+Every employee receives access to an AI tool. A few people learn how to combine
+good prompts, company context, tools, and judgment into valuable workflows.
+Their work improves, but the method remains private. Everyone else keeps opening
+a blank chat, copying context, and relearning the same lessons.
 
-> Convince a cautious executive or technical leader that Hearth is the practical path to governed AI adoption.
+The company has distributed AI access without building organizational capability.
 
-Recommended flow:
+### The new world
 
-1. Hero: governed AI for teams.
-2. Risk: your team is already using AI, but you may not control it.
-3. Governance: policies, approvals, audit, memory ownership.
-4. Workspace: Chat, Tasks, Routines, Activity.
-5. Proof: governed agent work examples.
-6. Deployment: Cloud, self-hosted, BYO LLM.
-7. Integrations: fits into existing systems.
-8. Final CTA: start with cloud, inspect GitHub, or self-host.
+When someone finds a better AI workflow, the pattern can be saved, shared,
+discovered, run with another teammate's context, and improved. The company gains
+a growing playbook rather than a collection of private chat histories.
 
-Hero:
+### The transformation
 
-- Eyebrow: `GOVERNED AI FOR TEAMS`
-- H1: `Let your team use AI without losing control.`
-- Subhead: `A governed AI workspace for shared chat and agent work across Slack, meetings, docs, and tools. Sensitive data stays protected by company policies, and context and memory stay owned by your organization.`
-- CTAs: `Start free`, `View GitHub`
-- Open-source callout: `we're open source too!`
+**Before Hearth**
 
-### Product page
+- AI expertise lives with individuals.
+- Every task starts with a blank prompt.
+- Context is manually copied from several tools.
+- Good workflows are shared through Looms, prompt docs, or not at all.
+- Leadership sees seats and usage, not repeatable operating improvements.
 
-Job:
+**With Hearth**
 
-> Explain what the software is.
+- Useful work becomes a reusable Routine.
+- Teammates discover what others are doing with AI.
+- The workflow runs with the right context and approval rules attached.
+- Improvements spread without requiring everyone to become an AI expert.
+- Leadership can see which workflows are being adopted and reused.
 
-Lead with:
+### The concise executive story
 
-- Chat.
-- Tasks.
-- Routines.
-- Activity.
-- Memory.
-- Governance.
+> You do not need every employee to become an AI power user. You need a way for
+> the workflows your power users discover to become reusable across the team.
 
-Then explain:
+---
 
-- How Tasks and Routines move work through detect, context, plan, execute, approve, reuse.
-- What "agent execution" means.
-- What can be drafted, created, updated, searched, or sent.
-- What waits for human approval.
+## 4. Value Proposition Hierarchy
 
-### Governance page
+### 1. Scale what works
 
-Job:
+The best AI workflows become shared team patterns instead of private shortcuts.
 
-> Make the security and executive buyer believe Hearth can be approved.
+### 2. Get real work done
 
-Cover:
+Agents can detect or receive work, gather context, plan subtasks, use connected
+tools, and stage the result for approval.
 
-- Sensitive data controls.
-- Policy engine.
-- PHI, PII, PCI handling.
-- Custom internal policies.
-- R&D formula, roadmap, deal, source code, and proprietary data examples.
-- Audit and approval history.
-- Memory ownership.
-- Cloud vs self-hosted data handling.
-- BYO LLM.
+### 3. Retain what the company learns
 
-### Use cases page
+Workflows, context, corrections, decisions, outputs, and approvals become part
+of organizational memory rather than disappearing into individual histories.
 
-Job:
+### 4. Govern the rollout
 
-> Show concrete examples of governed AI work across teams.
+Companies can define what agents may access, what sensitive information must be
+redacted or blocked, and which actions require approval.
 
-Each use case should show:
+### Message ordering rule
 
-- Signal.
-- Relevant context.
-- Policy check.
-- Work staged.
-- Approval point.
-- Reusable workflow.
+Always sell in this order:
 
-Use cases should not redefine the product. They should prove the homepage claims.
+> Adoption problem -> reusable team workflows -> concrete agent work -> trust and governance
 
-### Pricing page
+Do not reverse the order unless the reader is already on the Security page.
 
-Job:
+---
 
-> Help the buyer choose the operating model.
+## 5. Product Story
 
-Core framing:
+### The Hearth loop
 
-> Pricing for governed team AI.
+> Do useful work -> Save what worked -> Publish it -> Teammate adopts it -> Improve the shared pattern
 
-Cloud:
+This is the organizing story for the website, demos, onboarding, sales, and
+product analytics.
 
-- Fastest path to governed rollout.
+### Chat
 
-Self-hosted:
+**What it is:** A familiar AI conversation where teammates can participate in
+the same session with shared files, context, tools, and artifacts.
 
-- Maximum infrastructure control.
+**Why it matters:** Useful reasoning and outputs stop being trapped in one
+person's private chat history.
 
-BYO LLM:
+**Role in the story:** The familiar place where a workflow may first be created.
 
-- Available across both Cloud and self-hosted.
+### Tasks
 
-Business / Enterprise:
+**What it is:** An agent-assisted Kanban board for work that has an owner,
+context, plan, execution state, and approval point.
 
-- SSO.
-- Audit.
-- Policy controls.
-- Sensitive-data controls.
-- Support.
+**Why it matters:** AI moves beyond advice and creates accountable work products.
 
-### Docs
+**Role in the story:** The clearest proof that Hearth can do real work.
 
-Job:
+### Routines
 
-> Support both Hearth Cloud and self-hosted Hearth with the same product concepts.
+**What it is:** Saved workflows for repeated work. A Routine can run manually,
+on a schedule, from an event, or through a webhook.
 
-Docs tagline:
+**Why it matters:** A successful workflow becomes repeatable without rebuilding
+the prompt and context every time.
 
-> A team AI workspace for chat, agent-assisted tasks, routines, activity, and company-owned context. Available in Hearth Cloud or self-hosted. BYO LLM either way.
+**Role in the story:** The primary unit of reusable team value.
 
-Docs should not imply Hearth is self-hosted only.
+### Activity
 
-## 8. Product Proof Examples
+**What it is:** A discovery feed showing useful Routines, Skills, chats, and
+outputs created across the team.
 
-### Support
+**Why it matters:** Employees learn from real work, inspect the pattern, and add
+it to their own workflow.
 
-Signal:
+**Role in the story:** The distribution mechanism that closes the adoption loop.
 
-> An Intercom ticket asks whether Hearth supports bring-your-own model keys.
+### Skills
 
-Relevant context:
+A Skill is a reusable recipe describing how to do something. Skills can support
+Tasks and Routines, but they do not need to appear in the homepage's first
+product explanation.
 
-- Approved BYO LLM policy.
-- Cloud and self-hosted deployment notes.
-- Prior Slack escalation answer from engineering.
-- Public docs that can be safely linked.
+### Memory
 
-Policy check:
+Memory exists at personal, team, and organizational levels. It makes work more
+contextual and preserves what the company learns. In Cloud, organizational data
+can be exported. In self-hosted deployments, it stays in the customer's database.
 
-- Do not expose internal provider pricing.
-- Use approved external wording only.
+Memory is a retention and trust advantage, not the acquisition headline.
 
-Work staged:
+### Governance
 
-- Intercom response draft.
-- Source links.
-- Docs-gap task.
+Governance includes policy rules, sensitive-data handling, approval points,
+violation history, and model or deployment control.
 
-Approval:
+Governance is the permission layer for broader adoption. Do not imply that it is
+the only reason teams choose Hearth.
 
-- Support owner approves or replans before sending.
+---
 
-Reusable workflow:
+## 6. Concrete Product Proof
 
-- Saved as "BYO LLM support answer" for future tickets.
+### Default demonstration
 
-### Engineering
+Use one end-to-end customer follow-up workflow:
 
-Signal:
+1. A sales or support request appears after a customer conversation.
+2. Hearth gathers the call notes, approved documentation, account context, and
+   prior decisions.
+3. The agent extracts open questions and plans the required work.
+4. It drafts the response, prepares the CRM or ticket update, and attaches sources.
+5. A policy check confirms the approved wording and sensitive-data rules.
+6. The owner reviews, replans, or approves the result.
+7. The successful workflow is saved as a Routine.
+8. A teammate discovers the Routine in Activity and adds it to their workflow.
 
-> A GitHub issue asks for an investigation plan on an auth regression.
+This demonstration proves execution, context, governance, reuse, and team
+adoption without asking the viewer to understand the whole platform.
 
-Relevant context:
+### Additional starting workflows
 
-- Recent PRs.
-- Error logs.
-- Related Slack thread.
-- Architecture docs.
+- Support response drafted from approved product and security documentation.
+- Weekly launch-risk digest from Slack, Linear, and the launch plan.
+- Customer-call follow-up with email, CRM update, and next-step scheduling.
 
-Policy check:
+Use three workflows across the site. Do not present six generic persona grids.
 
-- Do not send secrets, tokens, or customer data to unapproved providers.
+---
 
-Work staged:
+## 7. Hearth Cloud
 
-- Investigation plan.
-- Suspected files.
-- Reproduction checklist.
-- Suggested owner tasks.
+### Primary commercial message
 
-Approval:
+> Hearth Cloud is the managed way to turn successful AI work into reusable team workflows.
 
-- Engineering owner reviews before creating tickets or posting summary.
+### Cloud value
 
-Reusable workflow:
+- No infrastructure to operate.
+- Fast path from signup to first connected workflow.
+- Managed product updates and operations.
+- Team and Business plans for expansion.
+- Model choice, including supported BYO LLM paths.
+- Data export and an open-source core that reduce platform risk.
 
-- Saved as "Regression investigation plan."
+### Primary Cloud CTA
 
-### Sales
+> Start a team pilot
 
-Signal:
+Secondary CTA:
 
-> A Slack message asks for the security follow-up after a customer call.
+> See it work
 
-Relevant context:
+### Pilot promise
 
-- Call notes.
-- Approved security answers.
-- Salesforce account context.
-- Calendar availability.
+> Start with one recurring workflow. Prove that the team can reuse it in 14 days.
 
-Policy check:
+### Pilot success metrics
 
-- Use approved security wording.
-- Do not disclose internal roadmap or non-public customer references.
+- Time to first completed workflow.
+- Number of teammates who adopt or reuse the workflow.
+- Routine runs completed.
+- Human approval and replan rate.
+- Repeated manual steps removed.
+- Estimated time returned to the team.
 
-Work staged:
+### Cloud and open source hierarchy
 
-- Follow-up email draft.
-- CRM note.
-- Meeting options.
-- Source links.
+Cloud is the default CTA, pricing path, and homepage deployment story.
 
-Approval:
+Open source appears as trust and optionality:
 
-- Sales owner approves before sending or updating Salesforce.
+- Inspect the core.
+- Avoid opaque platform dependency.
+- Export company data.
+- Self-host when infrastructure requirements demand it.
 
-Reusable workflow:
+Do not place Cloud and self-hosting in equal hero cards. That creates choice
+friction and makes the managed product feel optional.
 
-- Saved as "Security follow-up after sales call."
+---
 
-### Marketing
+## 8. Website Information Architecture
 
-Signal:
+### Primary navigation
 
-> A launch meeting assigns the founder post, X thread, and launch checklist.
+- Product
+- Workflows
+- Security
+- Pricing
+- Docs
+- GitHub
+- Start a team pilot
 
-Relevant context:
+### Homepage question
 
-- Launch plan.
-- Approved positioning.
-- Product Hunt assets.
-- Recent customer feedback.
+> Why should my company change how it approaches AI adoption?
 
-Policy check:
+Flow:
 
-- Do not overclaim product capabilities.
-- Route security/compliance claims for review.
+1. Adoption-gap hero.
+2. Recognition of the current problem.
+3. The Hearth loop.
+4. One concrete workflow demonstration.
+5. Chat, Tasks, Routines, and Activity.
+6. Individual, team, and company outcomes.
+7. Governance and ownership.
+8. Hearth Cloud pilot.
+9. Open-source trust strip.
+10. Final pilot CTA.
 
-Work staged:
+### Product page question
 
-- LinkedIn founder post.
-- X thread.
-- Launch-day checklist.
-- Claims review notes.
+> What is the software, and how do the parts work together?
 
-Approval:
+Lead with the Hearth loop and the four workspace surfaces. Follow with Tasks,
+Routines, Activity, memory, governance, integrations, and execution boundaries.
 
-- Marketing owner edits or approves before publishing.
+### Workflows page question
 
-Reusable workflow:
+> What useful workflow should my team start with?
 
-- Saved as "Launch-post workflow."
+Show three detailed starting workflows with trigger, context, execution,
+approval, reusable pattern, and intended team outcome.
 
-### Product
+### Security page question
 
-Signal:
+> Can IT and Security approve this rollout?
 
-> A meeting action item asks product to summarize customer feedback from pricing calls.
+Cover data flow, model providers, sensitive-data controls, policies, approval
+history, Cloud data handling, exports, self-hosting, and the current security
+posture. Be precise about what is available today.
 
-Relevant context:
+### Pricing page question
 
-- Call notes.
-- Support tickets.
-- CRM notes.
-- Existing roadmap themes.
+> What does a Cloud pilot cost, and how do we expand?
 
-Policy check:
+Lead with Hearth Cloud. Explain Free, Team, Business, and Enterprise by rollout
+stage. Self-hosting is a secondary path below the Cloud plans.
 
-- Strip customer PII from summaries.
-- Do not expose confidential deal details.
+### Self-host page question
 
-Work staged:
+> When should we run Hearth ourselves?
 
-- Product feedback brief.
-- Theme clusters.
-- Follow-up questions.
-- Candidate Linear/Jira tickets.
+Explain infrastructure ownership, operational responsibility, updates, model
+configuration, and migration from Cloud. Do not position self-hosting as the
+default starting point.
 
-Approval:
+---
 
-- PM reviews before creating roadmap artifacts.
+## 9. Approved Copy
 
-Reusable workflow:
+### Hero
 
-- Saved as "Customer calls to product feedback."
+**Eyebrow:** `HEARTH CLOUD`
 
-## 9. Messaging Guardrails
+**Headline:**
 
-### Use these terms
+> Your best AI users are getting faster. Everyone else keeps starting from scratch.
 
-- Governed AI workspace.
-- Team AI workspace.
-- Chat.
-- Tasks.
-- Routines.
-- Activity.
-- Company policies.
-- Sensitive-data controls.
-- Approval gates.
-- Audit history.
-- Company-owned memory.
-- Context ownership.
-- Cloud or self-hosted.
-- BYO LLM.
-- Open source.
+**Subhead:**
 
-### Avoid leading with these terms
+> Hearth turns the AI workflows your best people build into shared routines the
+> whole team can run, with company context, approvals, and policies built in.
 
-- Compounding leverage.
-- Shared brain.
-- Digital twin.
-- Operating system.
-- AI OS.
-- Agentic OS.
-- Prompt library.
-- Workflow marketplace.
-- Autonomous everything.
+**Primary CTA:** `Start a team pilot`
 
-These may be internally useful, but they are less clear for first-time buyers.
+**Secondary CTA:** `See it work`
 
-### Chat terminology
+**Trust line:** `Built on an open-source core. Export your data or self-host when required.`
 
-Correct:
+### Problem section
 
-- Chat.
-- Chat supports shared AI sessions.
-- Teammates can work with AI together in Chat.
+**Heading:**
 
-Avoid:
+> AI access is not the same as AI adoption.
 
-- Naming the feature "Shared Chat."
-- Making Hearth sound like only a chat product.
+**Points:**
 
-### Task terminology
+- Good AI workflows stay in private histories.
+- Everyone keeps rebuilding prompts and context.
+- Leaders can see purchased seats, but not repeatable team improvements.
 
-Correct:
+### Loop section
 
-- Agents help with work.
-- Agents stage work for approval.
-- Users approve, reject, or replan.
-- Admin policy decides what can happen automatically.
+**Heading:**
 
-Avoid:
-
-- Saying agents always send or update automatically.
-- Making the user feel removed from final judgment.
-- Overusing "finish" without clarifying approval.
-
-### Governance terminology
-
-Correct:
-
-- Policies protect sensitive data before it reaches an LLM.
-- Block, redact, route, or review.
-- Company policy controls what agents can send.
-- Approval history stays attached.
-
-Avoid:
-
-- Generic "secure by design" without examples.
-- Only saying HIPAA/PCI/PII without explaining internal policies.
-- Making governance sound like a compliance checkbox instead of a rollout enabler.
-
-## 10. Competitive Positioning
-
-### ChatGPT / Claude
-
-They are excellent single-player AI tools.
-
-Hearth is different because:
-
-- Team AI work happens in a shared workspace.
-- Company policies can govern AI work.
-- Context, decisions, approvals, and memory belong to the organization.
-- Workflows can be reused across the team.
-- Agents can stage work through connected tools.
-
-Simple contrast:
-
-> ChatGPT and Claude help when someone prompts them. Hearth gives teams a governed workspace where AI work can be shared, approved, reused, and owned by the company.
-
-### Slack / Teams
-
-They are where teams communicate.
-
-Hearth is different because:
-
-- AI work is planned, staged, governed, and reusable.
-- Hearth can connect conversation to context, workflows, and approval.
-- Hearth does not replace Slack or Teams. It works across them.
-
-Simple contrast:
-
-> Slack is where teams talk. Hearth is where governed AI work happens.
-
-### Jira / Linear / Asana
-
-They track work.
-
-Hearth is different because:
-
-- Agents can gather context and stage outputs.
-- AI policy and approval history attach to the work.
-- Routines and Activity spread useful AI workflows.
-
-Simple contrast:
-
-> Project tools track work. Hearth governs AI work and helps move it forward.
-
-### Zapier / automation tools
-
-They automate predefined steps.
-
-Hearth is different because:
-
-- It combines AI context, human approval, governance, and memory.
-- It is not just triggers and actions.
-- It supports judgment-heavy work that needs review.
-
-Simple contrast:
-
-> Automation tools run workflows. Hearth helps teams use AI workflows with context, governance, and approval.
-
-### Glean / enterprise search
-
-They help find knowledge.
-
-Hearth is different because:
-
-- It uses context to help with work.
-- It attaches approvals, workflows, and activity.
-- It focuses on governed AI collaboration and agent work, not just search.
-
-## 11. Use-Case Messaging
-
-### Universal pattern
-
-Every use case should follow this pattern:
-
-1. A signal appears in a real work system.
-2. Hearth gathers relevant context.
-3. Policies check what can be sent or used.
-4. Agents stage useful work.
-5. The human approves, rejects, or replans.
-6. The workflow can become reusable.
-
-### Sales
-
-Use cases:
-
-- Customer follow-up after a security call.
-- Objection response using approved answers.
-- Renewal-risk summary from email, CRM, and call notes.
-
-Messaging:
-
-> Sales gets faster follow-up without reps inventing security answers or manually rebuilding context.
-
-### Support
-
-Use cases:
-
-- Draft customer answers from approved docs.
-- Escalate product gaps.
-- Summarize recurring issues.
-
-Messaging:
-
-> Support can answer faster while policies control what gets sent and which sources are approved.
-
-### Product
-
-Use cases:
-
-- Turn customer calls into product feedback.
-- Cluster themes across support, CRM, and call notes.
-- Create follow-up tasks from discovery calls.
-
-Messaging:
-
-> Product gets structured feedback without losing source context or customer confidentiality.
-
-### Engineering
-
-Use cases:
-
-- Prepare investigation plans.
-- Summarize related PRs, issues, and logs.
-- Draft release or incident notes.
-
-Messaging:
-
-> Engineering gets better context packaging and safer AI assistance without leaking code, secrets, or customer data.
-
-### Marketing
-
-Use cases:
-
-- Draft launch content from approved positioning.
-- Turn launch meetings into channel checklists.
-- Reuse teammate workflows for recurring campaigns.
-
-Messaging:
-
-> Marketing can ship faster while claims, customer data, and compliance-sensitive language stay reviewable.
-
-### Operations
-
-Use cases:
-
-- Turn meetings into owners and next steps.
-- Prepare weekly blocker summaries.
-- Draft cross-functional status updates.
-
-Messaging:
-
-> Operations gets cleaner follow-through and clearer accountability across meetings, docs, and team systems.
-
-## 12. Product Hunt And Launch Messaging
-
-### Tagline
-
-> Governed AI workspace for shared chat and agent work.
-
-### 260-character description
-
-Hearth is a governed AI workspace for teams. Use shared chat and agents across Slack, meetings, docs, and tools while policies protect sensitive data and company context, memory, and approvals stay under control.
-
-### 500-character description
-
-Hearth gives C-level and VP leaders a governed AI workspace for safe team adoption. Teams use chat and agents across Slack, meetings, docs, and tools; admins attach policies, approval gates, audit trails, and sensitive-data controls. Useful workflows, context, decisions, outputs, and memory stay owned by the organization instead of scattering across private AI tabs and vendor histories. Use Hearth Cloud for speed, or self-host the open-source core for control.
-
-### Gallery image story
-
-1. Let your team use AI without losing control.
-2. Your team is already using AI. The question is whether you control it.
-3. Let teams use AI with company policies attached.
-4. Agent work waits for human approval.
-5. Company-owned memory and audit history.
-6. Cloud or self-hosted. BYO model.
-
-### Demo story
-
-1. Open with unmanaged AI risk.
-2. Introduce Hearth as governed AI workspace.
-3. Show Chat, Tasks, Routines, and Activity.
-4. Show sensitive-data policy check.
-5. Show agent output staged for approval.
-6. Show memory and audit history saved to the organization.
-7. Close with Cloud, self-hosted, BYO LLM, and GitHub.
-
-## 13. Copy Blocks
-
-### Hero block
-
-Eyebrow:
-
-> GOVERNED AI FOR TEAMS
-
-H1:
-
-> Let your team use AI without losing control.
-
-Subhead:
-
-> A governed AI workspace for shared chat and agent work across Slack, meetings, docs, and tools. Sensitive data stays protected by company policies, and context and memory stay owned by your organization.
-
-CTAs:
-
-- Start free.
-- View GitHub.
-
-Open-source callout:
-
-> we're open source too!
-
-### Risk section
-
-Eyebrow:
-
-> THE RISK
-
-Heading:
-
-> Your team is already using AI. The question is whether you control it.
-
-Cards:
-
-- Sensitive context copied into private AI tabs.
-- Useful workflows trapped with individual power users.
-- Company memory scattered across vendor histories.
-
-### Governance section
-
-Eyebrow:
-
-> GOVERNANCE BEFORE ROLLOUT
-
-Heading:
-
-> Let teams use AI with company policies attached.
-
-Cards:
-
-- Protect sensitive context.
-- Approve important work.
-- Own company memory.
-
-### Workspace section
-
-Eyebrow:
-
-> THE WORKSPACE
-
-Heading:
-
-> The workspace your team actually uses.
-
-Cards:
-
-- Chat: teammates work with AI together.
-- Tasks: agent work becomes accountable.
-- Routines: repeated work becomes governed workflows.
-- Activity: teams discover and reuse what works.
+> Turn one good workflow into the way the team works.
 
 ### Product proof section
 
-Eyebrow:
+**Heading:**
 
-> GOVERNED WORK IN PRACTICE
+> A real workflow, not another prompt.
 
-Heading:
+### Workspace section
 
-> A signal comes in. Hearth stages the work. You approve what ships.
+**Heading:**
 
-Standing note:
+> One workspace for building, running, and sharing AI workflows.
 
-> Hearth stages work by default. Admin policy decides what can send or update automatically.
+### Governance section
 
-### Deployment section
+**Heading:**
 
-Eyebrow:
+> Give the team room to use AI. Keep the company controls attached.
 
-> DEPLOYMENT
+### Cloud section
 
-Heading:
+**Heading:**
 
-> Hosted for speed. Self-hosted for control.
+> Start with one team and one workflow.
 
-Cards:
+**Body:**
 
-- Hearth Cloud: start quickly with managed operations.
-- Open-source self-hosted: run Hearth in your cloud.
-- BYO LLM: available across both paths.
+> Hearth Cloud is managed for you. Connect the first tools, run a workflow with
+> the team, and prove reuse before expanding the rollout.
 
 ### Final CTA
 
-Heading:
+**Heading:**
 
-> Give your team AI they can actually use safely.
+> Stop buying AI access. Start building team capability.
 
-Body:
+**Primary CTA:** `Start a team pilot`
 
-> Start with Hearth Cloud, inspect the open-source repo, or self-host when infrastructure control matters.
+---
 
-CTAs:
+## 10. Terminology Guardrails
 
-- Start free.
-- View GitHub.
+### Use
 
-## 14. Claims And Proof Needed
+- Team AI workspace.
+- AI adoption.
+- Reusable workflow.
+- Routine.
+- Company playbook.
+- Agent-assisted Tasks.
+- Activity feed.
+- Company context.
+- Human approval.
+- Managed Hearth Cloud.
+- Open-source core.
 
-The messaging makes strong claims. The site and demos should support them with proof.
+### Explain plainly
 
-### Must prove
+- A Routine is a saved workflow for repeated work.
+- A Skill is a recipe for how to do something.
+- Activity is where teammates discover what others are doing with AI.
+- Tasks are where agents plan and execute accountable work.
 
-- Hearth is a real product workspace, not just strategy copy.
-- Chat, Tasks, Routines, and Activity are understandable.
-- Governance is practical, not vague.
-- Policies can apply before LLM calls.
-- Work is staged for approval.
-- Memory belongs to the organization.
-- Cloud and self-hosted both exist.
-- BYO LLM applies to both paths.
-- Open source is easy to find.
+### Avoid leading with
 
-### Best proof assets
+- Governed AI.
+- Company-owned memory.
+- Open source or self-hosting.
+- Digital coworker.
+- Cognitive profile.
+- Decision Graph.
+- Agent orchestration.
+- MCP.
+- Multiplayer intelligence.
+- Shared brain.
+- Operating system.
+- Compounding leverage.
 
-- Product screenshots or structured UI mockups.
-- Policy example: block R&D formula data from external LLMs.
-- Policy example: strip PHI before model call.
-- Task example: Slack signal to approved output.
-- Activity example: teammate workflow copied.
-- Deployment graphic: Cloud, self-hosted, BYO LLM.
-- Short demo video.
-- GitHub link in header and CTA.
+These may be valid deeper concepts, but they are not the acquisition message.
 
-## 15. Things To Keep Aligned
+### Claims discipline
 
-Whenever the website, docs, README, Product Hunt copy, or launch collateral changes, check that these stay consistent:
+- Do not call every visible logo a native integration.
+- Separate direct connections from tools available through MCP.
+- Do not claim certifications before they are complete.
+- Do not imply automatic sending when policy or human approval is required.
+- Do not claim customer outcomes without evidence.
+- Do not use fake testimonials, companies, or performance metrics.
 
-- Hearth is governed AI for teams.
-- The buyer problem is AI adoption without control.
-- The product is a governed AI workspace.
-- Chat is the feature name.
-- Tasks make agent work accountable.
-- Routines package repeated work.
-- Activity spreads what works.
-- Governance protects sensitive context.
-- Memory is company-owned.
-- Cloud and self-hosted are both valid paths.
-- BYO LLM applies to both paths.
-- Open source is a trust signal.
+---
 
-## 16. Current Source Of Truth
+## 11. Competitive Frame
 
-The current homepage should lead with:
+### ChatGPT and Claude
 
-> Let your team use AI without losing control.
+They are excellent individual AI products and increasingly support enterprise
+knowledge and controls. Hearth should not claim they are inherently unsafe or
+that company data is automatically lost.
 
-The current product definition should be:
+The distinction:
 
-> Hearth is a governed AI workspace for shared chat and agent work across Slack, meetings, docs, and tools. Company policies protect sensitive data, and the organization owns the context and memory.
+> Hearth is organized around reusable team workflows, visible agent work, and
+> adoption across people, not only access to a capable chat model.
 
-The current launch strategy should be:
+### Copilot and enterprise suites
 
-> Sell governed AI adoption to leaders first. Then prove usefulness through Chat, Tasks, Routines, Activity, agent work, approvals, and reusable workflows.
+They make AI available inside existing productivity environments. Hearth adds a
+cross-tool workflow and discovery layer where successful ways of working can be
+published and reused.
+
+### Automation tools
+
+Automation platforms connect deterministic steps. Hearth combines conversational
+work, agent judgment, reusable routines, human approvals, and team discovery.
+
+### Enterprise search and agent platforms
+
+Search and agent-builder products can retrieve knowledge and execute actions.
+Hearth should differentiate through the employee adoption loop: people create,
+run, publish, discover, and improve shared workflows in one workspace.
+
+### Open-source alternatives
+
+Open source is not the main outcome. It proves inspectability and provides a
+credible self-hosted path if a company's deployment requirements change.
+
+---
+
+## 12. Sales Narrative
+
+### Discovery question
+
+> Who on your team has figured out a valuable AI workflow that everyone else
+> still does manually?
+
+Follow with:
+
+- How is that workflow shared today?
+- Can another employee run it with their own context?
+- Can leadership see whether it is being adopted?
+- What prevents security from approving broader use?
+- What recurring workflow could prove value in two weeks?
+
+### Pilot
+
+1. Choose one function.
+2. Choose one repeated workflow.
+3. Connect the minimum required tools.
+4. Define the human approval point.
+5. Run the workflow with its original builder.
+6. Publish it for several teammates.
+7. Measure reuse, completion, approval, and saved effort.
+
+### Expansion
+
+Expand after two or three workflows are successfully reused. Add teams,
+governance controls, shared memory, and additional integrations as adoption grows.
+
+---
+
+## 13. Proof Required
+
+### Product proof
+
+- A complete workflow run with sources and approval.
+- A Routine created from successful work.
+- A second user adopting that Routine from Activity.
+- A visible improvement to a shared workflow.
+- Policy behavior on sensitive context.
+- Data export from Hearth Cloud.
+
+### Commercial proof
+
+- Time to first successful workflow.
+- Number and percentage of invited users who run a shared Routine.
+- Repeat usage after the first week.
+- Number of workflows adopted from Activity.
+- Manual steps removed.
+- Quotes from real team leads and end users.
+
+Until customer evidence exists, use product proof instead of unsupported ROI claims.
+
+---
+
+## 14. Final Source Of Truth
+
+The single sentence every surface should reinforce is:
+
+> Hearth Cloud turns successful AI work into reusable team workflows.
+
+The product demonstration should prove:
+
+> Hearth can do real work, preserve the pattern, and help the rest of the team reuse it.
+
+The trust story should reassure:
+
+> Company context, approvals, policies, model choice, and deployment control stay attached.
+
+The open-source story should reduce risk:
+
+> Inspect the core, export your data, or self-host when required.

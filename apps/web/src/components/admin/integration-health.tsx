@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '@/lib/api-client';
+import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 
 interface Integration {
   id: string;
@@ -324,6 +325,10 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
         provider: selectedCatalog.provider,
         credentials: creds,
       });
+      trackEvent(AnalyticsEvent.INTEGRATION_CONNECTED, {
+        provider: selectedCatalog.provider,
+        kind: 'builtin',
+      });
       onConnected();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect');
@@ -351,6 +356,10 @@ function IntegrationDirectory({ connectedProviders, onClose, onConnected }: Dire
         credentials: { server_url: customUrl.trim() },
         serverUrl: customUrl.trim(),
         label: customName.trim() || undefined,
+      });
+      trackEvent(AnalyticsEvent.INTEGRATION_CONNECTED, {
+        provider: 'custom',
+        kind: 'custom',
       });
       onConnected();
     } catch (err) {

@@ -33,6 +33,8 @@ import { listCommands, resolveCommandForOrg } from '../services/command-service.
 import { CHATGPT_PLAN_PROVIDER_ID } from '@hearth/shared';
 import * as chatgptPlan from '../services/chatgpt-plan-service.js';
 import { parseCommandInput, CommandResolveError } from '../services/command-registry.js';
+import { markStepComplete, getState } from '../services/onboarding-service.js';
+import { createContextualInvite, findOrgUserByEmail } from '../services/task-service.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -365,6 +367,22 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
       userId,
     );
 
+    // Onboarding: a user sending a chat message completes the first_chat step.
+    // Driven by a real server-side action so we never trust the client.
+    // Best-effort + non-blocking: never fail the send on an onboarding write.
+    // We skip the write once the step is already complete to avoid a needless
+    // round-trip on every subsequent message (markStepComplete is idempotent).
+    void getState(userId)
+      .then((state) => {
+        if (!state.completedSteps.includes('first_chat')) {
+          return markStepComplete(userId, 'first_chat').then(() => undefined);
+        }
+        return undefined;
+      })
+      .catch((err) => {
+        logger.error({ err, userId, sessionId }, 'Failed to mark first_chat onboarding step (non-fatal)');
+      });
+
     // Link uploaded attachments to this message
     if (attachmentIds && attachmentIds.length > 0) {
       await chatService.linkAttachments(userMessage.id, attachmentIds);
@@ -381,6 +399,22 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
     }).catch((err) => {
       logger.error({ err, sessionId }, 'mention notify failed');
     });
+
+    // Contextual invite: if the message @mentions an email that is not yet an
+    // org member, send a contextual invite carrying this chat session so the
+    // accepted invitee lands in the conversation. Real-user mentions are handled
+    // by notifyMentions above; this only adds the non-user → invite branch.
+    // Best-effort + non-blocking — never fail the send on an invite write.
+    if (session.orgId) {
+      void inviteMentionedNonUsers({
+        orgId: session.orgId,
+        sessionId,
+        invitedByUserId: userId,
+        content,
+      }).catch((err) => {
+        logger.error({ err, sessionId }, 'contextual chat invite failed (non-fatal)');
+      });
+    }
 
     // Auto-title: if the session has no title, derive one from the first message (owner only)
     if (!session.title && access === 'owner') {
@@ -1231,6 +1265,46 @@ async function isPlanModeEnabled(orgId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Scans a chat message for @mentions of EMAIL addresses that are not yet org
+ * members, and sends each a contextual invite carrying this chat session
+ * (context: { type: 'chat_session', id: sessionId }) so the accepted invitee
+ * lands in the conversation. Mentions of existing members are intentionally
+ * ignored here — notifyMentions handles those. De-duplicates per address.
+ * Best-effort — caller wraps in `void ... .catch()`; createContextualInvite is
+ * itself a no-op when the invitation service is unavailable.
+ */
+async function inviteMentionedNonUsers(input: {
+  orgId: string;
+  sessionId: string;
+  invitedByUserId: string;
+  content: string;
+}): Promise<void> {
+  // Match @email tokens, e.g. "@taylor@acme.com".
+  const raw = input.content.match(/@([^\s@]+@[^\s@]+\.[^\s@]+)/g);
+  if (!raw || raw.length === 0) return;
+
+  const emails = new Set<string>();
+  for (const token of raw) {
+    const email = token.replace(/^@/, '').trim().toLowerCase();
+    if (email) emails.add(email);
+  }
+
+  await Promise.all(
+    Array.from(emails).map(async (email) => {
+      // Skip anyone already in the org — they get a normal mention notification.
+      const existing = await findOrgUserByEmail(input.orgId, email);
+      if (existing) return;
+      await createContextualInvite({
+        orgId: input.orgId,
+        email,
+        invitedByUserId: input.invitedByUserId,
+        context: { type: 'chat_session', id: input.sessionId },
+      });
+    }),
+  );
 }
 
 /**
