@@ -1,3 +1,4 @@
+import { sessionIdFromHash } from '@/lib/chat-links';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useChat } from '@/hooks/use-chat';
 import { useSessions } from '@/hooks/use-sessions';
@@ -76,17 +77,19 @@ export function ChatPage() {
     if (activeSessionId) clearUnread(activeSessionId);
   }, [activeSessionId, clearUnread]);
 
-  // Deep-link from task panel: #/chat?sessionId=...&messageId=...
+  // Deep links: #/chat?sessionId=...&messageId=... (task panel) and
+  // #/chat/<sessionId> (governance and shared links). Also handled when the
+  // hash changes while the chat page is already open.
   useEffect(() => {
-    const hash = window.location.hash;
-    const queryStart = hash.indexOf('?');
-    if (queryStart === -1) return;
-    const params = new URLSearchParams(hash.slice(queryStart + 1));
-    const sid = params.get('sessionId');
-    if (sid) {
+    const openFromHash = () => {
+      const sid = sessionIdFromHash(window.location.hash);
+      if (!sid) return;
       setOpenTabIds((prev) => (prev.includes(sid) ? prev : [...prev, sid]));
       setActiveSessionId(sid);
-    }
+    };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => window.removeEventListener('hashchange', openFromHash);
   }, []);
 
   // Scroll to highlighted message when ?messageId= is present.
@@ -426,3 +429,4 @@ function PresenceAvatars({ users }: { users: PresenceUser[] }) {
     </div>
   );
 }
+

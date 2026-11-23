@@ -4,6 +4,7 @@ import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 import {
   joinSession,
   leaveSession,
+  onSocketReconnect,
   onSessionEvent,
   onPresenceList,
   onPresenceJoin,
@@ -596,6 +597,43 @@ export function useChat(sessionId: string | null): UseChatReturn {
       }
     };
   }, [sessionId, subscribe]);
+
+  // After a reconnect (API restart, deploy, network blip) the room is re-joined
+  // automatically, but anything emitted while we were disconnected is gone.
+  // Re-sync from the server: pick up messages we missed and, if the run we
+  // were streaming finished meanwhile, end the streaming state.
+  useEffect(() => {
+    if (!sessionId) return;
+    return onSocketReconnect(() => {
+      api
+        .get<ApiResponse<{ messages: ChatMessage[] }>>(`/chat/sessions/${sessionId}`)
+        .then((res) => {
+          const serverMessages = res.data?.messages;
+          if (!serverMessages) return;
+          const last = serverMessages[serverMessages.length - 1];
+          const runFinished = last?.role === 'assistant';
+          setMessages((prev) => {
+            const serverKeys = new Set(serverMessages.map((m) => `${m.role}:${m.content}`));
+            const optimistic = prev.filter(
+              (m) =>
+                ((m.id.startsWith('user_') && !serverKeys.has(`${m.role}:${m.content}`)) ||
+                  (m.id === '__streaming__' && !runFinished)),
+            );
+            return [...serverMessages, ...optimistic];
+          });
+          if (runFinished && isStreamingRef.current) {
+            setIsStreaming(false);
+            setThinking(null);
+            setToolCalls([]);
+            streamingContentRef.current = '';
+            currentRunIdRef.current = null;
+          }
+        })
+        .catch(() => {
+          /* best-effort; live events resume regardless */
+        });
+    });
+  }, [sessionId]);
 
   const sendMessage = useCallback(
     async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => {

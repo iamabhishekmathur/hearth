@@ -13,9 +13,18 @@ import type {
 
 let socket: Socket | null = null;
 
+/**
+ * Session rooms this tab wants to be in. Server-side room membership is lost
+ * whenever the socket reconnects (network blip, API restart, deploy), so every
+ * `connect` re-joins all of them — otherwise an open chat silently stops
+ * receiving events and sits on "…" until the page is refreshed.
+ */
+const joinedSessions = new Set<string>();
+const reconnectListeners = new Set<() => void>();
+
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io('/', {
+    const s = io('/', {
       path: '/ws',
       transports: ['websocket', 'polling'],
       withCredentials: true,
@@ -25,8 +34,27 @@ export function getSocket(): Socket {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     });
+    s.on('connect', () => {
+      for (const sid of joinedSessions) s.emit('join:session', sid);
+    });
+    // Manager-level event: fires only on a RE-connect, not the first connect.
+    s.io.on('reconnect', () => {
+      for (const l of reconnectListeners) l();
+    });
+    socket = s;
   }
   return socket;
+}
+
+/**
+ * Run `cb` after the socket reconnects, so callers can re-fetch anything they
+ * may have missed while disconnected. Returns an unsubscribe function.
+ */
+export function onSocketReconnect(cb: () => void): () => void {
+  reconnectListeners.add(cb);
+  return () => {
+    reconnectListeners.delete(cb);
+  };
 }
 
 export function connectSocket(): Socket {
@@ -42,18 +70,18 @@ export function disconnectSocket(): void {
     socket.disconnect();
     socket = null;
   }
+  joinedSessions.clear();
 }
 
 export function joinSession(sessionId: string): void {
+  joinedSessions.add(sessionId);
   const s = getSocket();
-  if (s.connected) {
-    s.emit('join:session', sessionId);
-  } else {
-    s.once('connect', () => s.emit('join:session', sessionId));
-  }
+  // When not yet connected, the 'connect' handler joins every tracked room.
+  if (s.connected) s.emit('join:session', sessionId);
 }
 
 export function leaveSession(sessionId: string): void {
+  joinedSessions.delete(sessionId);
   const s = getSocket();
   if (s.connected) {
     s.emit('leave:session', sessionId);

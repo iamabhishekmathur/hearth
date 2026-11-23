@@ -35,7 +35,7 @@ Rooms scope event delivery so clients only receive events relevant to the resour
 
 | Event | Payload | Description |
 |---|---|---|
-| `join:session` | `sessionId: string` | Join a chat session room. Server verifies the user is the owner, a collaborator, or the session is org-visible. On success, triggers presence tracking. |
+| `join:session` | `sessionId: string` | Join a chat session room. Server verifies the user is the owner, a collaborator, or the session is org-visible. On success, triggers presence tracking. Room membership does not survive a reconnect: clients must emit `join:session` again on every `connect`, and re-fetch the session's messages to catch up on events missed while disconnected (the Hearth web client does both). |
 | `leave:session` | `sessionId: string` | Leave a chat session room. Cleans up presence tracking and broadcasts `presence:leave` if the user has no other sockets in the room. |
 | `join:task` | `taskId: string` | Join a task room for real-time task updates. Server verifies the user owns the task. |
 | `leave:task` | `taskId: string` | Leave a task room. |

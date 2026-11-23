@@ -24,6 +24,7 @@ const fakeSocket = {
   },
   connect: vi.fn(),
   disconnect: vi.fn(),
+  io: { on: vi.fn() },
 };
 
 vi.mock('socket.io-client', () => ({
