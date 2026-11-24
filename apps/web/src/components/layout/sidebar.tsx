@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { SessionUser } from '@hearth/shared';
 import { HRailItem, HAvatar } from '@/components/ui/primitives';
 import { getExtensionNavItems } from '@/extensions/register';
+import { useKnowledgeLoopEnabled } from '@/hooks/use-knowledge';
 
 interface SidebarProps {
   user: SessionUser;
@@ -14,6 +15,8 @@ export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarPro
   const active = (route: string) => currentRoute.startsWith(route);
   const initials = user.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Knowledge loop: the Review inbox only exists when the org flag is on.
+  const reviewEnabled = useKnowledgeLoopEnabled();
   // Cloud / downstream consumers can register extra nav items via the
   // extension hook. Filtered by required role if specified.
   const extensionItems = getExtensionNavItems().filter((item) => {
@@ -52,6 +55,9 @@ export function Sidebar({ user, currentRoute, onNavigate, onLogout }: SidebarPro
       <div className="mt-auto mb-4 flex flex-col items-center gap-1">
         <HRailItem icon="activity" label="Activity" active={active('/activity')} dot onClick={() => onNavigate('/activity')} />
         <HRailItem icon="decisions" label="Decisions" active={active('/decisions')} onClick={() => onNavigate('/decisions')} />
+        {reviewEnabled && (
+          <HRailItem icon="review" label="Review" active={active('/review')} onClick={() => onNavigate('/review')} />
+        )}
         {extensionItems.map((item) => (
           <HRailItem
             key={item.route}

@@ -56,6 +56,8 @@ Hearth keeps every version of a routine's definition: its name, prompt, schedule
 
 An admin can also name one more owner. The AI can change your personal routines when you ask it to. It cannot change team or org routines; it tells you what it would change, and the owner makes the change.
 
+When the knowledge loop is on, failed runs and outputs an owner had to rewrite can lead to a proposed new prompt in the owner's [Review Inbox](/guide/review). Only the prompt can change this way, and only when an owner approves.
+
 ## Health and Analytics
 
 Admins can review routine health, alerts, top consumers, run history, and failures. For platform controls, see [Analytics](/admin/analytics) and the admin routine endpoints in the developer docs.

@@ -1,6 +1,7 @@
 import type { MemoryLayer } from '@hearth/shared';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import type { TenantTx } from '../lib/tenant-context.js';
 import {
   createMemoryVersioned,
   updateMemoryVersioned,
@@ -197,8 +198,19 @@ export async function deleteMemory(id: string, scope: MemoryScope) {
 export async function searchMemory(
   scope: MemoryScope,
   query: string,
-  options?: { layer?: MemoryLayer; limit?: number; embedding?: number[] },
+  options?: {
+    layer?: MemoryLayer;
+    limit?: number;
+    embedding?: number[];
+    /**
+     * Run the queries inside this transaction. Raw queries skip the tenant
+     * extension, so a caller without an HTTP tenant context (the curator
+     * worker) passes a transaction that already carries the RLS setting.
+     */
+    tx?: TenantTx;
+  },
 ) {
+  const db = options?.tx ?? prisma;
   const limit = options?.limit ?? 10;
   const candidateLimit = 20;
 
@@ -252,7 +264,7 @@ export async function searchMemory(
   nextParam++;
 
   // Full-text search
-  const ftsResults = await prisma.$queryRawUnsafe<Array<{ id: string; rank: number }>>(
+  const ftsResults = await db.$queryRawUnsafe<Array<{ id: string; rank: number }>>(
     `SELECT id, ts_rank(to_tsvector('english', content), plainto_tsquery('english', $${queryParam})) AS rank
      FROM memory_entries
      WHERE ${accessFilter} ${layerFilter}
@@ -291,7 +303,7 @@ export async function searchMemory(
     }
     const vecAccessFilter = `(${vecAccessConditions.join(' OR ')}) AND (expires_at IS NULL OR expires_at > NOW())`;
 
-    vectorResults = await prisma.$queryRawUnsafe<Array<{ id: string; similarity: number }>>(
+    vectorResults = await db.$queryRawUnsafe<Array<{ id: string; similarity: number }>>(
       `SELECT id, 1 - (embedding <=> $${embParam}::vector) AS similarity
        FROM memory_entries
        WHERE ${vecAccessFilter} ${vecLayerFilter}
@@ -314,7 +326,7 @@ export async function searchMemory(
 
   // Fetch full entries
   const ids = merged.map((r) => r.id);
-  const entries = await prisma.memoryEntry.findMany({
+  const entries = await db.memoryEntry.findMany({
     where: { id: { in: ids } },
   });
 

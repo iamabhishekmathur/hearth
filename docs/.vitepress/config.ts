@@ -38,6 +38,7 @@ const guideSidebar = [
       { text: 'Memory', link: '/guide/memory' },
       { text: 'Skills', link: '/guide/skills' },
       { text: 'Decision Graph', link: '/guide/decisions' },
+      { text: 'Review Inbox', link: '/guide/review' },
     ],
   },
   {
@@ -148,6 +149,7 @@ const developerSidebar = [
       { text: 'Artifacts', link: '/developers/api/artifacts' },
       { text: 'Approvals', link: '/developers/api/approvals' },
       { text: 'Decisions', link: '/developers/api/decisions' },
+      { text: 'Knowledge (Review)', link: '/developers/api/knowledge' },
       { text: 'Admin', link: '/developers/api/admin' },
       { text: 'Webhooks and Uploads', link: '/developers/api/webhooks' },
       { text: 'WebSocket Events', link: '/developers/websocket-events' },

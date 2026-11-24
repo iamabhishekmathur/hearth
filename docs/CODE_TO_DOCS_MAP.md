@@ -26,6 +26,7 @@ This file maps source code areas to their corresponding documentation pages. Whe
 | `apps/api/src/services/proactive-signal-service.ts`, `apps/api/src/services/meeting-prep-service.ts` | `docs/guide/activity.md` |
 | `apps/web/src/components/settings/chatgpt-plan-settings.tsx`, `apps/web/src/components/chat/chatgpt-plan-indicator.tsx`, `apps/web/src/hooks/use-chatgpt-plan.ts` | `docs/guide/chatgpt-plan.md` |
 | `apps/web/src/pages/decisions.tsx`, `apps/web/src/components/decisions/*`, `apps/web/src/hooks/use-decisions.ts` | `docs/guide/decisions.md` |
+| `apps/web/src/pages/review.tsx`, `apps/web/src/components/knowledge/*`, `apps/web/src/hooks/use-knowledge.ts` (route `#/review`) | `docs/guide/review.md` |
 | `apps/api/src/routes/decisions.ts`, `apps/api/src/routes/meetings.ts`, `apps/api/src/services/decision-*`, `apps/api/src/jobs/decision-*` | `docs/guide/decisions.md`, `docs/admin/cognitive-profiles.md` when admin settings change |
 
 ## Admin Guide
@@ -78,6 +79,7 @@ This file maps source code areas to their corresponding documentation pages. Whe
 | `apps/api/src/routes/tasks.ts`, `apps/api/src/services/task-context-service.ts`, `apps/api/src/services/task-context-extractor.ts` | `docs/developers/api/tasks.md` |
 | `apps/api/src/routes/memory.ts` | `docs/developers/api/memory.md` |
 | `apps/api/src/services/knowledge-signals.ts`, `apps/api/src/jobs/knowledge-signal-cleanup-scheduler.ts`, `apps/api/src/scripts/sample-knowledge-signals.ts` | `docs/developers/architecture/database.md`, `docs/guide/memory.md`, `docs/developers/api/chat.md` |
+| `apps/api/src/routes/knowledge.ts`, `apps/api/src/services/knowledge-proposals.ts`, `apps/api/src/services/knowledge-curator.ts`, `apps/api/src/jobs/knowledge-curator-scheduler.ts`, `apps/api/src/scripts/curator-eval.ts`, `apps/api/src/scripts/knowledge-loop-flag.ts` | `docs/developers/api/knowledge.md`, `docs/developers/architecture/database.md`, `docs/guide/review.md`, `docs/admin/index.md` |
 | `apps/api/src/services/knowledge-versions.ts`, `apps/api/src/services/knowledge-owner.ts` | `docs/developers/api/memory.md`, `docs/developers/api/routines.md`, `docs/developers/architecture/database.md` |
 | `apps/api/src/routes/skills.ts` | `docs/developers/api/skills.md` |
 | `apps/api/src/routes/routines.ts`, `apps/api/src/routes/chains.ts` | `docs/developers/api/routines.md` |

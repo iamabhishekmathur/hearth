@@ -27,7 +27,7 @@ export const routineQueue = new Queue(QUEUE_NAME, {
   },
 });
 
-interface RoutineJobData {
+export interface RoutineJobData {
   routineId: string;
   userId: string;
   // Feature 2: Event trigger fields
@@ -49,172 +49,178 @@ async function orgIdOfUser(userId: string): Promise<string | null> {
   return u?.team?.orgId ?? null;
 }
 
-export function createRoutineWorker() {
-  const worker = new Worker(
-    QUEUE_NAME,
-    async (job: Job<RoutineJobData>) => {
-      const { routineId, userId, triggerId, triggerEvent, parameterValues, triggeredBy, pipelineId } = job.data;
-      logger.info({ routineId, userId, jobId: job.id, triggeredBy }, 'Starting routine execution');
+/**
+ * Runs one routine job. The worker calls this; tests call it directly. The
+ * routine (and its prompt) is read fresh here, so a run always uses the
+ * latest saved version — including one an owner just approved.
+ */
+export async function processRoutineJob(job: Pick<Job<RoutineJobData>, 'data' | 'id'>) {
+  const { routineId, userId, triggerId, triggerEvent, parameterValues, triggeredBy, pipelineId } = job.data;
+  logger.info({ routineId, userId, jobId: job.id, triggeredBy }, 'Starting routine execution');
 
-      const routine = await prisma.routine.findUnique({ where: { id: routineId } });
-      if (!routine || !routine.enabled) {
-        logger.warn({ routineId }, 'Routine not found or disabled, skipping');
-        return;
-      }
+  const routine = await prisma.routine.findUnique({ where: { id: routineId } });
+  if (!routine || !routine.enabled) {
+    logger.warn({ routineId }, 'Routine not found or disabled, skipping');
+    return;
+  }
 
-      // Feature 4: Resolve parameters
-      const parameters = (routine.parameters as unknown as RoutineParameter[]) ?? [];
-      let resolvedValues = parameterValues ?? {};
-      if (parameters.length > 0) {
-        resolvedValues = resolveDefaults(parameters, resolvedValues);
-        // Validate for scheduled runs
-        if (triggeredBy === 'schedule') {
-          const validation = validateParameterValues(parameters, resolvedValues);
-          if (!validation.valid) {
-            logger.error({ routineId, error: validation.error }, 'Parameter validation failed for scheduled run');
-            const run = await routineService.createRun(routineId, { triggeredBy: 'schedule' });
-            await routineService.completeRun(run.id, {
-              status: 'failed',
-              error: `Parameter validation failed: ${validation.error}`,
-            });
-            await prisma.routine.update({
-              where: { id: routineId },
-              data: { lastRunAt: new Date(), lastRunStatus: 'failed' },
-            });
-            return;
-          }
-        }
-      }
-
-      const run = await routineService.createRun(routineId, {
-        triggerId,
-        triggerEvent: triggerEvent as Record<string, unknown> | undefined,
-        parameterValues: Object.keys(resolvedValues).length > 0 ? resolvedValues : undefined,
-        triggeredBy: triggeredBy ?? 'schedule',
-      });
-
-      // Feature 7: Track in pipeline
-      if (pipelineId) {
-        await addRunToPipeline(pipelineId, run.id).catch((err) =>
-          logger.warn({ err, pipelineId }, 'Failed to add run to pipeline'),
-        );
-      }
-
-      const startTime = Date.now();
-
-      try {
-        // Feature 1: Build routine run context (state + previous runs)
-        const routineRunContext = await buildRoutineRunContext(routineId);
-
-        // Feature 4: Interpolate prompt template with parameter values
-        let prompt = routine.prompt;
-        if (Object.keys(resolvedValues).length > 0) {
-          prompt = resolvePromptTemplate(prompt, resolvedValues);
-        }
-
-        // Build agent context with routine-specific additions
-        const context = await buildAgentContext(userId, routineId, undefined, undefined, {
-          routineRunContext,
-          triggerEvent,
-          routineId,
-        });
-        // Knowledge loop: the run's knowledge-search log is stored on this run.
-        context.routineRunId = run.id;
-
-        // Run agent loop
-        let output = '';
-        for await (const event of agentLoop(context, [{ role: 'user', content: prompt }])) {
-          if (event.type === 'text_delta') {
-            output += event.content;
-          }
-        }
-
-        const durationMs = Date.now() - startTime;
-
-        // Feature 5: Approval gate. If this routine has a checkpoint, pause the
-        // run BEFORE completing/delivering — stash the produced output and open
-        // a pending approval. Delivery + finalization happen only once a reviewer
-        // approves (see routine-delivery.finalizeApprovedRun, called from the
-        // approvals route). An ungated routine falls straight through.
-        const gate = await findApprovalGate(routineId);
-        if (gate) {
-          await pauseRunForApproval(run.id, gate, output);
-          await prisma.routine.update({
-            where: { id: routineId },
-            data: { lastRunAt: new Date(), lastRunStatus: 'success' },
-          });
-          return { routineId, runId: run.id, status: 'awaiting_approval' as const };
-        }
-
-        // Feature 1: Generate summary (first 200 chars of output)
-        const summary = output.length > 0 ? output.slice(0, 200) : undefined;
-
-        // Complete the run
-        await routineService.completeRun(run.id, {
-          status: 'success',
-          output: { result: output },
-          durationMs,
-          summary,
-        });
-
-        // Update routine last run info
-        await prisma.routine.update({
-          where: { id: routineId },
-          data: { lastRunAt: new Date(), lastRunStatus: 'success' },
-        });
-
-        // Feature 6: Conditional delivery routing (shared with the approval-resume path)
-        await deliverRoutineOutput(routine, run.id, output);
-
-        // Feature 7: Trigger downstream chains
-        await triggerDownstream(routineId, run.id, 'success', output, pipelineId);
-
-        return { routineId, runId: run.id };
-      } catch (err) {
-        const durationMs = Date.now() - startTime;
-        logger.error({ err, routineId }, 'Routine execution failed');
-
+  // Feature 4: Resolve parameters
+  const parameters = (routine.parameters as unknown as RoutineParameter[]) ?? [];
+  let resolvedValues = parameterValues ?? {};
+  if (parameters.length > 0) {
+    resolvedValues = resolveDefaults(parameters, resolvedValues);
+    // Validate for scheduled runs
+    if (triggeredBy === 'schedule') {
+      const validation = validateParameterValues(parameters, resolvedValues);
+      if (!validation.valid) {
+        logger.error({ routineId, error: validation.error }, 'Parameter validation failed for scheduled run');
+        const run = await routineService.createRun(routineId, { triggeredBy: 'schedule' });
         await routineService.completeRun(run.id, {
           status: 'failed',
-          error: err instanceof Error ? err.message : 'Unknown error',
-          durationMs,
+          error: `Parameter validation failed: ${validation.error}`,
         });
-
-        // Knowledge loop: a failed run is a silent signal for the curator.
-        const signalOrgId = routine.orgId ?? (await orgIdOfUser(userId).catch(() => null));
-        if (signalOrgId) {
-          void recordSignal({
-            orgId: signalOrgId,
-            kind: 'run_failed',
-            source: 'routine',
-            userId,
-            teamId: routine.teamId,
-            routineId,
-            routineRunId: run.id,
-            text: err instanceof Error ? err.message : 'Unknown error',
-          });
-        }
-
         await prisma.routine.update({
           where: { id: routineId },
           data: { lastRunAt: new Date(), lastRunStatus: 'failed' },
         });
-
-        emitToUser(userId, 'notification', {
-          type: 'routine_failed',
-          title: `Routine failed: ${routine.name}`,
-          routineId,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        });
-
-        // Feature 7: Trigger on_failure chains
-        await triggerDownstream(routineId, run.id, 'failed', '', pipelineId);
-
-        throw err;
+        return;
       }
-    },
-    { connection, concurrency: 2 },
-  );
+    }
+  }
+
+  const run = await routineService.createRun(routineId, {
+    triggerId,
+    triggerEvent: triggerEvent as Record<string, unknown> | undefined,
+    parameterValues: Object.keys(resolvedValues).length > 0 ? resolvedValues : undefined,
+    triggeredBy: triggeredBy ?? 'schedule',
+  });
+
+  // Feature 7: Track in pipeline
+  if (pipelineId) {
+    await addRunToPipeline(pipelineId, run.id).catch((err) =>
+      logger.warn({ err, pipelineId }, 'Failed to add run to pipeline'),
+    );
+  }
+
+  const startTime = Date.now();
+
+  try {
+    // Feature 1: Build routine run context (state + previous runs)
+    const routineRunContext = await buildRoutineRunContext(routineId);
+
+    // Feature 4: Interpolate prompt template with parameter values
+    let prompt = routine.prompt;
+    if (Object.keys(resolvedValues).length > 0) {
+      prompt = resolvePromptTemplate(prompt, resolvedValues);
+    }
+
+    // Build agent context with routine-specific additions
+    const context = await buildAgentContext(userId, routineId, undefined, undefined, {
+      routineRunContext,
+      triggerEvent,
+      routineId,
+    });
+    // Knowledge loop: the run's knowledge-search log is stored on this run.
+    context.routineRunId = run.id;
+
+    // Run agent loop
+    let output = '';
+    for await (const event of agentLoop(context, [{ role: 'user', content: prompt }])) {
+      if (event.type === 'text_delta') {
+        output += event.content;
+      }
+    }
+
+    const durationMs = Date.now() - startTime;
+
+    // Feature 5: Approval gate. If this routine has a checkpoint, pause the
+    // run BEFORE completing/delivering — stash the produced output and open
+    // a pending approval. Delivery + finalization happen only once a reviewer
+    // approves (see routine-delivery.finalizeApprovedRun, called from the
+    // approvals route). An ungated routine falls straight through.
+    const gate = await findApprovalGate(routineId);
+    if (gate) {
+      await pauseRunForApproval(run.id, gate, output);
+      await prisma.routine.update({
+        where: { id: routineId },
+        data: { lastRunAt: new Date(), lastRunStatus: 'success' },
+      });
+      return { routineId, runId: run.id, status: 'awaiting_approval' as const };
+    }
+
+    // Feature 1: Generate summary (first 200 chars of output)
+    const summary = output.length > 0 ? output.slice(0, 200) : undefined;
+
+    // Complete the run
+    await routineService.completeRun(run.id, {
+      status: 'success',
+      output: { result: output },
+      durationMs,
+      summary,
+    });
+
+    // Update routine last run info
+    await prisma.routine.update({
+      where: { id: routineId },
+      data: { lastRunAt: new Date(), lastRunStatus: 'success' },
+    });
+
+    // Feature 6: Conditional delivery routing (shared with the approval-resume path)
+    await deliverRoutineOutput(routine, run.id, output);
+
+    // Feature 7: Trigger downstream chains
+    await triggerDownstream(routineId, run.id, 'success', output, pipelineId);
+
+    return { routineId, runId: run.id };
+  } catch (err) {
+    const durationMs = Date.now() - startTime;
+    logger.error({ err, routineId }, 'Routine execution failed');
+
+    await routineService.completeRun(run.id, {
+      status: 'failed',
+      error: err instanceof Error ? err.message : 'Unknown error',
+      durationMs,
+    });
+
+    // Knowledge loop: a failed run is a silent signal for the curator.
+    const signalOrgId = routine.orgId ?? (await orgIdOfUser(userId).catch(() => null));
+    if (signalOrgId) {
+      void recordSignal({
+        orgId: signalOrgId,
+        kind: 'run_failed',
+        source: 'routine',
+        userId,
+        teamId: routine.teamId,
+        routineId,
+        routineRunId: run.id,
+        text: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
+
+    await prisma.routine.update({
+      where: { id: routineId },
+      data: { lastRunAt: new Date(), lastRunStatus: 'failed' },
+    });
+
+    emitToUser(userId, 'notification', {
+      type: 'routine_failed',
+      title: `Routine failed: ${routine.name}`,
+      routineId,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    });
+
+    // Feature 7: Trigger on_failure chains
+    await triggerDownstream(routineId, run.id, 'failed', '', pipelineId);
+
+    throw err;
+  }
+}
+
+export function createRoutineWorker() {
+  const worker = new Worker(QUEUE_NAME, (job: Job<RoutineJobData>) => processRoutineJob(job), {
+    connection,
+    concurrency: 2,
+  });
 
   worker.on('failed', (job, err) => {
     logger.error({ jobId: job?.id, err }, 'Routine execution job failed');

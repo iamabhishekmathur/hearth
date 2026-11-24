@@ -358,6 +358,7 @@ model Org {
   userLlmCredentials   UserLlmCredential[]
   invitations          Invitation[]
   knowledgeSignals     KnowledgeSignal[]
+  knowledgeProposals   KnowledgeProposal[]
 
   @@map("orgs")
 }
@@ -1024,14 +1025,64 @@ model KnowledgeSignal {
   detail       Json?
   /// Set by the curator when it has used the signal.
   processedAt  DateTime? @map("processed_at")
+  /// The curator proposal this signal is evidence for (Phase 2).
+  proposalId   String?   @map("proposal_id")
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org      Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proposal KnowledgeProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
 
   @@index([orgId, createdAt])
   @@index([orgId, processedAt])
   @@index([messageId, kind])
+  @@index([proposalId])
   @@map("knowledge_signals")
+}
+
+/// Knowledge loop, Phase 2 — a change the nightly curator proposes to one
+/// memory entry or one routine prompt. Owners approve, edit or reject it in
+/// the Review inbox. Nothing changes until an owner approves.
+model KnowledgeProposal {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  /// memory | routine
+  targetType    String    @map("target_type")
+  targetId      String    @map("target_id")
+  /// Scope of the target when proposed (memory layer or routine scope). The
+  /// live target is used for owner checks; this is the fallback.
+  targetScope   String    @map("target_scope")
+  targetTeamId  String?   @map("target_team_id")
+  targetUserId  String?   @map("target_user_id")
+  /// Display name of the target when proposed.
+  targetName    String    @map("target_name")
+  /// The target's version when proposed — approval is a compare-and-set on it.
+  targetVersion Int       @map("target_version")
+  /// Memory: the content. Routine: the prompt (the only field a proposal may change).
+  before        String
+  after         String
+  reason        String
+  /// Who the change reaches: { audience, teamName?, personName?, routines? }.
+  affected      Json      @default("{}")
+  /// pending | approved | edited | rejected | superseded | dropped
+  status        String    @default("pending")
+  /// When the card shows in the inbox (daily cap: 5 per owner per day).
+  availableAt   DateTime  @default(now()) @map("available_at")
+  reviewedById  String?   @map("reviewed_by_id")
+  reviewedAt    DateTime? @map("reviewed_at")
+  rejectReason  String?   @map("reject_reason")
+  /// The owner's edited text when the card was approved with changes.
+  editedAfter   String?   @map("edited_after")
+  /// The target version the approval wrote.
+  resultVersion Int?      @map("result_version")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  org     Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  signals KnowledgeSignal[]
+
+  @@index([orgId, status, availableAt])
+  @@index([orgId, targetType, targetId, status])
+  @@map("knowledge_proposals")
 }
 
 /// One row per saved version of a routine's definition (name, prompt,

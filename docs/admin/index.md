@@ -21,6 +21,26 @@ The admin guide covers workspace controls shared by Hearth Cloud and self-hosted
 | [Cognitive Profiles](/admin/cognitive-profiles) | Digital co-worker settings and user opt-out controls. |
 | [Decision Graph](/admin/decision-graph) | Decision capture, review, patterns, principles, and sensitivity controls. |
 
+## Knowledge Loop
+
+The knowledge loop turns quiet gap signals (searches that found nothing, corrections, thumbs-downs, failed routine runs) into proposed fixes that owners review in the [Review Inbox](/guide/review). It is **off by default** and is turned on per organization with the `knowledgeLoop` feature flag.
+
+There is no settings screen for it yet. An operator turns it on or off with:
+
+```bash
+pnpm --filter @hearth/api knowledge:flag -- --org <orgId> --on
+pnpm --filter @hearth/api knowledge:flag -- --org <orgId> --off
+```
+
+When it is on:
+
+- A curator runs every night at 04:00 UTC (worker queue `knowledge-curator`). It calls the model only when there are new signals, at most once per memory entry or routine.
+- The **Review** item appears in the sidebar, and owners get at most five new cards a day.
+- Admins can run the curator at once with `POST /api/v1/knowledge/curator/run`.
+- Every approve, edit or reject writes an audit log row (`knowledge_proposal_approved`, `knowledge_proposal_edited`, `knowledge_proposal_rejected`).
+
+When it is off, the curator skips the organization and every `/api/v1/knowledge` route answers `404`. Turning it off does not delete open cards; they come back if it is turned on again. See [Knowledge API](/developers/api/knowledge).
+
 ## First Admin Checklist
 
 1. Confirm the organization name and first admin account.

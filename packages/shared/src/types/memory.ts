@@ -75,3 +75,86 @@ export interface MemorySearchRequest {
 export interface MemorySearchResult extends MemoryEntry {
   score: number;
 }
+
+// ── Knowledge loop, Phase 2: curator proposals ─────────────────────────────
+
+export type KnowledgeProposalTargetType = 'memory' | 'routine';
+
+export type KnowledgeProposalStatus =
+  | 'pending'
+  | 'approved'
+  | 'edited'
+  | 'rejected'
+  | 'superseded'
+  | 'dropped';
+
+/** Who a change reaches. */
+export interface KnowledgeProposalAffected {
+  /** org = everyone in the org, team = one team, person = one person. */
+  audience: 'org' | 'team' | 'person';
+  teamName?: string | null;
+  personName?: string | null;
+  /** Routines whose prompt this changes (for a routine target: itself). */
+  routines?: Array<{ id: string; name: string }>;
+}
+
+/** One piece of evidence behind a card, shown only as far as the viewer may see it. */
+export interface KnowledgeEvidenceItem {
+  kind: string;
+  source: string;
+  createdAt: string;
+  /** Plain sentence, e.g. "A member corrected an answer." */
+  label: string;
+  /** The redacted signal text — only when the viewer can open where it came from. */
+  quote: string | null;
+  /** A link the viewer can open, or null. */
+  link:
+    | { type: 'session'; sessionId: string }
+    | { type: 'routine_run'; routineId: string; runId: string | null }
+    | null;
+}
+
+export interface KnowledgeProposalEvidence {
+  /** Signal counts by kind (empty_search, correction, thumbs_down, …). */
+  counts: Record<string, number>;
+  /** Distinct people behind the signals. */
+  people: number;
+  items: KnowledgeEvidenceItem[];
+}
+
+export interface KnowledgeProposal {
+  id: string;
+  targetType: KnowledgeProposalTargetType;
+  targetId: string;
+  targetName: string;
+  /** Who owns the target, as a short label ("Admins", "Engineering leads", "Ada"). */
+  ownerLabel: string;
+  targetVersion: number;
+  before: string;
+  after: string;
+  reason: string;
+  affected: KnowledgeProposalAffected;
+  status: KnowledgeProposalStatus;
+  availableAt: string;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  rejectReason: string | null;
+  editedAfter: string | null;
+  resultVersion: number | null;
+  createdAt: string;
+  evidence: KnowledgeProposalEvidence;
+}
+
+export interface ApproveProposalRequest {
+  /** Owner-edited text. When given (and different), the card is saved as "edited". */
+  after?: string;
+  /**
+   * After a 409 conflict: the target version the owner has now looked at.
+   * The change is applied on top of that version instead.
+   */
+  baseVersion?: number;
+}
+
+export interface RejectProposalRequest {
+  reason?: string;
+}

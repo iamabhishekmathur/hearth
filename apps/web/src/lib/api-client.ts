@@ -6,6 +6,8 @@ class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The parsed JSON error body, when there was one. */
+    public body?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -42,14 +44,16 @@ async function request<T>(
 
   if (!res.ok) {
     let message = `Request failed with status ${res.status}`;
+    let errorBody: Record<string, unknown> | undefined;
     try {
       const body = (await res.json()) as ApiResponse;
+      errorBody = body as unknown as Record<string, unknown>;
       if (body.error) message = body.error;
       else if (body.message) message = body.message;
     } catch {
       // ignore parse errors
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, errorBody);
   }
 
   // 204 No Content
