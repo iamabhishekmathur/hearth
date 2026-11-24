@@ -423,20 +423,41 @@ export async function listExecutionSteps(taskId: string, limit = 500) {
 
 // ── Subtask helpers ──
 
+/**
+ * Who may read or add to a task's sub-resources (comments, steps, reviews,
+ * subtasks, context items): its owner, or its assignee in the same org.
+ * Routes answer 404 otherwise, so a task id from another user or org reveals
+ * nothing. (Fixes TASK-Z-02 / TASK-Z-03: these routes had no check at all.)
+ */
+export async function canAccessTask(
+  taskId: string,
+  user: { id: string; orgId: string | null },
+): Promise<boolean> {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { userId: true, assigneeId: true, orgId: true },
+  });
+  if (!task) return false;
+  if (task.userId === user.id) return true;
+  return task.assigneeId === user.id && !!user.orgId && task.orgId === user.orgId;
+}
+
 export async function createSubtask(
   parentTaskId: string,
-  userId: string,
+  _requestedBy: string,
   data: { title: string; description?: string },
 ) {
   const parent = await prisma.task.findUnique({
     where: { id: parentTaskId },
-    select: { orgId: true },
+    select: { orgId: true, userId: true },
   });
   if (!parent) throw new Error(`Parent task ${parentTaskId} not found`);
   return prisma.task.create({
     data: {
       orgId: parent.orgId,
-      userId,
+      // A subtask belongs to the parent's owner, so it shows on their board —
+      // never to whoever happened to create it.
+      userId: parent.userId,
       title: data.title,
       description: data.description ?? null,
       // Subtasks are created ready-to-run: the executor picks up 'backlog'
