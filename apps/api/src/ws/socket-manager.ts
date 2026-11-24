@@ -110,9 +110,11 @@ export function setupSocketManager(
   // Authenticate the handshake — reject unauthenticated connections
   io.use(async (socket, next) => {
     const req = socket.request as unknown as {
-      session?: { userId?: string };
+      session?: { userId?: string; passport?: { user?: string } };
     };
-    const userId = req.session?.userId;
+    // Same resolution as the HTTP attachUser middleware: our own userId, or
+    // passport's user id for a session saved only by passport.
+    const userId = req.session?.userId ?? req.session?.passport?.user;
 
     if (!userId) {
       return next(new Error('Unauthorized'));
