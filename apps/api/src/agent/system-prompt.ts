@@ -12,6 +12,9 @@ import {
   logCognitiveQuery,
 } from '../services/cognitive-profile-service.js';
 import { logger } from '../lib/logger.js';
+import { isFeatureEnabled } from '../lib/feature-flags.js';
+import { recentMemoryChanges } from '../services/knowledge-notify.js';
+import type { KnowledgeChangeSource } from '@hearth/shared';
 
 // ─── Citation Sources ────────────────────────────────────────────────
 
@@ -20,6 +23,46 @@ export interface CitationSource {
   type: 'memory' | 'experience' | 'decision' | 'skill' | 'context';
   label: string;
   content: string;
+  /**
+   * Knowledge loop, Phase 3 (org flag `knowledgeLoop`): set on a memory source
+   * whose current version was saved in the last 7 days, so the chat can show
+   * a small "updated" marker. Absent otherwise.
+   */
+  recentlyUpdated?: boolean;
+  /** When the current version was saved (ISO). Only with `recentlyUpdated`. */
+  lastChangedAt?: string;
+  /** What saved it (`curator` = an approved proposal). Only with `recentlyUpdated`. */
+  changeSource?: KnowledgeChangeSource;
+}
+
+/**
+ * Phase 3: mark memory sources whose content changed in the last 7 days.
+ * Best-effort — a failure leaves the sources unmarked.
+ */
+export async function markRecentlyUpdatedSources(
+  orgId: string,
+  refs: Array<{ source: CitationSource; id: string; version: number }>,
+  now = new Date(),
+): Promise<void> {
+  if (refs.length === 0) return;
+  try {
+    const org = await prisma.org.findUnique({ where: { id: orgId }, select: { settings: true } });
+    if (!isFeatureEnabled(org?.settings, 'knowledgeLoop')) return;
+    const changes = await recentMemoryChanges(
+      orgId,
+      refs.map((r) => ({ id: r.id, version: r.version })),
+      now,
+    );
+    for (const r of refs) {
+      const c = changes.get(r.id);
+      if (!c) continue;
+      r.source.recentlyUpdated = true;
+      r.source.lastChangedAt = c.lastChangedAt;
+      r.source.changeSource = c.changeSource;
+    }
+  } catch (err) {
+    logger.debug({ errName: (err as Error)?.name }, 'Failed to mark updated sources');
+  }
 }
 
 export interface SystemPromptResult {
@@ -140,6 +183,7 @@ When in doubt: act, be brief, and let the user redirect you.`;
 export async function buildSystemPrompt(context: Partial<AgentContext>): Promise<SystemPromptResult> {
   const parts: string[] = [];
   const sources: CitationSource[] = [];
+  const memoryRefs: Array<{ source: CitationSource; id: string; version: number }> = [];
   let sourceIndex = 1;
 
   // 1. Identity chain (org SOUL.md → user SOUL.md → IDENTITY.md)
@@ -214,7 +258,9 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
         let memSection = '\n## User Context\nAlways apply these preferences and facts about the user. Cite items using their [N] marker when relevant.\n';
         for (const mem of userMemories) {
           memSection += `\n- [${sourceIndex}] ${mem.content}`;
-          sources.push({ index: sourceIndex, type: 'memory', label: 'User memory', content: mem.content });
+          const source: CitationSource = { index: sourceIndex, type: 'memory', label: 'User memory', content: mem.content };
+          sources.push(source);
+          memoryRefs.push({ source, id: mem.id, version: mem.version });
           sourceIndex++;
         }
         parts.push(truncateToTokenBudget(memSection, SECTION_BUDGETS.userMemories));
@@ -274,9 +320,13 @@ export async function buildSystemPrompt(context: Partial<AgentContext>): Promise
         let ctxSection = '\n## Relevant Context\nThe following was retrieved from team/org memory:\n';
         for (const mem of extraMemories) {
           if (mem && typeof mem === 'object' && 'content' in mem) {
-            const entry = mem as { layer: string; content: string };
+            const entry = mem as { id?: string; version?: number; layer: string; content: string };
             ctxSection += `\n- [${sourceIndex}] [${entry.layer}] ${entry.content}`;
-            sources.push({ index: sourceIndex, type: 'context', label: `${entry.layer} context`, content: entry.content });
+            const source: CitationSource = { index: sourceIndex, type: 'context', label: `${entry.layer} context`, content: entry.content };
+            sources.push(source);
+            if (entry.id && typeof entry.version === 'number') {
+              memoryRefs.push({ source, id: entry.id, version: entry.version });
+            }
             sourceIndex++;
           }
         }
@@ -561,6 +611,11 @@ Tools:
       );
     }
     parts.push(BUILD_PROFILE.promptAddendum);
+  }
+
+  // 7b. Phase 3: "updated" marker on memory sources that changed this week.
+  if (context.orgId && memoryRefs.length > 0) {
+    await markRecentlyUpdatedSources(context.orgId, memoryRefs);
   }
 
   // 8. Citation guidance (only if sources were collected)

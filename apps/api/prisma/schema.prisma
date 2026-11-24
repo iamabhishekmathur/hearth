@@ -1074,6 +1074,8 @@ model KnowledgeProposal {
   editedAfter   String?   @map("edited_after")
   /// The target version the approval wrote.
   resultVersion Int?      @map("result_version")
+  /// Phase 3: when the one 7-day reminder went out in an owner's digest.
+  remindedAt    DateTime? @map("reminded_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

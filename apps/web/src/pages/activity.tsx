@@ -8,6 +8,7 @@ import { ActivityEventGroup } from '@/components/activity/activity-event-group';
 import { ProactiveSignalCard } from '@/components/activity/proactive-signal-card';
 import { HButton, HEyebrow } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
+import { ActivityKnowledge } from '@/components/knowledge/activity-knowledge';
 
 const ACTION_LABEL_MAP: Record<FeedAction, string> = {
   task_completed: 'Tasks',
@@ -274,6 +275,9 @@ export function ActivityPage() {
           ))}
         </div>
       </div>
+
+      {/* Knowledge loop, Phase 3: quiet weekly lines (renders nothing when off) */}
+      <ActivityKnowledge isAdmin={user?.role === 'admin'} />
 
       {/* Content */}
       {loading ? (

@@ -1,5 +1,5 @@
 {
-  "generatedRoutes": 241,
+  "generatedRoutes": 245,
   "routes": [
     {
       "method": "GET",
@@ -913,8 +913,18 @@
       "guards": []
     },
     {
+      "method": "GET",
+      "path": "/api/v1/knowledge/admin-summary",
+      "guards": []
+    },
+    {
       "method": "POST",
       "path": "/api/v1/knowledge/curator/run",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/my-impact",
       "guards": []
     },
     {
@@ -1061,6 +1071,20 @@
     {
       "method": "POST",
       "path": "/api/v1/notifications/:id/read",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notifications/preferences",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/notifications/preferences",
       "guards": [
         "requireAuth"
       ]

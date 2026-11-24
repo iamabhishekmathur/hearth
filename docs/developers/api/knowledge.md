@@ -26,6 +26,8 @@ Anyone else — other members, viewers, other organizations — gets `404` for t
 | `POST` | `/knowledge/proposals/:id/approve` | Apply the change. Optional edited text. |
 | `POST` | `/knowledge/proposals/:id/reject` | Turn it down. Optional reason. |
 | `POST` | `/knowledge/curator/run` | Admins: run the curator for your org now. Returns counts only. |
+| `GET` | `/knowledge/my-impact?days=7` | How many things your input helped fix this week. Counts only. |
+| `GET` | `/knowledge/admin-summary?days=7` | Admins: what changed, what waits, and areas with no owner. |
 
 ### Card shape
 
@@ -101,6 +103,66 @@ POST /api/v1/knowledge/proposals/:id/reject
 ### Run now (admins)
 
 `POST /api/v1/knowledge/curator/run` runs the curator for your org at once and returns a summary such as `{ "signals": 6, "groups": 2, "modelCalls": 1, "proposed": 1, "attached": 1, ... }`. Members get `403`. With the flag off: `404`.
+
+## Closing the loop (Phase 3)
+
+Hearth never sends an alert per event. Approving or rejecting a card notifies no one. Instead:
+
+- **Owners** get one line in their existing daily digest when cards wait. See [Notifications](/developers/api/notifications#the-daily-digest).
+- **Members** see one line on the Activity page when their input fed an approved fix this week.
+- **Admins** see a weekly summary on the Activity page, and one line in Monday's digest.
+- **Chat sources** show a small "updated" marker when the memory they cite changed in the last 7 days.
+
+Each piece can be turned off in the person's [notification preferences](/developers/api/notifications#preferences).
+
+### My impact
+
+`GET /api/v1/knowledge/my-impact?days=7` (`days` 1–31, default 7):
+
+```json
+{ "data": { "count": 2, "days": 7, "since": "2026-11-17T09:00:00.000Z" } }
+```
+
+`count` is the number of distinct memory entries or routines whose approved or edited card (decided in the window) has at least one of **your** signals as evidence. No names, no links. With your `knowledgeImpact` switch off, `count` is always `0`. A bad `days` gives `400`.
+
+### Admin summary
+
+`GET /api/v1/knowledge/admin-summary?days=7` — admins only (others get `403`):
+
+```ts
+interface KnowledgeAdminSummary {
+  days: number;
+  since: string;
+  changed: { approved: number; edited: number; rejected: number }; // decided in the window
+  waiting: { pending: number; oldestDays: number | null };        // due cards with a live target
+  unowned: Array<{
+    reason: "team_no_lead" | "no_admin" | "owner_left";
+    teamId: string | null;
+    teamName: string | null;
+    memory: number;
+    routines: number;
+    items: Array<{ type: "memory" | "routine"; id: string; name: string }>; // up to 5
+  }>;
+}
+```
+
+Areas with no owner:
+
+| Reason | Meaning |
+|---|---|
+| `team_no_lead` | Team memory or team routines with no named owner, in a team with no team lead. They fall back to admins only. One entry per team. |
+| `no_admin` | Org memory or org routines with no named owner, and the org has no admin. |
+| `owner_left` | Org or team items whose named owner is no longer in the org. |
+
+### "Updated" marker on sources
+
+When the org flag is on, a chat answer's memory sources (`metadata.sources` on the assistant message) carry three extra fields when the cited entry's **current version** was saved in the last 7 days and is not its first version:
+
+```ts
+{ recentlyUpdated: true, lastChangedAt: "2026-11-23T10:12:00.000Z", changeSource: "curator" }
+```
+
+`changeSource` is `curator` for an approved card, or `user`, `agent`, `rollback` and so on. Older or never-changed sources have none of these fields.
 
 ## How the curator works
 

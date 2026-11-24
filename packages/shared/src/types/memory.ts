@@ -158,3 +158,38 @@ export interface ApproveProposalRequest {
 export interface RejectProposalRequest {
   reason?: string;
 }
+
+// ── Knowledge loop, Phase 3: quiet notifications ───────────────────────────
+
+/**
+ * What a member sees on the Activity page once their input fed an approved
+ * fix: "Your input improved N things this week." Shown only when count ≥ 1.
+ */
+export interface KnowledgeMyImpact {
+  /** Distinct items (memory entries or routines) improved. */
+  count: number;
+  days: number;
+  since: string;
+}
+
+export type KnowledgeUnownedReason = 'team_no_lead' | 'no_admin' | 'owner_left';
+
+/** One area whose default owner set is empty (or whose named owner is gone). */
+export interface KnowledgeUnownedArea {
+  reason: KnowledgeUnownedReason;
+  teamId: string | null;
+  teamName: string | null;
+  memory: number;
+  routines: number;
+  /** Up to 5 examples. */
+  items: Array<{ type: KnowledgeProposalTargetType; id: string; name: string }>;
+}
+
+/** The admins' weekly knowledge summary on the Activity page. */
+export interface KnowledgeAdminSummary {
+  days: number;
+  since: string;
+  changed: { approved: number; edited: number; rejected: number };
+  waiting: { pending: number; oldestDays: number | null };
+  unowned: KnowledgeUnownedArea[];
+}

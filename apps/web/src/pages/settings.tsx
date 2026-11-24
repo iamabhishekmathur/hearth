@@ -14,6 +14,7 @@ import { api } from '@/lib/api-client';
 import { ChatGPTPlanSettings } from '@/components/settings/chatgpt-plan-settings';
 import { HButton, HCard, HEyebrow } from '@/components/ui/primitives';
 import { InviteTeammates } from '@/components/invitations/invite-teammates';
+import { NotificationSettings } from '@/components/settings/notification-settings';
 
 type Tab = 'profile' | 'identity' | 'ai-plan' | 'invite' | 'users' | 'teams' | 'integrations' | 'llm' | 'compliance' | 'analytics' | 'skills' | 'governance' | 'cognitive' | 'decisions';
 
@@ -267,6 +268,7 @@ export function SettingsPage({ initialTab }: SettingsPageProps) {
                 </div>
               </div>
             </HCard>
+            <NotificationSettings isAdmin={isAdmin} />
             <CognitiveOptOut />
           </div>
         )}

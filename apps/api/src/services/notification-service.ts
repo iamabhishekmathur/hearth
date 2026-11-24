@@ -22,6 +22,8 @@ export interface NotifyInput {
   entityType?: string;
   entityId?: string;
   sessionId?: string;
+  /** Defaults to now. Scheduled jobs pass their own clock. */
+  createdAt?: Date;
 }
 
 /**
@@ -40,6 +42,7 @@ export async function notify(input: NotifyInput): Promise<void> {
         entityType: input.entityType ?? null,
         entityId: input.entityId ?? null,
         sessionId: input.sessionId ?? null,
+        ...(input.createdAt ? { createdAt: input.createdAt } : {}),
       },
     });
     emitToUser(input.userId, 'notification:new', {

@@ -22,6 +22,8 @@ import {
   type DecisionResult,
 } from '../services/knowledge-proposals.js';
 import { MAX_AFTER_CHARS, runCuratorForOrg } from '../services/knowledge-curator.js';
+import { getAdminSummary, getMyImpact } from '../services/knowledge-notify.js';
+import { getPreferences } from '../services/notification-preferences.js';
 
 const router: ReturnType<typeof Router> = Router();
 router.use(requireAuth, requireOrg);
@@ -179,6 +181,53 @@ router.post('/proposals/:id/reject', async (req, res, next) => {
       });
     }
     sendDecision(res, result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const daysQuery = z.object({ days: z.coerce.number().int().min(1).max(31).optional() });
+
+/**
+ * GET /my-impact?days=7 — Phase 3: how many items the caller's input helped
+ * fix (approved or edited cards) in the window. Counts only. With the
+ * caller's `knowledgeImpact` switch off the count is always 0.
+ */
+router.get('/my-impact', async (req, res, next) => {
+  try {
+    if (!(await flagOn(req))) return notFound(res);
+    const parsed = daysQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'days must be an integer from 1 to 31' });
+      return;
+    }
+    const actor = actorOf(req);
+    const impact = await getMyImpact(actor, { days: parsed.data.days });
+    const prefs = await getPreferences(actor.userId, actor.role);
+    res.json({ data: prefs.knowledgeImpact ? impact : { ...impact, count: 0 } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /admin-summary?days=7 — Phase 3, admins only: what changed, what
+ * waits, and which areas have no owner.
+ */
+router.get('/admin-summary', async (req, res, next) => {
+  try {
+    if (!(await flagOn(req))) return notFound(res);
+    if (req.user!.role !== 'admin') {
+      res.status(403).json({ error: 'Only an admin can see the knowledge summary' });
+      return;
+    }
+    const parsed = daysQuery.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'days must be an integer from 1 to 31' });
+      return;
+    }
+    const data = await getAdminSummary(req.user!.orgId!, { days: parsed.data.days });
+    res.json({ data });
   } catch (err) {
     next(err);
   }

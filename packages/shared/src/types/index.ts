@@ -108,6 +108,27 @@ export type NotificationType =
   | 'routine_result'
   | 'digest';
 
+/**
+ * Per-person notification switches (stored in NotificationPreference.prefs).
+ * Knowledge-loop switches only matter when the org's `knowledgeLoop` flag is on.
+ */
+export interface NotificationPreferences {
+  /** Owner daily item "N proposals wait in Review" + the one 7-day reminder. */
+  knowledgeSummary: boolean;
+  /** Also email the knowledge summary (in-app always). */
+  knowledgeEmail: boolean;
+  /** Admins: the weekly knowledge summary (Activity page + Monday digest line). */
+  adminWeeklySummary: boolean;
+  /** Members: "Your input improved N things this week" on the Activity page. */
+  knowledgeImpact: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  prefs: NotificationPreferences;
+  /** Whether the org's knowledge loop is on (the UI hides its switches when off). */
+  knowledgeLoop: boolean;
+}
+
 export interface NotificationItem {
   id: string;
   type: NotificationType | string;

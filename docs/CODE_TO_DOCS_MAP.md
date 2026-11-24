@@ -9,7 +9,7 @@ This file maps source code areas to their corresponding documentation pages. Whe
 | `apps/web/src/pages/chat.tsx`, `apps/web/src/components/chat/*`, `apps/web/src/hooks/use-chat.ts` | `docs/guide/chat.md` |
 | `apps/web/src/hooks/use-artifacts.ts`, `apps/web/src/components/chat/artifact-*`, `apps/api/src/routes/artifacts.ts` | `docs/guide/artifacts.md` |
 | `apps/web/src/components/chat/share-dialog.tsx`, `apps/api/src/routes/sharing.ts` | `docs/guide/chat.md` |
-| `apps/web/src/components/notifications/*`, `apps/api/src/services/notification-service.ts`, `apps/api/src/routes/notifications.ts` | `docs/guide/activity.md` |
+| `apps/web/src/components/notifications/*`, `apps/api/src/services/notification-service.ts`, `apps/api/src/routes/notifications.ts` | `docs/guide/activity.md`, `docs/developers/api/notifications.md` |
 | `apps/web/src/components/chat/task-composer.tsx`, `apps/web/src/components/chat/task-chip.tsx`, `apps/web/src/components/chat/task-suggestion-card.tsx`, `apps/web/src/components/chat/task-toast.tsx`, `apps/api/src/routes/task-suggestions.ts` | `docs/guide/tasks.md` |
 | `apps/web/src/pages/tasks.tsx`, `apps/web/src/components/tasks/*`, `apps/web/src/hooks/use-tasks.ts` | `docs/guide/tasks.md` |
 | `apps/api/src/routes/tasks.ts`, `apps/api/src/services/task-service.ts`, `apps/api/src/services/task-planner.ts`, `apps/api/src/services/task-executor.ts` | `docs/guide/tasks.md` |
@@ -80,6 +80,8 @@ This file maps source code areas to their corresponding documentation pages. Whe
 | `apps/api/src/routes/memory.ts` | `docs/developers/api/memory.md` |
 | `apps/api/src/services/knowledge-signals.ts`, `apps/api/src/jobs/knowledge-signal-cleanup-scheduler.ts`, `apps/api/src/scripts/sample-knowledge-signals.ts` | `docs/developers/architecture/database.md`, `docs/guide/memory.md`, `docs/developers/api/chat.md` |
 | `apps/api/src/routes/knowledge.ts`, `apps/api/src/services/knowledge-proposals.ts`, `apps/api/src/services/knowledge-curator.ts`, `apps/api/src/jobs/knowledge-curator-scheduler.ts`, `apps/api/src/scripts/curator-eval.ts`, `apps/api/src/scripts/knowledge-loop-flag.ts` | `docs/developers/api/knowledge.md`, `docs/developers/architecture/database.md`, `docs/guide/review.md`, `docs/admin/index.md` |
+| `apps/api/src/services/knowledge-notify.ts`, `apps/api/src/services/daily-digest.ts`, `apps/api/src/jobs/activity-digest-scheduler.ts`, `apps/web/src/components/knowledge/activity-knowledge.tsx`, `apps/web/src/components/chat/source-updated.ts` | `docs/developers/api/knowledge.md`, `docs/developers/api/notifications.md`, `docs/guide/review.md`, `docs/guide/activity.md` |
+| `apps/api/src/services/notification-preferences.ts`, `apps/web/src/components/settings/notification-settings.tsx`, `apps/web/src/hooks/use-notification-preferences.ts` | `docs/developers/api/notifications.md`, `docs/guide/activity.md` |
 | `apps/api/src/services/knowledge-versions.ts`, `apps/api/src/services/knowledge-owner.ts` | `docs/developers/api/memory.md`, `docs/developers/api/routines.md`, `docs/developers/architecture/database.md` |
 | `apps/api/src/routes/skills.ts` | `docs/developers/api/skills.md` |
 | `apps/api/src/routes/routines.ts`, `apps/api/src/routes/chains.ts` | `docs/developers/api/routines.md` |

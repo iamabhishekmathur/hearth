@@ -114,6 +114,11 @@ import {
 import { createTaskExecutionWorker } from '../src/services/task-executor.js';
 import { createTaskContextExtractionWorker } from '../src/jobs/task-context-extraction-job.js';
 import { createKnowledgeSignalCleanupWorker } from '../src/jobs/knowledge-signal-cleanup-scheduler.js';
+import {
+  createActivityDigestWorker,
+  activityDigestQueue,
+} from '../src/jobs/activity-digest-scheduler.js';
+import { runDailyDigest } from '../src/services/daily-digest.js';
 import { searchMemory } from '../src/services/memory-service.js';
 import { httpServer } from '../src/index.js';
 import { emitToTask } from '../src/ws/socket-manager.js';
@@ -159,6 +164,7 @@ afterAll(async () => {
   await prisma.$disconnect();
   await roleHarnessPrisma.$disconnect();
   await routineQueue.close();
+  await activityDigestQueue.close();
   delete (globalThis as { prisma?: unknown }).prisma;
   process.env.DATABASE_URL = rls.superUrl;
   // Drop the role (and its grants) so no other suite ever sees it.
@@ -396,6 +402,117 @@ describe('worker processors (withJobContext)', () => {
       ),
     )();
     expect(seen[0].b).toBe('on');
+  });
+});
+
+// ── 2b. Knowledge loop, Phase 3: the daily digest + reminder pass ─────────────
+
+describe('daily digest / reminder pass under RLS (job context)', () => {
+  const DAY = 86_400_000;
+
+  /** A timezone whose local hour is 9 right now (Etc/GMT signs are inverted). */
+  function tzAtNine(now: Date): string {
+    let o = (9 - now.getUTCHours() + 24) % 24;
+    if (o > 14) o -= 24;
+    return o === 0 ? 'Etc/GMT' : o > 0 ? `Etc/GMT-${o}` : `Etc/GMT+${-o}`;
+  }
+
+  async function seedWaitingCards(now: Date) {
+    for (const orgId of [fx.primary.orgId, fx.rival.orgId]) {
+      await su.org.update({
+        where: { id: orgId },
+        data: { settings: { features: { knowledgeLoop: true } } },
+      });
+    }
+    const card = async (orgId: string, content: string) => {
+      const m = await su.memoryEntry.create({
+        data: { orgId, layer: 'org', content, version: 1 },
+      });
+      return su.knowledgeProposal.create({
+        data: {
+          orgId,
+          targetType: 'memory',
+          targetId: m.id,
+          targetScope: 'org',
+          targetName: `Org memory: ${content}`,
+          targetVersion: 1,
+          before: content,
+          after: `${content}!`,
+          reason: 'r',
+          availableAt: new Date(now.getTime() - 8 * DAY),
+        },
+      });
+    };
+    return {
+      own: await card(fx.primary.orgId, 'Ours'),
+      rival: await card(fx.rival.orgId, 'Theirs'),
+    };
+  }
+
+  it('with no context the cards are invisible: nothing is sent, nothing marked', async () => {
+    const now = new Date('2026-12-08T09:00:00Z');
+    const { own } = await seedWaitingCards(now);
+    await runDailyDigest({ now, activityDigest: async () => ({ summary: '', eventCount: 0 }) });
+    expect(await su.notification.count()).toBe(0);
+    expect(
+      (await su.knowledgeProposal.findUniqueOrThrow({ where: { id: own.id } })).remindedAt,
+    ).toBeNull();
+  });
+
+  it('inside withJobContext: one item per owner, own org only, reminder marked once', async () => {
+    const now = new Date('2026-12-08T09:00:00Z');
+    const { own, rival } = await seedWaitingCards(now);
+    const run = withJobContext(() =>
+      runDailyDigest({ now, activityDigest: async () => ({ summary: '', eventCount: 0 }) }),
+    );
+    await run();
+
+    const adminNotes = await su.notification.findMany({ where: { userId: fx.users.admin.id } });
+    expect(adminNotes).toHaveLength(1);
+    expect(adminNotes[0]).toMatchObject({
+      orgId: fx.primary.orgId,
+      title: '1 proposal for Org memory: Ours',
+    });
+    expect(adminNotes[0].body).toContain('Waiting a week: Org memory: Ours');
+    const rivalNotes = await su.notification.findMany({ where: { userId: fx.users.rival.id } });
+    expect(rivalNotes).toHaveLength(1);
+    expect(rivalNotes[0]).toMatchObject({
+      orgId: fx.rival.orgId,
+      title: '1 proposal for Org memory: Theirs',
+    });
+    for (const id of [own.id, rival.id]) {
+      expect(
+        (await su.knowledgeProposal.findUniqueOrThrow({ where: { id } })).remindedAt,
+      ).not.toBeNull();
+    }
+
+    // The next day's pass: the count again, no second reminder.
+    await withJobContext(() =>
+      runDailyDigest({
+        now: new Date(now.getTime() + DAY),
+        activityDigest: async () => ({ summary: '', eventCount: 0 }),
+      }),
+    )();
+    const again = await su.notification.findMany({
+      where: { userId: fx.users.admin.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(again).toHaveLength(2);
+    expect(again[1].body ?? '').not.toContain('Waiting a week');
+  });
+
+  it('the captured activity-digest worker processor delivers under the role', async () => {
+    createActivityDigestWorker();
+    const now = new Date();
+    await seedWaitingCards(now);
+    await su.user.update({
+      where: { id: fx.users.admin.id },
+      data: { preferences: { timezone: tzAtNine(now) } },
+    });
+    await processor('activity-digest')(job({}));
+    const notes = await su.notification.findMany({ where: { userId: fx.users.admin.id } });
+    expect(notes).toHaveLength(1);
+    expect(notes[0].title).toBe('1 proposal for Org memory: Ours');
   });
 });
 

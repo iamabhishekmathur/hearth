@@ -150,6 +150,7 @@ const developerSidebar = [
       { text: 'Approvals', link: '/developers/api/approvals' },
       { text: 'Decisions', link: '/developers/api/decisions' },
       { text: 'Knowledge (Review)', link: '/developers/api/knowledge' },
+      { text: 'Notifications', link: '/developers/api/notifications' },
       { text: 'Admin', link: '/developers/api/admin' },
       { text: 'Webhooks and Uploads', link: '/developers/api/webhooks' },
       { text: 'WebSocket Events', link: '/developers/websocket-events' },
