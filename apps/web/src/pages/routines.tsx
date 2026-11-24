@@ -7,6 +7,7 @@ import { RoutineDetail } from '@/components/routines/routine-detail';
 import { RoutineTemplateBrowser } from '@/components/routines/routine-templates';
 import { HButton, HEyebrow } from '@/components/ui/primitives';
 import { HIcon } from '@/components/ui/icon';
+import { api } from '@/lib/api-client';
 import type { RoutineTemplate } from '@/components/routines/routine-templates';
 
 type View = 'list' | 'templates';
@@ -258,7 +259,16 @@ export function RoutinesPage() {
                   <RoutineDetail
                     routine={selected}
                     onUpdate={async (id, data) => {
-                      await updateRoutine(id, data);
+                      const updated = await updateRoutine(id, data);
+                      setSelected((cur) => (cur && cur.id === id ? { ...cur, ...updated } : cur));
+                      fetchRoutines(activeScope);
+                    }}
+                    onChanged={async (id) => {
+                      const fresh = await api
+                        .get<{ data: Routine }>(`/routines/${id}`)
+                        .then((r) => r.data)
+                        .catch(() => null);
+                      if (fresh) setSelected((cur) => (cur && cur.id === id ? fresh : cur));
                       fetchRoutines(activeScope);
                     }}
                     onDelete={async (id) => {

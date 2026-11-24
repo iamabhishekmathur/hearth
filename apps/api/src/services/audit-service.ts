@@ -32,7 +32,11 @@ export type AuditAction =
   | 'knowledge_owner_change'
   | 'knowledge_proposal_approved'
   | 'knowledge_proposal_edited'
-  | 'knowledge_proposal_rejected';
+  | 'knowledge_proposal_rejected'
+  | 'knowledge_tests_override'
+  | 'routine_test_case_created'
+  | 'routine_test_case_updated'
+  | 'routine_test_case_deleted';
 
 export type AuditEntityType =
   | 'session'

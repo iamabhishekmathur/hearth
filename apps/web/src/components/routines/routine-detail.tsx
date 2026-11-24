@@ -1,7 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Routine, RoutineRun, RoutineParameter } from '@hearth/shared';
+import type { Routine, RoutineRun, RoutineParameter, RoutineTestFailure } from '@hearth/shared';
 import { useRoutines } from '@/hooks/use-routines';
+import { useKnowledgeLoopEnabled } from '@/hooks/use-knowledge';
+import {
+  fetchRoutineHistory,
+  restoreRoutineVersion,
+  testFailuresOf,
+} from '@/hooks/use-routine-knowledge';
 import { RoutineForm } from './routine-form';
+import { VersionHistory } from './knowledge/version-history';
+import { RoutineOwner } from './knowledge/routine-owner';
+import { RoutineTests } from './knowledge/routine-tests';
+import { TestFailureList } from './knowledge/test-failure-list';
 
 interface RoutineDetailProps {
   routine: Routine;
@@ -10,7 +20,11 @@ interface RoutineDetailProps {
   onRunNow: (id: string, parameterValues?: Record<string, unknown>) => Promise<void>;
   fetchRuns: (routineId: string, page?: number) => Promise<{ data: RoutineRun[]; total: number }>;
   onClose: () => void;
+  /** Called after a change made inside the panel (e.g. a restored version). */
+  onChanged?: (id: string) => void;
 }
+
+type DetailTab = 'overview' | 'history' | 'versions' | 'tests' | 'state';
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -707,18 +721,58 @@ export function RoutineDetail({
   onRunNow,
   fetchRuns,
   onClose,
+  onChanged,
 }: RoutineDetailProps) {
   const [editing, setEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'state'>('overview');
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [deleting, setDeleting] = useState(false);
   const [showParamForm, setShowParamForm] = useState(false);
+  const knowledgeLoop = useKnowledgeLoopEnabled();
+  // Knowledge loop, Phase 4: a save blocked by test cases, kept to retry.
+  const [blocked, setBlocked] = useState<{
+    failures: RoutineTestFailure[];
+    data: Record<string, unknown>;
+  } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Reset tab when routine changes
   useEffect(() => {
     setActiveTab('overview');
     setEditing(false);
     setShowParamForm(false);
+    setBlocked(null);
+    setSaveError(null);
   }, [routine.id]);
+
+  const loadHistory = useCallback(() => fetchRoutineHistory(routine.id), [routine.id]);
+  const restore = useCallback(
+    (version: number, override: boolean) => restoreRoutineVersion(routine.id, version, override),
+    [routine.id],
+  );
+
+  const save = async (data: Record<string, unknown>) => {
+    setSaveError(null);
+    try {
+      await onUpdate(routine.id, data);
+      setBlocked(null);
+      setEditing(false);
+    } catch (err) {
+      const failures = testFailuresOf(err);
+      if (failures) setBlocked({ failures, data });
+      else setSaveError((err as Error).message || 'Could not save');
+    }
+  };
+
+  const tabs: DetailTab[] = knowledgeLoop
+    ? ['overview', 'history', 'versions', 'tests', 'state']
+    : ['overview', 'history', 'state'];
+  const tabLabel: Record<DetailTab, string> = {
+    overview: 'Overview',
+    history: 'Run History',
+    versions: 'Versions',
+    tests: 'Tests',
+    state: 'State',
+  };
 
   const handleRunNow = () => {
     if (routine.parameters && routine.parameters.length > 0) {
@@ -737,6 +791,36 @@ export function RoutineDetail({
     return (
       <div className="p-5">
         <h3 className="mb-4 text-base font-semibold text-hearth-text">Edit Routine</h3>
+        {blocked && (
+          <div className="mb-4 animate-fade-in rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <TestFailureList failures={blocked.failures} />
+            <p className="mt-2 text-xs text-hearth-text-muted">
+              Keep the text, change the test case on the Tests tab, or save anyway. Saving anyway is
+              recorded in the audit log.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => save({ ...blocked.data, overrideTests: true })}
+                className="rounded-lg bg-hearth-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-hearth-700"
+              >
+                Save anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlocked(null)}
+                className="rounded-lg border border-hearth-border-strong px-3 py-1.5 text-xs font-medium text-hearth-text hover:bg-hearth-bg"
+              >
+                Keep editing
+              </button>
+            </div>
+          </div>
+        )}
+        {saveError && (
+          <p role="alert" className="mb-3 text-sm text-red-600">
+            {saveError}
+          </p>
+        )}
         <RoutineForm
           initial={{
             name: routine.name,
@@ -745,10 +829,13 @@ export function RoutineDetail({
             schedule: routine.schedule ?? '',
           }}
           onSubmit={async (data) => {
-            await onUpdate(routine.id, data);
-            setEditing(false);
+            await save(data as Record<string, unknown>);
           }}
-          onCancel={() => setEditing(false)}
+          onCancel={() => {
+            setEditing(false);
+            setBlocked(null);
+            setSaveError(null);
+          }}
           submitLabel="Save"
         />
       </div>
@@ -785,15 +872,17 @@ export function RoutineDetail({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-hearth-border px-5">
-        {(['overview', 'history', 'state'] as const).map((tab) => {
-          const label = tab === 'history' ? 'Run History' : tab === 'state' ? 'State' : 'Overview';
+      <div className="flex overflow-x-auto border-b border-hearth-border px-5" role="tablist">
+        {tabs.map((tab) => {
+          const label = tabLabel[tab];
           return (
             <button
               key={tab}
               type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
-              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
+              className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium capitalize transition-colors ${
                 activeTab === tab
                   ? 'border-hearth-600 text-hearth-600'
                   : 'border-transparent text-hearth-text-muted hover:border-hearth-border-strong hover:text-hearth-text'
@@ -853,6 +942,13 @@ export function RoutineDetail({
                     Scope
                   </h4>
                   <ScopeBadge scope={routine.scope} />
+                </div>
+              )}
+
+              {/* Knowledge loop, Phase 4: who owns a team / org routine */}
+              {knowledgeLoop && (routine.scope === 'team' || routine.scope === 'org') && (
+                <div className="col-span-2">
+                  <RoutineOwner routineId={routine.id} />
                 </div>
               )}
 
@@ -1094,6 +1190,21 @@ export function RoutineDetail({
           fetchRuns={fetchRuns}
           onRunNow={async (id) => onRunNow(id)}
         />
+      )}
+
+      {activeTab === 'versions' && knowledgeLoop && (
+        <div className="flex-1 overflow-y-auto p-5">
+          <VersionHistory
+            noun="prompt"
+            load={loadHistory}
+            restore={restore}
+            onRestored={() => onChanged?.(routine.id)}
+          />
+        </div>
+      )}
+
+      {activeTab === 'tests' && knowledgeLoop && (
+        <RoutineTests routineId={routine.id} prompt={routine.prompt} />
       )}
 
       {activeTab === 'state' && <StateTab routineId={routine.id} />}

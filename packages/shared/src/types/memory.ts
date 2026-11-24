@@ -37,6 +37,8 @@ export interface MemoryVersion {
   /** For a rollback: the version whose content was restored. */
   restoredFrom: number | null;
   createdAt: string;
+  /** Who made the change (absent for system changes or deleted users). */
+  changedBy?: { id: string; name: string } | null;
 }
 
 export interface CreateMemoryRequest {

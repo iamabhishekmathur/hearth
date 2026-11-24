@@ -60,7 +60,7 @@ export function useProposals() {
   }, [refresh]);
 
   const approve = useCallback(
-    (id: string, body: { after?: string; baseVersion?: number } = {}) =>
+    (id: string, body: { after?: string; baseVersion?: number; overrideTests?: boolean } = {}) =>
       api.post<{ data: KnowledgeProposal }>(`/knowledge/proposals/${id}/approve`, body),
     [],
   );

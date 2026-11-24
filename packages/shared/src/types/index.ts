@@ -428,6 +428,94 @@ export interface RoutineVersion {
   changedById: string | null;
   restoredFrom: number | null;
   createdAt: string;
+  /** Who made the change (absent for system changes or deleted users). */
+  changedBy?: KnowledgeAuthor | null;
+}
+
+/** A person shown next to a knowledge change or as an owner. */
+export interface KnowledgeAuthor {
+  id: string;
+  name: string;
+}
+
+// ── Knowledge loop, Phase 4: routines as factories ─────────────────────────
+
+/** Who owns a routine, as the routine page shows it. */
+export interface RoutineOwnership {
+  scope: RoutineScope;
+  /** Plain label for the default owners, e.g. "Admins" or "Engineering leads and admins". */
+  defaultOwnerLabel: string;
+  /** The named owner, when an admin set one. Added to the default owners. */
+  owner: KnowledgeAuthor | null;
+  /** May the caller restore versions, edit test cases and dry run? */
+  isOwner: boolean;
+  /** May the caller name a different owner? (admins, team/org routines) */
+  canChangeOwner: boolean;
+  /** People an admin may pick (only sent to admins). */
+  candidates?: Array<KnowledgeAuthor & { role: string }>;
+}
+
+export type RoutineTestCaseSource = 'proposal' | 'manual';
+
+export interface RoutineTestCase {
+  id: string;
+  routineId: string;
+  proposalId: string | null;
+  description: string;
+  /** Phrases the prompt must keep and a dry-run output must contain. */
+  mustContain: string[];
+  source: RoutineTestCaseSource;
+  createdById: string | null;
+  lastStatus: 'passed' | 'failed' | null;
+  lastCheckedAt: string | null;
+  /** Phrases the output was missing at the last check. */
+  lastMissing: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Why a prompt change was blocked: it drops a phrase a test case needs. */
+export interface RoutineTestFailure {
+  testCaseId: string;
+  description: string;
+  missing: string[];
+  reason: string;
+}
+
+export interface RoutineTestResult {
+  testCaseId: string;
+  description: string;
+  passed: boolean;
+  missing: string[];
+}
+
+export type RoutineDryRunStatus = 'running' | 'success' | 'failed';
+
+export interface RoutineDryRun {
+  id: string;
+  routineId: string;
+  kind: 'dry_run' | 'tests';
+  status: RoutineDryRunStatus;
+  /** The prompt tried, when it was not the saved one. */
+  candidatePrompt: string | null;
+  routineVersion: number;
+  /** The past run whose input was replayed. */
+  sourceRun: {
+    id: string;
+    status: string;
+    startedAt: string;
+    error: string | null;
+  } | null;
+  lastOutput: string | null;
+  output: string | null;
+  error: string | null;
+  testResults: RoutineTestResult[] | null;
+  /** Tools held back because they write or send. */
+  blockedTools: string[];
+  durationMs: number | null;
+  createdAt: string;
+  completedAt: string | null;
+  expiresAt: string;
 }
 
 export interface RoutineRun {
@@ -479,6 +567,8 @@ export interface UpdateRoutineRequest {
   teamId?: string;
   parameters?: RoutineParameter[];
   checkpoints?: ApprovalCheckpointDef[];
+  /** Knowledge loop, Phase 4: owners only — save even if it breaks a test case. */
+  overrideTests?: boolean;
 }
 
 // ── Skill Recommendations ──

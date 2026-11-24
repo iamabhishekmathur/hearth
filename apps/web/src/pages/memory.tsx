@@ -3,6 +3,23 @@ import { useAuth } from '@/hooks/use-auth';
 import { useMemory } from '@/hooks/use-memory';
 import { HButton, HEyebrow, HCard } from '@/components/ui/primitives';
 import type { MemoryEntry, MemoryLayer } from '@hearth/shared';
+import { useKnowledgeLoopEnabled } from '@/hooks/use-knowledge';
+import { fetchMemoryHistory, restoreMemoryVersion } from '@/hooks/use-routine-knowledge';
+import { VersionHistory } from '@/components/routines/knowledge/version-history';
+
+/** Knowledge loop, Phase 4: an entry's version history, with restore for owners. */
+function MemoryHistory({ entryId, onRestored }: { entryId: string; onRestored: () => void }) {
+  const load = useCallback(() => fetchMemoryHistory(entryId), [entryId]);
+  const restore = useCallback(
+    (version: number) => restoreMemoryVersion(entryId, version),
+    [entryId],
+  );
+  return (
+    <div className="mt-3">
+      <VersionHistory noun="text" load={load} restore={restore} onRestored={onRestored} />
+    </div>
+  );
+}
 
 const LAYERS: { value: MemoryLayer | 'all'; label: string }[] = [
   { value: 'all', label: 'All Layers' },
@@ -32,6 +49,8 @@ export function MemoryPage() {
     searchMemory,
     clearSearch,
   } = useMemory();
+  const knowledgeLoop = useKnowledgeLoopEnabled();
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
 
   const [activeLayer, setActiveLayer] = useState<MemoryLayer | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -274,7 +293,28 @@ export function MemoryPage() {
                     <p className="whitespace-pre-wrap text-sm text-hearth-text">{entry.content}</p>
                     <p className="mt-1 text-xs text-hearth-text-faint">
                       {new Date(entry.updatedAt).toLocaleString()}
+                      {knowledgeLoop && entry.layer !== 'session' && (
+                        <>
+                          {' · '}
+                          <button
+                            type="button"
+                            aria-expanded={historyFor === entry.id}
+                            onClick={() => setHistoryFor((cur) => (cur === entry.id ? null : entry.id))}
+                            className="rounded font-medium text-hearth-600 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-hearth-600"
+                          >
+                            {historyFor === entry.id ? 'Hide history' : 'History'}
+                          </button>
+                        </>
+                      )}
                     </p>
+                    {historyFor === entry.id && (
+                      <MemoryHistory
+                        entryId={entry.id}
+                        onRestored={() =>
+                          fetchMemory(activeLayer === 'all' ? undefined : activeLayer, page)
+                        }
+                      />
+                    )}
                   </div>
                   <div className="ml-4 flex gap-1">
                     {canWriteLayer(entry.layer as MemoryLayer) && (

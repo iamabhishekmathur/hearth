@@ -56,8 +56,9 @@ export async function* agentLoop(
   messages: LLMMessage[],
 ): AsyncGenerator<ChatEvent> {
   const signalSource = context.signalSource ?? (context.routineId ? 'routine' : 'chat');
+  // A dry run is a test, not real use: it leaves no gap signals behind.
   const tracker =
-    context.orgId && context.userId
+    context.orgId && context.userId && !context.dryRun
       ? new SearchSignalTracker({
           orgId: context.orgId,
           userId: context.userId,

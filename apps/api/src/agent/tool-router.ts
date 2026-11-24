@@ -1,4 +1,5 @@
 import type { ArtifactType } from '@prisma/client';
+import { promptChangeFailures } from '../services/routine-test-cases.js';
 import type { AgentMode, LLMMessage } from '@hearth/shared';
 import type { AgentPlan, AgentPlanStep, AgentTool, ToolResult } from './types.js';
 import { sandboxManager } from '../sandbox/sandbox-manager.js';
@@ -1100,6 +1101,20 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
       if (input.schedule !== undefined) data.schedule = input.schedule as string;
       if (input.description !== undefined) data.description = input.description as string;
       if (input.enabled !== undefined) data.enabled = input.enabled as boolean;
+
+      // Knowledge loop, Phase 4: an agent never overrides a routine's tests.
+      if (data.prompt !== undefined) {
+        const failures = await promptChangeFailures(existing, data.prompt, undefined, ctx.orgId);
+        if (failures.length > 0) {
+          return {
+            output: { routineId, updated: false, failingTests: failures },
+            error:
+              'This prompt change removes text that a test case of this routine needs: ' +
+              failures.map((f) => f.reason).join(' ') +
+              ' Keep that text, or ask the user to change it on the Routines page.',
+          };
+        }
+      }
 
       const routine = await updateRoutineRecord(routineId, ctx.userId, data, {
         meta: { changeSource: 'agent', changedById: ctx.userId },

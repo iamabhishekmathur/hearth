@@ -359,6 +359,8 @@ model Org {
   invitations          Invitation[]
   knowledgeSignals     KnowledgeSignal[]
   knowledgeProposals   KnowledgeProposal[]
+  routineTestCases     RoutineTestCase[]
+  routineDryRuns       RoutineDryRun[]
 
   @@map("orgs")
 }
@@ -995,6 +997,8 @@ model Routine {
   chainsFrom         RoutineChain[]      @relation("ChainsFrom")
   chainsTo           RoutineChain[]      @relation("ChainsTo")
   healthAlerts       RoutineHealthAlert[]
+  testCases          RoutineTestCase[]
+  dryRuns            RoutineDryRun[]
 
   @@index([orgId, teamId, scope])
   @@map("routines")
@@ -1079,8 +1083,9 @@ model KnowledgeProposal {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  org     Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  signals KnowledgeSignal[]
+  org       Org               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  signals   KnowledgeSignal[]
+  testCases RoutineTestCase[]
 
   @@index([orgId, status, availableAt])
   @@index([orgId, targetType, targetId, status])
@@ -1105,6 +1110,77 @@ model RoutineVersion {
 
   @@unique([routineId, version])
   @@map("routine_versions")
+}
+
+/// Knowledge loop, Phase 4: a check a routine must keep passing. Made from an
+/// approved curator fix (source "proposal") or by an owner (source "manual").
+/// A prompt change that drops one of `mustContain` from the prompt is blocked
+/// (409) unless an owner overrides; "Run tests" checks the phrases against a
+/// dry-run output.
+model RoutineTestCase {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  routineId     String    @map("routine_id")
+  proposalId    String?   @map("proposal_id")
+  description   String
+  /// Phrases (strings) the prompt must keep and the output must contain.
+  mustContain   Json      @default("[]") @map("must_contain")
+  /// proposal | manual
+  source        String    @default("manual")
+  createdById   String?   @map("created_by_id")
+  /// passed | failed — from the last "Run tests" on the saved prompt.
+  lastStatus    String?   @map("last_status")
+  lastCheckedAt DateTime? @map("last_checked_at")
+  /// Phrases missing from the output at the last check.
+  lastMissing   Json?     @map("last_missing")
+  lastDryRunId  String?   @map("last_dry_run_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  org      Org                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  routine  Routine            @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  proposal KnowledgeProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+
+  @@index([routineId])
+  @@index([orgId])
+  @@map("routine_test_cases")
+}
+
+/// Knowledge loop, Phase 4: one dry run of a routine (current or candidate
+/// prompt) on its last run's input. Nothing is delivered and no run is
+/// written. Kept for 24 hours, readable only by the person who started it.
+model RoutineDryRun {
+  id              String    @id @default(uuid())
+  orgId           String    @map("org_id")
+  routineId       String    @map("routine_id")
+  requestedById   String    @map("requested_by_id")
+  /// dry_run | tests
+  kind            String    @default("dry_run")
+  /// running | success | failed
+  status          String    @default("running")
+  /// The prompt tried, when it is not the saved one.
+  candidatePrompt String?   @map("candidate_prompt")
+  routineVersion  Int       @map("routine_version")
+  /// The past run whose input was replayed, and its output.
+  sourceRunId     String?   @map("source_run_id")
+  lastOutput      String?   @map("last_output")
+  output          String?
+  error           String?
+  /// For kind "tests": [{ testCaseId, description, passed, missing[] }].
+  testResults     Json?     @map("test_results")
+  /// Tools the dry run held back (names only).
+  blockedTools    Json      @default("[]") @map("blocked_tools")
+  durationMs      Int?      @map("duration_ms")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  completedAt     DateTime? @map("completed_at")
+  expiresAt       DateTime  @map("expires_at")
+
+  org     Org     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  routine Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@index([routineId, requestedById])
+  @@index([orgId, expiresAt])
+  @@map("routine_dry_runs")
 }
 
 model RoutineRun {

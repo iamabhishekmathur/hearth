@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { KnowledgeProposal } from '@hearth/shared';
+import type { KnowledgeProposal, RoutineTestFailure } from '@hearth/shared';
 import { HBadge, HButton, HEyebrow } from '@/components/ui/primitives';
+import { TestFailureList } from '@/components/routines/knowledge/test-failure-list';
 import { affectsSentence, evidenceHref, targetKindLabel, whySentences } from './proposal-format';
 
 type Mode = 'view' | 'edit' | 'reject';
@@ -8,6 +9,8 @@ type Mode = 'view' | 'edit' | 'reject';
 export interface ApproveBody {
   after?: string;
   baseVersion?: number;
+  /** Phase 4: approve even though it breaks a routine test case. */
+  overrideTests?: boolean;
 }
 
 export interface ProposalCardProps {
@@ -66,6 +69,7 @@ export function ProposalCard({ proposal, onApprove, onReject, onDone }: Proposal
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<Conflict | null>(null);
+  const [testFailures, setTestFailures] = useState<RoutineTestFailure[] | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   const headingId = `proposal-${proposal.id}-title`;
@@ -85,7 +89,11 @@ export function ProposalCard({ proposal, onApprove, onReject, onDone }: Proposal
       onDone(proposal.id);
     } catch (err) {
       const { status, body, message } = errorInfo(err);
-      if (status === 409 && body?.code === 'version_conflict') {
+      if (status === 409 && body?.code === 'tests_failed' && Array.isArray(body.failures)) {
+        // Phase 4: the fix drops text a routine test case needs. The card
+        // stays; the owner may approve anyway.
+        setTestFailures(body.failures as RoutineTestFailure[]);
+      } else if (status === 409 && body?.code === 'version_conflict') {
         setConflict({
           currentVersion: Number(body.currentVersion),
           currentContent: (body.currentContent as string | null) ?? null,
@@ -102,11 +110,12 @@ export function ProposalCard({ proposal, onApprove, onReject, onDone }: Proposal
     }
   }
 
-  const approve = () => {
+  const approve = (overrideTests = false) => {
     const edited = mode === 'edit' && draft.trim() !== proposal.after.trim();
     const body: ApproveBody = {};
     if (edited) body.after = draft.trim();
     if (conflict) body.baseVersion = conflict.currentVersion;
+    if (overrideTests) body.overrideTests = true;
     return run(() => onApprove(proposal.id, body));
   };
 
@@ -240,11 +249,29 @@ export function ProposalCard({ proposal, onApprove, onReject, onDone }: Proposal
         </p>
       )}
 
+      {testFailures && (
+        <div className="mt-3 animate-fade-in rounded-md bg-hearth-bg p-3">
+          <TestFailureList failures={testFailures} />
+          <p className="mt-1 text-xs text-hearth-text-muted">
+            Edit the text to keep those words, or approve anyway. Approving anyway is recorded in
+            the audit log.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <HButton variant="primary" size="sm" disabled={busy} onClick={() => approve(true)}>
+              Approve anyway
+            </HButton>
+            <HButton variant="ghost" size="sm" disabled={busy} onClick={() => setTestFailures(null)}>
+              Dismiss
+            </HButton>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="mt-4 flex flex-wrap gap-2">
         {mode === 'view' && (
           <>
-            <HButton variant="accent" size="sm" icon="check" disabled={busy} onClick={approve}>
+            <HButton variant="accent" size="sm" icon="check" disabled={busy} onClick={() => approve()}>
               {conflict ? 'Approve on new version' : 'Approve'}
             </HButton>
             <HButton variant="secondary" size="sm" disabled={busy} onClick={() => setMode('edit')}>
@@ -262,7 +289,7 @@ export function ProposalCard({ proposal, onApprove, onReject, onDone }: Proposal
               size="sm"
               icon="check"
               disabled={busy || draft.trim().length === 0}
-              onClick={approve}
+              onClick={() => approve()}
             >
               Save and approve
             </HButton>

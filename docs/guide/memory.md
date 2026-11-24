@@ -41,6 +41,8 @@ The Memory page lets users and admins browse, create, edit, search, and delete e
 
 Hearth keeps every version of an org, team or personal memory entry. Session notes are not kept. An owner can restore an earlier version; Hearth saves the restore as a new version.
 
+When the knowledge loop is on, choose **History** under an entry to see its versions: who changed it, when, and the lines added and removed. Owners see **Restore this version** and confirm before it is saved.
+
 Owners follow the layer: admins own org memory, admins and team leads own their team's memory, and each person owns their own memory. An admin can also name one more owner for an org or team entry.
 
 ## How Hearth Learns From Gaps

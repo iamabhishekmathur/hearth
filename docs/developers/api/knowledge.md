@@ -75,12 +75,13 @@ A routine card only ever changes the **prompt**. Scope, team, owner, schedule an
 
 ```json
 POST /api/v1/knowledge/proposals/:id/approve
-{ "after": "optional edited text", "baseVersion": 3 }
+{ "after": "optional edited text", "baseVersion": 3, "overrideTests": false }
 ```
 
 - With no body, the proposed text is applied. With `after` (and different text), your text is applied and the card is saved as `edited`.
 - The change is saved as a new version with change source `curator`, made by you.
 - `baseVersion` is only for after a conflict: it says which newer version you have looked at.
+- For a routine, approving also saves a [test case](/developers/api/routines#test-cases) with the words the fix added. A fix that would remove words an earlier test case needs is refused with `409` `tests_failed`; send `overrideTests: true` to approve anyway (audit row `knowledge_tests_override`).
 
 | Status | When |
 |---|---|
@@ -88,6 +89,7 @@ POST /api/v1/knowledge/proposals/:id/approve
 | `400` | Bad body (empty `after`, unknown field, bad `baseVersion`). |
 | `404` | Not found, not yours, not due yet, or the flag is off. |
 | `409` `version_conflict` | The target changed since the card was made. The body has `currentVersion` and `currentContent`. The card stays open; look at the new text and approve again with `baseVersion`. |
+| `409` `tests_failed` | A routine fix drops text an earlier test case needs. The body lists `failures`. The card stays open. |
 | `409` `already_decided` | Someone already decided this card. The body has its `status`. Two owners at once: one wins, the other gets this. |
 | `410` `target_gone` | The memory entry or routine was deleted. The card is dropped. |
 
