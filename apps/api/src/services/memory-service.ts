@@ -1,6 +1,11 @@
 import type { MemoryLayer } from '@hearth/shared';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import {
+  createMemoryVersioned,
+  updateMemoryVersioned,
+  type ChangeMeta,
+} from './knowledge-versions.js';
 
 export interface MemoryScope {
   orgId: string;
@@ -112,13 +117,14 @@ export async function createMemory(
     sourceRef?: Record<string, unknown>;
     expiresAt?: Date;
   },
+  meta?: Partial<ChangeMeta>,
 ) {
   if (!canWrite(scope, data.layer)) {
     throw new Error('Insufficient permissions for this memory layer');
   }
 
-  return prisma.memoryEntry.create({
-    data: {
+  return createMemoryVersioned(
+    {
       orgId: scope.orgId,
       teamId: data.layer === 'team' ? scope.teamId : null,
       userId: ['user', 'session'].includes(data.layer) ? scope.userId : null,
@@ -128,7 +134,8 @@ export async function createMemory(
       sourceRef: data.sourceRef ? (data.sourceRef as Prisma.InputJsonValue) : Prisma.DbNull,
       expiresAt: data.expiresAt ?? null,
     },
-  });
+    { changeSource: meta?.changeSource ?? 'user', changedById: meta?.changedById ?? scope.userId },
+  );
 }
 
 export async function updateMemory(
@@ -140,6 +147,7 @@ export async function updateMemory(
     sourceRef?: Record<string, unknown>;
     expiresAt?: Date | null;
   },
+  options?: { expectedVersion?: number; meta?: Partial<ChangeMeta> },
 ) {
   const entry = await getMemory(id, scope);
   if (!entry) return null;
@@ -148,7 +156,7 @@ export async function updateMemory(
     throw new Error('Insufficient permissions for this memory layer');
   }
 
-  const updateData: Prisma.MemoryEntryUpdateInput = {};
+  const updateData: Prisma.MemoryEntryUpdateManyMutationInput = {};
   if (data.content !== undefined) updateData.content = data.content;
   if (data.source !== undefined) updateData.source = data.source;
   if (data.sourceRef !== undefined) {
@@ -156,7 +164,15 @@ export async function updateMemory(
   }
   if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt;
 
-  return prisma.memoryEntry.update({ where: { id }, data: updateData });
+  return updateMemoryVersioned(
+    id,
+    updateData,
+    {
+      changeSource: options?.meta?.changeSource ?? 'user',
+      changedById: options?.meta?.changedById ?? scope.userId,
+    },
+    options?.expectedVersion,
+  );
 }
 
 export async function deleteMemory(id: string, scope: MemoryScope) {

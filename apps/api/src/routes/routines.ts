@@ -1,5 +1,13 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
+import {
+  VersionConflictError,
+  listRoutineVersions,
+  rollbackRoutine,
+} from '../services/knowledge-versions.js';
+import { isRoutineOwner, validateOwner } from '../services/knowledge-owner.js';
+import { logAudit } from '../services/audit-service.js';
 import * as routineService from '../services/routine-service.js';
 import { enqueueRoutineNow, updateRoutineSchedule } from '../jobs/routine-scheduler.js';
 import * as integrationService from '../services/integration-service.js';
@@ -272,8 +280,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     const {
       name, description, prompt, schedule, context, delivery,
-      stateConfig, state, scope, teamId, parameters, checkpoints, enabled,
+      stateConfig, state, scope, teamId, parameters, checkpoints, enabled, expectedVersion,
     } = req.body as {
+      expectedVersion?: number;
       name?: string;
       description?: string;
       prompt?: string;
@@ -302,10 +311,23 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       }
     }
 
-    const routine = await routineService.updateRoutine(req.params.id as string, permCtx(req), {
-      name, description, prompt, schedule, context, delivery,
-      stateConfig, state, scope, teamId, parameters, checkpoints, enabled,
-    });
+    if (
+      expectedVersion !== undefined &&
+      (!Number.isInteger(expectedVersion) || expectedVersion < 1)
+    ) {
+      res.status(400).json({ error: 'expectedVersion must be a positive integer' });
+      return;
+    }
+
+    const routine = await routineService.updateRoutine(
+      req.params.id as string,
+      permCtx(req),
+      {
+        name, description, prompt, schedule, context, delivery,
+        stateConfig, state, scope, teamId, parameters, checkpoints, enabled,
+      },
+      { expectedVersion },
+    );
 
     if (!routine) {
       res.status(404).json({ error: 'Routine not found' });
@@ -314,6 +336,154 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     await updateRoutineSchedule(routine.id);
     res.json({ data: routine });
+  } catch (err) {
+    if (err instanceof VersionConflictError) {
+      res.status(409).json({
+        error: 'This routine changed since you loaded it',
+        currentVersion: err.currentVersion,
+      });
+      return;
+    }
+    next(err);
+  }
+});
+
+/**
+ * GET /:id/versions — definition history, newest first. Anyone who can view
+ * the routine can read its history.
+ */
+router.get('/:id/versions', requireAuth, async (req, res, next) => {
+  try {
+    const routine = await routineService.getRoutine(req.params.id as string, permCtx(req));
+    if (!routine) {
+      res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
+    const page = req.query.page ? parseInt(req.query.page as string, 10) || 1 : 1;
+    const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) || 20 : 20;
+    const result = await listRoutineVersions(routine.id, page, pageSize);
+    res.json({
+      data: result.versions,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      currentVersion: routine.version,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const rollbackSchema = z.object({ version: z.number().int().positive() });
+
+/**
+ * POST /:id/rollback — restore an earlier definition as a NEW version (scope
+ * and team are not restored). Owners only.
+ */
+router.post('/:id/rollback', requireAuth, async (req, res, next) => {
+  try {
+    const parsed = rollbackSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'version must be a positive integer' });
+      return;
+    }
+    const actor = permCtx(req);
+    const routine = await routineService.getRoutine(req.params.id as string, actor);
+    if (!routine) {
+      res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
+    if (!isRoutineOwner(actor, routine)) {
+      res.status(403).json({ error: 'Only an owner of this routine can roll it back' });
+      return;
+    }
+
+    const result = await rollbackRoutine(routine.id, parsed.data.version, actor.userId);
+    if (result.status === 'not_found') {
+      res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
+    if (result.status === 'version_not_found') {
+      res.status(404).json({ error: `Version ${parsed.data.version} does not exist` });
+      return;
+    }
+    if (result.status === 'rolled_back') {
+      await updateRoutineSchedule(routine.id);
+      if (actor.orgId) {
+        void logAudit({
+          orgId: actor.orgId,
+          userId: actor.userId,
+          action: 'knowledge_rollback',
+          entityType: 'routine',
+          entityId: routine.id,
+          details: { restoredFrom: parsed.data.version, newVersion: result.item.version },
+        });
+      }
+    }
+    res.json({ data: result.item, changed: result.status === 'rolled_back' });
+  } catch (err) {
+    if (err instanceof VersionConflictError) {
+      res.status(409).json({
+        error: 'This routine changed since you loaded it',
+        currentVersion: err.currentVersion,
+      });
+      return;
+    }
+    next(err);
+  }
+});
+
+const ownerSchema = z.object({ ownerId: z.string().min(1).nullable() });
+
+/**
+ * PATCH /:id/owner — name an explicit owner, or null for the default.
+ * Admins only.
+ */
+router.patch('/:id/owner', requireAuth, async (req, res, next) => {
+  try {
+    const parsed = ownerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'ownerId must be a user id or null' });
+      return;
+    }
+    const actor = permCtx(req);
+    const routine = await routineService.getRoutine(req.params.id as string, actor);
+    if (!routine) {
+      res.status(404).json({ error: 'Routine not found' });
+      return;
+    }
+    if (actor.role !== 'admin') {
+      res.status(403).json({ error: 'Only an admin can change the owner' });
+      return;
+    }
+    const { ownerId } = parsed.data;
+    if (ownerId) {
+      const check = await validateOwner(ownerId, {
+        orgId: routine.orgId ?? actor.orgId,
+        kind: routine.scope === 'org' ? 'org' : routine.scope === 'team' ? 'team' : 'personal',
+        teamId: routine.teamId,
+        userId: routine.userId,
+      });
+      if (!check.ok) {
+        res.status(400).json({ error: check.reason });
+        return;
+      }
+    }
+    const updated = await prisma.routine.update({
+      where: { id: routine.id },
+      data: { ownerId },
+    });
+    if (actor.orgId) {
+      void logAudit({
+        orgId: actor.orgId,
+        userId: actor.userId,
+        action: 'knowledge_owner_change',
+        entityType: 'routine',
+        entityId: routine.id,
+        details: { from: routine.ownerId, to: ownerId },
+      });
+    }
+    res.json({ data: updated });
   } catch (err) {
     next(err);
   }

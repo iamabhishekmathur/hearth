@@ -37,6 +37,12 @@ Hearth combines semantic search and scoped access rules so the AI can recall rel
 
 The Memory page lets users and admins browse, create, edit, search, and delete entries they are allowed to manage.
 
+## History and Owners
+
+Hearth keeps every version of an org, team or personal memory entry. Session notes are not kept. An owner can restore an earlier version; Hearth saves the restore as a new version.
+
+Owners follow the layer: admins own org memory, admins and team leads own their team's memory, and each person owns their own memory. An admin can also name one more owner for an org or team entry.
+
 ## Synthesis
 
 Background synthesis can extract useful patterns from chat and work history. This helps organizational knowledge compound without requiring every useful fact to be manually saved.

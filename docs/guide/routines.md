@@ -44,6 +44,18 @@ Routine state lets Hearth compare new runs against previous runs. Use it for del
 
 Approval gates pause a routine before an external action or sensitive delivery step. Use them for workflows that send messages, create tickets, update records, or publish reports.
 
+## History and Owners
+
+Hearth keeps every version of a routine's definition: its name, prompt, schedule, delivery and parameters. Turning a routine on or off, and its run state, are not versions. An owner can restore an earlier version; Hearth saves the restore as a new version, so nothing is lost.
+
+| Routine | Owners |
+|---|---|
+| Personal | The person who made it |
+| Team | Admins and team leads on that team |
+| Org | Admins |
+
+An admin can also name one more owner. The AI can change your personal routines when you ask it to. It cannot change team or org routines; it tells you what it would change, and the owner makes the change.
+
 ## Health and Analytics
 
 Admins can review routine health, alerts, top consumers, run history, and failures. For platform controls, see [Analytics](/admin/analytics) and the admin routine endpoints in the developer docs.

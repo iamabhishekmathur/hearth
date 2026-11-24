@@ -820,12 +820,43 @@ model MemoryEntry {
   createdAt DateTime                     @default(now()) @map("created_at")
   updatedAt DateTime                     @updatedAt @map("updated_at")
 
-  org  Org   @relation(fields: [orgId], references: [id])
-  team Team? @relation(fields: [teamId], references: [id])
-  user User? @relation(fields: [userId], references: [id])
+  // Knowledge loop, Phase 0: current version number and an optional owner.
+  // With no owner set, the owner comes from the layer (org → admins,
+  // team → the team's leads, user → the user). Not a FK on purpose: a
+  // removed owner falls back to the default rather than blocking deletes.
+  version   Int                          @default(1)
+  ownerId   String?                      @map("owner_id")
+
+  org      Org             @relation(fields: [orgId], references: [id])
+  team     Team?           @relation(fields: [teamId], references: [id])
+  user     User?           @relation(fields: [userId], references: [id])
+  versions MemoryVersion[]
 
   @@index([orgId, teamId, userId, layer], map: "idx_memory_scope")
   @@map("memory_entries")
+}
+
+/// One row per saved version of a memory entry (org, team and user layers;
+/// session notes are not versioned). Version rows are never edited: a
+/// rollback writes a new version with the old content.
+model MemoryVersion {
+  id           String   @id @default(uuid())
+  memoryId     String   @map("memory_id")
+  orgId        String   @map("org_id")
+  version      Int
+  content      String
+  /// user | agent | synthesis | rollback | migration | curator
+  changeSource String   @map("change_source")
+  changedById  String?  @map("changed_by_id")
+  /// For a rollback: the version whose content was restored.
+  restoredFrom Int?     @map("restored_from")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  memory MemoryEntry @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@unique([memoryId, version])
+  @@index([orgId])
+  @@map("memory_versions")
 }
 
 // ──────────────────────────────────────────────
@@ -947,6 +978,12 @@ model Routine {
   // Feature 5: Approval Gates
   checkpoints Json @default("[]")
 
+  // Knowledge loop, Phase 0: current version number and an optional owner
+  // (same fallback rules as MemoryEntry.ownerId).
+  version Int     @default(1)
+  ownerId String? @map("owner_id")
+
+  versions           RoutineVersion[]
   user               User                @relation(fields: [userId], references: [id])
   team               Team?               @relation(fields: [teamId], references: [id])
   org                Org?                @relation(fields: [orgId], references: [id])
@@ -959,6 +996,26 @@ model Routine {
 
   @@index([orgId, teamId, scope])
   @@map("routines")
+}
+
+/// One row per saved version of a routine's definition (name, prompt,
+/// schedule, delivery, parameters…). Run state and enable/disable are not
+/// versioned. Rows are never edited; a rollback writes a new version.
+model RoutineVersion {
+  id           String   @id @default(uuid())
+  routineId    String   @map("routine_id")
+  version      Int
+  snapshot     Json
+  /// user | agent | rollback | migration | curator
+  changeSource String   @map("change_source")
+  changedById  String?  @map("changed_by_id")
+  restoredFrom Int?     @map("restored_from")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  routine Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, version])
+  @@map("routine_versions")
 }
 
 model RoutineRun {

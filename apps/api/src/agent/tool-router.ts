@@ -4,6 +4,7 @@ import type { AgentPlan, AgentPlanStep, AgentTool, ToolResult } from './types.js
 import { sandboxManager } from '../sandbox/sandbox-manager.js';
 import { mcpGateway } from '../mcp/gateway.js';
 import { createMemory, searchMemory } from '../services/memory-service.js';
+import { createRoutine as createRoutineRecord, updateRoutine as updateRoutineRecord } from '../services/routine-service.js';
 import { generateEmbedding } from '../services/embedding-service.js';
 import { webSearch, webFetch } from '../services/web-service.js';
 import * as artifactService from '../services/artifact-service.js';
@@ -354,11 +355,15 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
         teamId: ctx.teamId,
         role: user?.role ?? 'member',
       };
-      const entry = await createMemory(scope, {
-        layer: 'user',
-        content: input.content as string,
-        source: (input.source as string | undefined) ?? 'assistant',
-      });
+      const entry = await createMemory(
+        scope,
+        {
+          layer: 'user',
+          content: input.content as string,
+          source: (input.source as string | undefined) ?? 'assistant',
+        },
+        { changeSource: 'agent', changedById: ctx.userId },
+      );
       return { output: { id: entry.id, saved: true } };
     },
   });
@@ -1004,19 +1009,21 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
       const description = input.description as string | undefined;
       const delivery = (input.delivery as Record<string, unknown> | undefined) ?? { type: 'in_app' };
 
-      const routine = await prisma.routine.create({
-        data: {
-          userId: ctx.userId,
+      const routine = await createRoutineRecord(
+        ctx.userId,
+        {
           name,
           prompt,
           schedule,
           description,
-          delivery: delivery as never,
+          delivery,
           context: {},
+          orgId: ctx.orgId ?? undefined,
           createdVia: 'agent',
           enabled: true,
         },
-      });
+        { changeSource: 'agent', changedById: ctx.userId },
+      );
 
       return {
         output: { routineId: routine.id, name: routine.name, schedule: routine.schedule, enabled: routine.enabled },
@@ -1070,17 +1077,36 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
         return { output: {}, error: 'Routine not found or does not belong to you' };
       }
 
-      const data: Record<string, unknown> = {};
-      if (input.name !== undefined) data.name = input.name;
-      if (input.prompt !== undefined) data.prompt = input.prompt;
-      if (input.schedule !== undefined) data.schedule = input.schedule;
-      if (input.description !== undefined) data.description = input.description;
-      if (input.enabled !== undefined) data.enabled = input.enabled;
+      // Knowledge loop: team and org routines are shared knowledge. Their
+      // owners change them; an agent never edits them directly.
+      if (existing.scope !== 'personal') {
+        return {
+          output: { routineId, scope: existing.scope, updated: false },
+          error:
+            `This is a ${existing.scope} routine. Only its owner can change it, on the Routines page. ` +
+            'Tell the user what you would change and ask them to make the change or pass it to the owner.',
+        };
+      }
 
-      const routine = await prisma.routine.update({
-        where: { id: routineId },
-        data: data as never,
+      const data: {
+        name?: string;
+        prompt?: string;
+        schedule?: string;
+        description?: string;
+        enabled?: boolean;
+      } = {};
+      if (input.name !== undefined) data.name = input.name as string;
+      if (input.prompt !== undefined) data.prompt = input.prompt as string;
+      if (input.schedule !== undefined) data.schedule = input.schedule as string;
+      if (input.description !== undefined) data.description = input.description as string;
+      if (input.enabled !== undefined) data.enabled = input.enabled as boolean;
+
+      const routine = await updateRoutineRecord(routineId, ctx.userId, data, {
+        meta: { changeSource: 'agent', changedById: ctx.userId },
       });
+      if (!routine) {
+        return { output: {}, error: 'Routine not found or does not belong to you' };
+      }
 
       return {
         output: {
@@ -1354,18 +1380,20 @@ export async function createToolRouter(ctx: ToolRouterContext): Promise<Map<stri
       const schedule = input.schedule as string;
       const name = (input.name as string | undefined) ?? `Scheduled: ${action.slice(0, 50)}`;
 
-      const routine = await prisma.routine.create({
-        data: {
-          userId: ctx.userId,
+      const routine = await createRoutineRecord(
+        ctx.userId,
+        {
           name,
           prompt: action,
           schedule,
           delivery: { type: 'in_app' },
           context: {},
+          orgId: ctx.orgId ?? undefined,
           createdVia: 'agent',
           enabled: true,
         },
-      });
+        { changeSource: 'agent', changedById: ctx.userId },
+      );
 
       return {
         output: {
