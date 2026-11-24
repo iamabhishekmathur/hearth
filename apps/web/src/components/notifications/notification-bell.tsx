@@ -49,6 +49,10 @@ export function NotificationBell({ onOpenSession }: NotificationBellProps) {
     if (n.sessionId && onOpenSession) {
       onOpenSession(n.sessionId);
       setOpen(false);
+    } else if (n.entityType === 'review') {
+      // Knowledge loop: a digest that says proposals wait opens Review.
+      window.location.hash = '#/review';
+      setOpen(false);
     }
   };
 

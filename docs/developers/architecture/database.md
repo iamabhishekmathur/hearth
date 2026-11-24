@@ -751,10 +751,13 @@ KnowledgeProposal  (knowledge loop, Phase 2 — the owners' Review inbox)
   ├── status: pending | approved | edited | rejected | superseded | dropped
   ├── available_at (when the card shows; daily cap of 5 new cards per owner)
   ├── reviewed_by_id?, reviewed_at?, reject_reason?, edited_after?, result_version?
+  ├── reminded_at? (Phase 3: when the one 7-day reminder went out; never sent twice)
   └── created_at, updated_at
 ```
 
 A partial unique index allows **one `pending` card per target** (`org_id, target_type, target_id WHERE status = 'pending'`), so new signals join the open card. RLS by `org_id` (ENABLE + FORCE), cascades on org delete. The nightly `knowledge-curator` job (04:00 UTC) reads and writes with the RLS bypass because it has no tenant context; every query names one org. Owners are worked out at read time from the live target, so cards follow role and team changes. Approving claims the card and writes the new target version in one transaction (change source `curator`). See [Knowledge API](/developers/api/knowledge).
+
+`notification_preferences` (one row per user, `prefs` JSONB) stores only the switches a person has set; the rest come from defaults. It has no `org_id` and no RLS — rows are keyed by user id. See [Notifications API](/developers/api/notifications#preferences).
 
 ### Migration History
 
@@ -778,6 +781,7 @@ A partial unique index allows **one `pending` card per target** (`org_id, target
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
 | `20261117000000_user_llm_credentials` | Per-user LLM credentials (`user_llm_credentials`) for Sign in with ChatGPT plan usage, RLS-isolated by `org_id` |
+| `20261127000000_knowledge_reminders` | Knowledge loop Phase 3: `knowledge_proposals.reminded_at` (the one 7-day reminder per card). No backfill |
 | `20261126000000_knowledge_proposals` | Knowledge loop Phase 2: `knowledge_proposals` (RLS by `org_id`, one pending card per target via a partial unique index) and `knowledge_signals.proposal_id` |
 | `20261125000000_knowledge_signals` | Knowledge loop Phase 1: `knowledge_signals` (RLS by `org_id`, cascades on org delete) and `routine_runs.search_log` |
 | `20261124000000_knowledge_versions` | Knowledge loop Phase 0: `memory_versions` and `routine_versions` (immutable history), `version` + `owner_id` on `memory_entries` and `routines`, RLS on both new tables, and a backfill of version 1 for existing rows (runs with `app.bypass_rls` so a non-superuser migration role sees every row) |

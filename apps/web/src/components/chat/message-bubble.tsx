@@ -1,5 +1,6 @@
 import { useState, useCallback, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { updatedLabel } from './source-updated';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -65,6 +66,8 @@ interface CitationSource {
   type: string;
   label: string;
   content: string;
+  recentlyUpdated?: boolean;
+  lastChangedAt?: string;
 }
 
 interface MessageBubbleProps {
@@ -76,7 +79,7 @@ interface MessageBubbleProps {
   respondingToAuthor?: MessageAuthor;
 }
 
-function renderWithCitations(text: string, sources?: CitationSource[]): React.ReactNode {
+export function renderWithCitations(text: string, sources?: CitationSource[]): React.ReactNode {
   if (!sources || sources.length === 0) return text;
   const parts = text.split(/(\[\d+\])/g);
   if (parts.length === 1) return text;
@@ -86,14 +89,21 @@ function renderWithCitations(text: string, sources?: CitationSource[]): React.Re
     const idx = parseInt(match[1], 10);
     const source = sources.find((s) => s.index === idx);
     if (!source) return part;
+    const updated = updatedLabel(source);
     return (
       <span
         key={i}
-        className="ml-0.5 inline-flex cursor-help items-center justify-center rounded-sm px-1 align-super text-[9px] font-bold"
+        className="ml-0.5 inline-flex cursor-help items-center justify-center gap-0.5 rounded-sm px-1 align-super text-[9px] font-bold"
         style={{ background: 'var(--hearth-accent-soft)', color: 'var(--hearth-accent)' }}
-        title={`[${source.type}] ${source.label}: ${source.content.slice(0, 150)}`}
+        title={`[${source.type}] ${source.label}${updated ? ` · ${updated}` : ''}: ${source.content.slice(0, 150)}`}
+        data-updated={updated ? 'true' : undefined}
       >
         {idx}
+        {updated && (
+          <span className="font-medium" aria-label={updated}>
+            · updated
+          </span>
+        )}
       </span>
     );
   });

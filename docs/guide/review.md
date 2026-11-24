@@ -45,3 +45,18 @@ For a routine, a card only changes the routine's instructions. It never changes 
 If someone changed the item after the card was made, Hearth shows the text that is there now. Check it, then approve again to apply the change on top of it.
 
 Everything works with the keyboard: Tab to a button, Enter to press it, Escape to cancel an edit or a rejection.
+
+## Daily summary and reminder
+
+Hearth does not ping you for each card. Instead:
+
+- At 9am in your timezone, your daily digest gets **one line** when cards wait for you — for example "3 proposals wait in Review", or "1 proposal for Customer update steps" when they are all about one item. Nothing waits, nothing is added.
+- When a card has waited **7 days**, that line comes with **one reminder** ("Waiting a week: …"). It is sent once per card, never again.
+- Clicking the item in the bell opens Review.
+- Email is off by default. Turn on **Email the review summary** in Settings → Profile to get it by email too.
+- Turn off **Daily review summary** to stop both the line and the reminder.
+
+Your timezone comes from your profile. With no timezone set, Hearth uses UTC.
+
+Approving or rejecting a card sends nothing to anyone. The people whose feedback led to a fix see one quiet line on their Activity page: "Your input improved N things this week."
+
