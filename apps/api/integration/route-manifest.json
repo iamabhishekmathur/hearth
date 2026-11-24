@@ -1,5 +1,5 @@
 {
-  "generatedRoutes": 245,
+  "generatedRoutes": 253,
   "routes": [
     {
       "method": "GET",
@@ -1181,8 +1181,29 @@
       ]
     },
     {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/dry-run",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/dry-runs/:dryRunId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
       "method": "PATCH",
       "path": "/api/v1/routines/:id/owner",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/ownership",
       "guards": [
         "requireAuth"
       ]
@@ -1225,6 +1246,41 @@
     {
       "method": "PUT",
       "path": "/api/v1/routines/:id/state",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/test-cases",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/test-cases",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/routines/:id/test-cases/:caseId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/routines/:id/test-cases/:caseId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/test-cases/run",
       "guards": [
         "requireAuth"
       ]

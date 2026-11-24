@@ -15,6 +15,9 @@ import * as webhookService from '../services/webhook-service.js';
 import { validateParameterSchema, validateParameterValues, resolveDefaults } from '../services/routine-parameter-service.js';
 import { mcpGateway } from '../mcp/gateway.js';
 import { prisma } from '../lib/prisma.js';
+import { promptChangeFailures, testGuardBody } from '../services/routine-test-cases.js';
+import { registerRoutineKnowledgeRoutes } from './routine-knowledge.js';
+import type { RoutineTestFailure } from '@hearth/shared';
 import type { RoutineParameter, RoutineScope, RoutineStateConfig, ApprovalCheckpointDef } from '@hearth/shared';
 
 /** UUID v4 format check */
@@ -281,8 +284,10 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     const {
       name, description, prompt, schedule, context, delivery,
       stateConfig, state, scope, teamId, parameters, checkpoints, enabled, expectedVersion,
+      overrideTests,
     } = req.body as {
       expectedVersion?: number;
+      overrideTests?: unknown;
       name?: string;
       description?: string;
       prompt?: string;
@@ -318,6 +323,36 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       res.status(400).json({ error: 'expectedVersion must be a positive integer' });
       return;
     }
+    if (overrideTests !== undefined && typeof overrideTests !== 'boolean') {
+      res.status(400).json({ error: 'overrideTests must be true or false' });
+      return;
+    }
+
+    // Knowledge loop, Phase 4: a prompt change may not drop text a test case
+    // needs, unless an owner explicitly overrides (audit-logged).
+    const actor = permCtx(req);
+    let overridden: RoutineTestFailure[] = [];
+    if (prompt !== undefined || overrideTests === true) {
+      const current = await prisma.routine.findUnique({ where: { id: req.params.id as string } });
+      const visible =
+        current && (await routineService.getRoutine(current.id, actor)) !== null;
+      if (current && visible) {
+        const owner = isRoutineOwner(actor, current);
+        if (overrideTests === true && !owner) {
+          res.status(403).json({ error: 'Only an owner of this routine can override its tests' });
+          return;
+        }
+        const editable = routineService.checkRoutinePermission(current, actor, 'edit');
+        if (editable && typeof prompt === 'string') {
+          const failures = await promptChangeFailures(current, prompt, undefined, actor.orgId);
+          if (failures.length > 0 && overrideTests !== true) {
+            res.status(409).json(testGuardBody(failures));
+            return;
+          }
+          overridden = failures;
+        }
+      }
+    }
 
     const routine = await routineService.updateRoutine(
       req.params.id as string,
@@ -332,6 +367,17 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!routine) {
       res.status(404).json({ error: 'Routine not found' });
       return;
+    }
+
+    if (overridden.length > 0 && actor.orgId) {
+      void logAudit({
+        orgId: actor.orgId,
+        userId: actor.userId,
+        action: 'knowledge_tests_override',
+        entityType: 'routine',
+        entityId: routine.id,
+        details: { via: 'edit', testCaseIds: overridden.map((f) => f.testCaseId), newVersion: routine.version },
+      });
     }
 
     await updateRoutineSchedule(routine.id);
@@ -362,19 +408,34 @@ router.get('/:id/versions', requireAuth, async (req, res, next) => {
     const page = req.query.page ? parseInt(req.query.page as string, 10) || 1 : 1;
     const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) || 20 : 20;
     const result = await listRoutineVersions(routine.id, page, pageSize);
+    const authorIds = Array.from(
+      new Set(result.versions.map((v) => v.changedById).filter((x): x is string => !!x)),
+    );
+    const authors = authorIds.length
+      ? await prisma.user.findMany({ where: { id: { in: authorIds } }, select: { id: true, name: true } })
+      : [];
+    const byId = new Map(authors.map((a) => [a.id, a]));
     res.json({
-      data: result.versions,
+      data: result.versions.map((v) => ({
+        ...v,
+        changedBy: v.changedById ? (byId.get(v.changedById) ?? null) : null,
+      })),
       total: result.total,
       page: result.page,
       pageSize: result.pageSize,
       currentVersion: routine.version,
+      isOwner: isRoutineOwner(permCtx(req), routine),
     });
   } catch (err) {
     next(err);
   }
 });
 
-const rollbackSchema = z.object({ version: z.number().int().positive() });
+const rollbackSchema = z.object({
+  version: z.number().int().positive(),
+  /** Phase 4: restore even though it drops text a test case needs. */
+  overrideTests: z.boolean().optional(),
+});
 
 /**
  * POST /:id/rollback — restore an earlier definition as a NEW version (scope
@@ -398,6 +459,22 @@ router.post('/:id/rollback', requireAuth, async (req, res, next) => {
       return;
     }
 
+    // Phase 4: restoring an old prompt is a prompt change like any other.
+    let overridden: RoutineTestFailure[] = [];
+    const target = await prisma.routineVersion.findUnique({
+      where: { routineId_version: { routineId: routine.id, version: parsed.data.version } },
+      select: { snapshot: true },
+    });
+    const targetPrompt = (target?.snapshot as { prompt?: unknown } | undefined)?.prompt;
+    if (typeof targetPrompt === 'string') {
+      const failures = await promptChangeFailures(routine, targetPrompt, undefined, actor.orgId);
+      if (failures.length > 0 && parsed.data.overrideTests !== true) {
+        res.status(409).json(testGuardBody(failures));
+        return;
+      }
+      overridden = failures;
+    }
+
     const result = await rollbackRoutine(routine.id, parsed.data.version, actor.userId);
     if (result.status === 'not_found') {
       res.status(404).json({ error: 'Routine not found' });
@@ -418,6 +495,20 @@ router.post('/:id/rollback', requireAuth, async (req, res, next) => {
           entityId: routine.id,
           details: { restoredFrom: parsed.data.version, newVersion: result.item.version },
         });
+        if (overridden.length > 0) {
+          void logAudit({
+            orgId: actor.orgId,
+            userId: actor.userId,
+            action: 'knowledge_tests_override',
+            entityType: 'routine',
+            entityId: routine.id,
+            details: {
+              via: 'rollback',
+              restoredFrom: parsed.data.version,
+              testCaseIds: overridden.map((f) => f.testCaseId),
+            },
+          });
+        }
       }
     }
     res.json({ data: result.item, changed: result.status === 'rolled_back' });
@@ -488,6 +579,9 @@ router.patch('/:id/owner', requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+// Knowledge loop, Phase 4: ownership, dry runs and test cases (flag-gated).
+registerRoutineKnowledgeRoutes(router, permCtx);
 
 /**
  * DELETE /:id — delete a routine

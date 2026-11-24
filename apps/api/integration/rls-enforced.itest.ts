@@ -122,6 +122,7 @@ import { runDailyDigest } from '../src/services/daily-digest.js';
 import { searchMemory } from '../src/services/memory-service.js';
 import { httpServer } from '../src/index.js';
 import { emitToTask } from '../src/ws/socket-manager.js';
+import { dryRunSettled } from '../src/services/routine-dry-run.js';
 import request from 'supertest';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
 import type { AddressInfo } from 'node:net';
@@ -823,5 +824,95 @@ describe('Socket.io handlers under RLS (real client, session cookie)', () => {
     const socket = await connectAs(fx.users.rival.email);
     const denied = await outcome(socket, 'task:event', () => socket.emit('join:task', own.task.id));
     expect(denied).toEqual({ ok: false, message: 'Task not found' });
+  });
+});
+
+describe('Phase 4 dry runs and routine test cases under RLS (request context)', () => {
+  async function setup() {
+    await su.org.update({
+      where: { id: fx.primary.orgId },
+      data: { settings: { features: { knowledgeLoop: true } } },
+    });
+    const routine = await seedRoutine({
+      scope: 'team',
+      teamId: fx.primary.teamId,
+      prompt: 'Summarise tickets from the Support queue.',
+    });
+    await su.routineRun.create({
+      data: {
+        routineId: routine.id,
+        status: 'success',
+        output: { result: 'Old output' },
+        completedAt: new Date(),
+      },
+    });
+    return routine;
+  }
+
+  it('the detached dry run keeps the request’s tenant context and writes only its own row', async () => {
+    const routine = await setup();
+    const lead = await loginAgent('lead');
+    const start = await lead.post(`/api/v1/routines/${routine.id}/dry-run`, {});
+    expect(start.status).toBe(202);
+    await dryRunSettled(start.body.data.id);
+    const done = await lead.get(`/api/v1/routines/${routine.id}/dry-runs/${start.body.data.id}`);
+    expect(done.status).toBe(200);
+    expect(done.body.data).toMatchObject({
+      status: 'success',
+      output: 'All done.',
+      lastOutput: 'Old output',
+    });
+    expect(rls.prompts).toEqual(['Summarise tickets from the Support queue.']);
+    const row = await su.routineDryRun.findUniqueOrThrow({ where: { id: start.body.data.id } });
+    expect(row.orgId).toBe(fx.primary.orgId);
+    expect(await su.routineRun.count({ where: { routineId: routine.id } })).toBe(1);
+  });
+
+  it('test cases: create, the guard, Run tests and an approval that makes a case', async () => {
+    const routine = await setup();
+    const lead = await loginAgent('lead');
+    const created = await lead.post(`/api/v1/routines/${routine.id}/test-cases`, {
+      description: 'Keeps the queue',
+      mustContain: ['Support queue'],
+    });
+    expect(created.status).toBe(201);
+    const blocked = await lead.patch(`/api/v1/routines/${routine.id}`, { prompt: 'Summarise.' });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe('tests_failed');
+
+    const run = await lead.post(`/api/v1/routines/${routine.id}/test-cases/run`, {});
+    expect(run.status).toBe(202);
+    await dryRunSettled(run.body.data.id);
+    const tc = await su.routineTestCase.findUniqueOrThrow({ where: { id: created.body.data.id } });
+    expect(tc.lastStatus).toBe('failed'); // "All done." has no "Support queue"
+
+    const fresh = await su.routine.findUniqueOrThrow({ where: { id: routine.id } });
+    const p = await su.knowledgeProposal.create({
+      data: {
+        orgId: fx.primary.orgId,
+        targetType: 'routine',
+        targetId: routine.id,
+        targetScope: 'team',
+        targetTeamId: fx.primary.teamId,
+        targetUserId: fx.users.lead.id,
+        targetName: 'Morning digest',
+        targetVersion: fresh.version,
+        before: fresh.prompt,
+        after: `${fresh.prompt} Group by priority.`,
+        reason: 'r',
+        availableAt: new Date(Date.now() - 1000),
+      },
+    });
+    expect((await lead.post(`/api/v1/knowledge/proposals/${p.id}/approve`, {})).status).toBe(200);
+    const made = await su.routineTestCase.findFirst({ where: { proposalId: p.id } });
+    expect(made?.mustContain).toEqual(['Group by priority']);
+    expect(made?.orgId).toBe(fx.primary.orgId);
+  });
+
+  it('a rival org cannot see the routine, its cases or its dry runs', async () => {
+    const routine = await setup();
+    const rival = await loginAgent('rival');
+    expect((await rival.get(`/api/v1/routines/${routine.id}/test-cases`)).status).toBe(404);
+    expect((await rival.post(`/api/v1/routines/${routine.id}/dry-run`, {})).status).toBe(404);
   });
 });

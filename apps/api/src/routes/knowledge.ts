@@ -24,6 +24,7 @@ import {
 import { MAX_AFTER_CHARS, runCuratorForOrg } from '../services/knowledge-curator.js';
 import { getAdminSummary, getMyImpact } from '../services/knowledge-notify.js';
 import { getPreferences } from '../services/notification-preferences.js';
+import { testGuardBody } from '../services/routine-test-cases.js';
 
 const router: ReturnType<typeof Router> = Router();
 router.use(requireAuth, requireOrg);
@@ -69,6 +70,9 @@ function sendDecision(res: Response, result: DecisionResult): void {
         error: 'The item this proposal changes was deleted',
         code: 'target_gone',
       });
+      return;
+    case 'tests_failed':
+      res.status(409).json(testGuardBody(result.failures));
       return;
     case 'conflict':
       res.status(409).json({
@@ -124,6 +128,8 @@ const approveSchema = z
   .object({
     after: z.string().trim().min(1).max(MAX_AFTER_CHARS).optional(),
     baseVersion: z.number().int().positive().optional(),
+    /** Phase 4: approve even though it drops text a routine test case needs. */
+    overrideTests: z.boolean().optional(),
   })
   .strict();
 
@@ -135,7 +141,10 @@ router.post('/proposals/:id/approve', async (req, res, next) => {
     if (!parsed.success) {
       res
         .status(400)
-        .json({ error: 'after must be non-empty text; baseVersion a positive integer' });
+        .json({
+          error:
+            'after must be non-empty text; baseVersion a positive integer; overrideTests true or false',
+        });
       return;
     }
     const actor = actorOf(req);
@@ -150,6 +159,20 @@ router.post('/proposals/:id/approve', async (req, res, next) => {
         entityId: result.proposal.targetId,
         details: { proposalId: result.proposal.id, resultVersion: result.resultVersion },
       });
+      if (result.overriddenTests && result.overriddenTests.length > 0) {
+        void logAudit({
+          orgId: actor.orgId!,
+          userId: actor.userId,
+          action: 'knowledge_tests_override',
+          entityType: 'routine',
+          entityId: result.proposal.targetId,
+          details: {
+            via: 'proposal',
+            proposalId: result.proposal.id,
+            testCaseIds: result.overriddenTests.map((f) => f.testCaseId),
+          },
+        });
+      }
     }
     sendDecision(res, result);
   } catch (err) {

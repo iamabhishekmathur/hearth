@@ -50,6 +50,11 @@ export interface AgentContext {
   signalSource?: 'chat' | 'routine' | 'task' | 'other';
   /** Routine run being executed — its knowledge-search log is stored on it. */
   routineRunId?: string;
+  /**
+   * Knowledge loop, Phase 4: a routine dry run. The tool set is already
+   * filtered to read-only tools; the loop records no gap signals for it.
+   */
+  dryRun?: boolean;
   /** Task being planned/executed, for signal attribution. */
   taskId?: string;
   // Routine-specific context (Features 1, 2)

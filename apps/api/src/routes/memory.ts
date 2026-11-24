@@ -227,12 +227,26 @@ router.get('/:id/versions', requireAuth, async (req, res, next) => {
     const page = req.query.page ? parseInt(req.query.page as string, 10) || 1 : 1;
     const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) || 20 : 20;
     const result = await listMemoryVersions(entry.id, page, pageSize);
+    const authorIds = Array.from(
+      new Set(result.versions.map((v) => v.changedById).filter((x): x is string => !!x)),
+    );
+    const authors = authorIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: authorIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const byId = new Map(authors.map((a) => [a.id, a]));
     res.json({
-      data: result.versions,
+      data: result.versions.map((v) => ({
+        ...v,
+        changedBy: v.changedById ? (byId.get(v.changedById) ?? null) : null,
+      })),
       total: result.total,
       page: result.page,
       pageSize: result.pageSize,
       currentVersion: entry.version,
+      isOwner: isMemoryOwner(scope, entry),
     });
   } catch (err) {
     next(err);

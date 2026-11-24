@@ -37,6 +37,8 @@ import {
 import { checkRoutinePermission } from './routine-service.js';
 import { redactSignalText } from './knowledge-signals.js';
 import { generateEmbedding } from './embedding-service.js';
+import { createTestCaseFromFix, promptChangeFailures } from './routine-test-cases.js';
+import type { RoutineTestFailure } from '@hearth/shared';
 
 export const PROPOSAL_STATUSES: KnowledgeProposalStatus[] = [
   'pending',
@@ -298,7 +300,16 @@ export async function getProposal(
 // ── Decisions ─────────────────────────────────────────────────────────────
 
 export type DecisionResult =
-  | { status: 'ok'; proposal: KnowledgeProposal; resultVersion: number | null }
+  | {
+      status: 'ok';
+      proposal: KnowledgeProposal;
+      resultVersion: number | null;
+      /** Phase 4: the test case made from this fix (routine targets). */
+      testCaseId?: string | null;
+      /** Phase 4: test cases the owner chose to override. */
+      overriddenTests?: RoutineTestFailure[];
+    }
+  | { status: 'tests_failed'; failures: RoutineTestFailure[] }
   | { status: 'not_found' }
   | { status: 'already_decided'; current: KnowledgeProposalStatus }
   | { status: 'target_gone' }
@@ -336,7 +347,7 @@ function reembed(entryId: string, content: string): void {
 export async function approveProposal(
   actor: KnowledgeActor,
   id: string,
-  body: { after?: string; baseVersion?: number },
+  body: { after?: string; baseVersion?: number; overrideTests?: boolean },
 ): Promise<DecisionResult> {
   const found = await getProposalForActor(actor, id);
   if (!found) return { status: 'not_found' };
@@ -356,6 +367,19 @@ export async function approveProposal(
   const edited = body.after !== undefined && after !== row.after.trim();
   const expectedVersion = body.baseVersion ?? row.targetVersion;
   const meta = { changeSource: 'curator' as const, changedById: actor.userId };
+
+  // Phase 4: a fix to a routine may not drop text an earlier test case needs,
+  // unless the owner says so. (Only a routine prompt has test cases.)
+  let overriddenTests: RoutineTestFailure[] = [];
+  if (row.targetType === 'routine') {
+    const failures = await promptChangeFailures(
+      { id: row.targetId, orgId: row.orgId, prompt: found.live.content },
+      after,
+    );
+    if (failures.length > 0 && !body.overrideTests) return { status: 'tests_failed', failures };
+    overriddenTests = failures;
+  }
+  let testCaseId: string | null = null;
 
   try {
     const resultVersion = await withTenantTx(async (tx) => {
@@ -380,6 +404,18 @@ export async function approveProposal(
               tx,
             );
       if (!updated) throw new TargetGone();
+      if (row.targetType === 'routine') {
+        // Phase 4: the fix becomes a test case, so a later change cannot
+        // quietly undo it.
+        testCaseId = await createTestCaseFromFix(tx, {
+          orgId: row.orgId,
+          routineId: row.targetId,
+          proposalId: id,
+          before: found.live!.content,
+          after,
+          approvedById: actor.userId,
+        });
+      }
       await tx.knowledgeProposal.update({
         where: { id },
         data: { resultVersion: updated.version },
@@ -389,7 +425,13 @@ export async function approveProposal(
     if (row.targetType === 'memory') reembed(row.targetId, after);
     const fresh = await prisma.knowledgeProposal.findUniqueOrThrow({ where: { id } });
     const live = await loadTarget(prisma, row.targetType as TargetType, row.targetId, row.orgId);
-    return { status: 'ok', proposal: await serialize(actor, fresh, live), resultVersion };
+    return {
+      status: 'ok',
+      proposal: await serialize(actor, fresh, live),
+      resultVersion,
+      testCaseId,
+      overriddenTests,
+    };
   } catch (err) {
     if (err instanceof AlreadyDecided) {
       const now = await prisma.knowledgeProposal.findUnique({
