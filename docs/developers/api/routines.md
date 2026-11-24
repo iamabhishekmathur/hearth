@@ -140,8 +140,11 @@ Update a routine.
 | `checkpoints` | array | No | Updated approval checkpoints |
 | `delivery` | object | No | Updated delivery configuration with optional rules |
 | `expectedVersion` | number | No | Reject the update with `409` if the routine is no longer at this version |
+| `overrideTests` | boolean | No | Knowledge loop: save even though the new prompt drops text a [test case](#test-cases) needs. Owners only (`403` otherwise). Audit-logged |
 
 A change to the definition (name, description, prompt, schedule, context, delivery, state config, scope, team, parameters, checkpoints) saves a new version and increases `version` by 1. Run state and enable/disable do not. `409 Conflict` carries `currentVersion` when `expectedVersion` is stale.
+
+With the knowledge loop on, a new `prompt` that drops a phrase one of the routine's [test cases](#test-cases) needs is refused with `409` and `code: "tests_failed"` (see [The test guard](#the-test-guard)). Nothing is saved.
 
 **Response:** `200 OK`
 
@@ -263,27 +266,29 @@ The definition history of a routine, newest first. Anyone who can view the routi
       "changeSource": "user",
       "changedById": "usr_lead",
       "restoredFrom": null,
-      "createdAt": "2026-11-24T10:05:00Z"
+      "createdAt": "2026-11-24T10:05:00Z",
+      "changedBy": { "id": "usr_lead", "name": "Dana Lee" }
     }
   ],
   "total": 2,
   "page": 1,
   "pageSize": 20,
-  "currentVersion": 2
+  "currentVersion": 2,
+  "isOwner": true
 }
 ```
 
-The snapshot holds every definition field; the example is shortened.
+The snapshot holds every definition field; the example is shortened. `changedBy` is the person who made the change (`null` for system changes or a deleted user). `isOwner` says whether the caller may restore versions.
 
 #### POST /api/v1/routines/:id/rollback
 
 Restore the definition of an earlier version as a **new** version. Scope and team are not restored, so a rollback never moves a routine to another audience. The schedule is re-registered. Owners only.
 
-**Request Body:** `{ "version": 1 }`
+**Request Body:** `{ "version": 1 }` — add `"overrideTests": true` to restore a prompt that a [test case](#test-cases) blocks (audit-logged).
 
 **Response:** `200 OK` — `{ "data": <Routine>, "changed": true }`
 
-**Errors:** `400` bad body · `403` not an owner · `404` routine or version not found · `409` the routine changed during the rollback.
+**Errors:** `400` bad body · `403` not an owner · `404` routine or version not found · `409` the routine changed during the rollback, or `code: "tests_failed"` (the restored prompt drops text a test case needs).
 
 #### PATCH /api/v1/routines/:id/owner
 
@@ -297,7 +302,138 @@ Name an explicit owner, or `null` for the default. Admins only. The owner must b
 | `team` | Admins and team leads on that team |
 | `org` | Every admin |
 
-Agents may change only personal routines. A team or org routine changes only through its owner.
+Agents may change only personal routines. A team or org routine changes only through its owner. An agent can never override a test case: an `update_routine` call whose prompt breaks one fails and tells the agent why.
+
+### Knowledge loop: owners, dry runs and test cases
+
+These routes exist only when the organization's `knowledgeLoop` flag is on; otherwise they answer `404`. A routine the caller cannot view answers `404` (another org, another team, someone else's personal routine). Changes and dry runs need an **owner** of the routine (the default owners above, plus a named owner). Members and viewers can read the owner and the test cases, and get `403` for the rest. The Phase 0 routes above (`versions`, `rollback`, `owner`) work whatever the flag.
+
+#### GET /api/v1/routines/:id/ownership
+
+Who owns the routine and what the caller may do.
+
+```json
+{
+  "data": {
+    "scope": "team",
+    "defaultOwnerLabel": "Engineering leads and admins",
+    "owner": { "id": "usr_sam", "name": "Sam Roe" },
+    "isOwner": false,
+    "canChangeOwner": true,
+    "candidates": [{ "id": "usr_dana", "name": "Dana Lee", "role": "team_lead" }]
+  }
+}
+```
+
+`canChangeOwner` is true for admins on team and org routines. `candidates` (admins only) lists the people `PATCH /owner` accepts: not viewers, and on the team for a team routine.
+
+#### POST /api/v1/routines/:id/dry-run
+
+Run the routine once on its **last run's input** (its parameter values and trigger event) and return the output next to the last run's output. Use the saved prompt, or try a draft with `prompt`.
+
+**Request Body:** `{}` or `{ "prompt": "A draft prompt for {{team}}" }` (1–20,000 characters; unknown fields are refused).
+
+A dry run is a test:
+
+- Nothing is delivered and no run is written (`/runs` does not change). The routine, its version and its state stay as they are.
+- **Write tools are held back.** The agent only gets tools whose name reads as a read (`get`, `list`, `search`, `read`, `recall`, `fetch`, `find`, `lookup`, `query`, `view`) and has no write word (`send`, `post`, `create`, `update`, `save`, `delete`, …). Anything else — Slack posts, email, ticket creation, `create_routine`, `save_memory`, code execution — is not offered, and a call to it is answered "unknown tool". The result lists them in `blockedTools`.
+- No knowledge-gap signals are recorded.
+- It runs as the person who asked, with their own access.
+
+The run is asynchronous. The answer is `202 Accepted` with a dry run in `status: "running"`; poll `GET /dry-runs/:dryRunId`. A run is stopped after 5 minutes.
+
+**Errors:** `400` bad body · `403` not an owner · `404` not found or flag off · `409` `no_past_run` (the routine has never finished a run, so there is no input to replay — run it once first) · `429` `too_many_dry_runs` (at most 3 running per person).
+
+#### GET /api/v1/routines/:id/dry-runs/:dryRunId
+
+One dry run. Only the person who started it can read it, and only for 24 hours; after that it answers `404`. Two people dry-running the same routine get separate results.
+
+```json
+{
+  "data": {
+    "id": "dr_1",
+    "routineId": "routine_abc123",
+    "kind": "dry_run",
+    "status": "success",
+    "candidatePrompt": "A draft prompt for {{team}}",
+    "routineVersion": 4,
+    "sourceRun": { "id": "run_9", "status": "success", "startedAt": "2026-11-24T09:00:00Z", "error": null },
+    "lastOutput": "Two tickets…",
+    "output": "Three tickets from the Support queue…",
+    "error": null,
+    "testResults": null,
+    "blockedTools": ["slack_post_message", "save_memory"],
+    "durationMs": 8120,
+    "createdAt": "2026-11-24T10:00:00Z",
+    "completedAt": "2026-11-24T10:00:08Z",
+    "expiresAt": "2026-11-25T10:00:00Z"
+  }
+}
+```
+
+`status` is `running`, `success` or `failed` (with `error`). A run left `running` long after the 5-minute limit (for example after a restart) reads as `failed`.
+
+### Test cases
+
+A test case is a short list of phrases a routine must keep. Approving a curator fix to a routine prompt in the [Review inbox](/developers/api/knowledge) creates one (`source: "proposal"`, described from the prompt's own words, never the curator's reason); owners add their own (`source: "manual"`).
+
+**Phrases from a fix** are found the same way every time: compare the old and new prompt word by word, take each run of words the fix added, split it at punctuation, trim filler words (`the`, `use`, `from`, …) from both ends, keep pieces of at least 3 characters, cut each to 60 characters at a word, and keep the first 5. A fix that only removes text makes no test case. Example: `Summarise tickets.` → `Summarise tickets from the Support queue (use ticket_lookup).` gives `["Support queue", "ticket_lookup"]`.
+
+Matching ignores case, curly versus straight quotes, and extra spaces.
+
+```ts
+interface RoutineTestCase {
+  id: string;
+  routineId: string;
+  proposalId: string | null;      // the approved fix it came from
+  description: string;
+  mustContain: string[];          // 1–10 phrases, each 1–200 characters
+  source: "proposal" | "manual";
+  createdById: string | null;
+  lastStatus: "passed" | "failed" | null;   // from the last "Run tests"
+  lastCheckedAt: string | null;
+  lastMissing: string[] | null;   // phrases the output was missing
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| `GET` | `/routines/:id/test-cases` | anyone who can view | `{ data: RoutineTestCase[], canEdit }` |
+| `POST` | `/routines/:id/test-cases` | owners | `{ description, mustContain }` → `201`. At most 50 per routine (`409`) |
+| `PATCH` | `/routines/:id/test-cases/:caseId` | owners | `{ description?, mustContain? }`. New phrases clear the last result |
+| `DELETE` | `/routines/:id/test-cases/:caseId` | owners | `204` |
+| `POST` | `/routines/:id/test-cases/run` | owners | Dry run + check every case (below) |
+
+Bad bodies (empty description, no phrases, more than 10, too long, unknown fields) answer `400`. A case id from another routine or org answers `404`. Each change writes an audit row (`routine_test_case_created`, `…_updated`, `…_deleted`).
+
+#### POST /api/v1/routines/:id/test-cases/run
+
+"Run tests": a [dry run](#post-api-v1-routines-id-dry-run) with `kind: "tests"`. When it finishes, each case passes when the output contains every phrase. The result's `testResults` is `[{ testCaseId, description, passed, missing }]`. For the saved prompt the result is also stored on each case (`lastStatus`, `lastCheckedAt`, `lastMissing`); a draft `prompt` reports results without storing them. Same body, answers and errors as the dry run, plus `409` `no_test_cases`.
+
+#### The test guard
+
+Any change to the prompt is checked against the test cases: an edit (`PATCH /routines/:id`), a restore (`POST /rollback`) and approving a later curator fix (`POST /knowledge/proposals/:id/approve`). A phrase blocks the change when the **current** prompt has it and the new prompt does not. (A phrase that is only meant for the output, and is not in the prompt, never blocks an edit.)
+
+A blocked change saves nothing and answers:
+
+```json
+{
+  "error": "This change removes text that a test case needs. Keep the text, change the test case, or save anyway.",
+  "code": "tests_failed",
+  "failures": [
+    {
+      "testCaseId": "tc_1",
+      "description": "Keeps an approved fix: the prompt says \"Support queue\"",
+      "missing": ["Support queue"],
+      "reason": "The new prompt no longer says \"Support queue\"."
+    }
+  ]
+}
+```
+
+To go ahead anyway, an owner sends the same request with `"overrideTests": true`. That writes an audit row `knowledge_tests_override` with `via` (`edit`, `rollback` or `proposal`) and the test case ids. A non-owner sending `overrideTests` gets `403`. With the flag off the guard is off.
 
 ### State
 

@@ -38,6 +38,7 @@ When it is on:
 - The **Review** item appears in the sidebar, and owners get at most five new cards a day.
 - Admins can run the curator at once with `POST /api/v1/knowledge/curator/run`.
 - Every approve, edit or reject writes an audit log row (`knowledge_proposal_approved`, `knowledge_proposal_edited`, `knowledge_proposal_rejected`).
+- Routines get version history with restore, a visible owner, dry runs and test cases. Saving a change that breaks a test case writes `knowledge_tests_override`. See [Routines](/guide/routines#versions-dry-runs-and-tests).
 
 When it is off, the curator skips the organization and every `/api/v1/knowledge` route answers `404`. Turning it off does not delete open cards; they come back if it is turned on again. See [Knowledge API](/developers/api/knowledge).
 

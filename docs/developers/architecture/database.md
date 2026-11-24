@@ -712,6 +712,27 @@ RoutineVersion  (immutable history)
 
 A change to any snapshot field writes a version; run state, enable/disable and last-run fields do not. A rollback restores the definition but **not** `scope` or `team_id`, so rolling back a prompt never moves a routine to another audience. Agents may edit only personal routines; team and org routines change only through their owners. `routine_versions` has no `org_id`; its RLS policy follows its routine, like `routine_runs`.
 
+#### Routine test cases and dry runs (knowledge loop, Phase 4)
+
+```
+RoutineTestCase  (routine_test_cases)
+  ├── org_id, routine_id (cascade), proposal_id? (set null)
+  ├── description
+  ├── must_contain (JSONB string[]) — phrases the prompt must keep / output must contain
+  ├── source: proposal | manual, created_by_id?
+  └── last_status? (passed | failed), last_checked_at?, last_missing?, last_dry_run_id?
+
+RoutineDryRun  (routine_dry_runs)
+  ├── org_id, routine_id (cascade), requested_by_id
+  ├── kind: dry_run | tests, status: running | success | failed
+  ├── candidate_prompt?, routine_version
+  ├── source_run_id?, last_output? — the replayed run and its output
+  ├── output?, error?, test_results? (JSONB), blocked_tools (JSONB string[])
+  └── duration_ms?, created_at, completed_at?, expires_at (created_at + 24 h)
+```
+
+A test case is made when an owner approves a curator fix to a routine prompt (the words the fix added) or by hand. A prompt change that drops one of its phrases is refused unless an owner overrides it (audit-logged). A dry run replays the last run's input with write tools held back; it writes only its own `routine_dry_runs` row, never a `routine_runs` row. Dry runs are readable only by `requested_by_id` until `expires_at`; expired rows of an org are deleted when someone in that org starts a new dry run. Both tables carry `org_id` with the standard tenant RLS policy.
+
 ### Knowledge Signals
 
 ```
@@ -781,6 +802,7 @@ A partial unique index allows **one `pending` card per target** (`org_id, target
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
 | `20261117000000_user_llm_credentials` | Per-user LLM credentials (`user_llm_credentials`) for Sign in with ChatGPT plan usage, RLS-isolated by `org_id` |
+| `20261128000000_knowledge_routine_tests` | Knowledge loop Phase 4: `routine_test_cases` and `routine_dry_runs` (both RLS by `org_id`, cascade on routine and org delete). No backfill |
 | `20261127000000_knowledge_reminders` | Knowledge loop Phase 3: `knowledge_proposals.reminded_at` (the one 7-day reminder per card). No backfill |
 | `20261126000000_knowledge_proposals` | Knowledge loop Phase 2: `knowledge_proposals` (RLS by `org_id`, one pending card per target via a partial unique index) and `knowledge_signals.proposal_id` |
 | `20261125000000_knowledge_signals` | Knowledge loop Phase 1: `knowledge_signals` (RLS by `org_id`, cascades on org delete) and `routine_runs.search_log` |

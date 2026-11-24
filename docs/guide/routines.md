@@ -58,6 +58,26 @@ An admin can also name one more owner. The AI can change your personal routines 
 
 When the knowledge loop is on, failed runs and outputs an owner had to rewrite can lead to a proposed new prompt in the owner's [Review Inbox](/guide/review). Only the prompt can change this way, and only when an owner approves.
 
+## Versions, Dry Runs and Tests
+
+These need the knowledge loop to be on for your organization.
+
+**Versions.** Open a routine and choose **Versions**. You see every version of the prompt, newest first: who changed it, when, and how (edited, approved fix, restored). **Show changes** marks the lines added and removed. Owners see **Restore this version**. Hearth asks you to confirm, then saves the old prompt as a new version. Everyone else can read the history.
+
+**Owner.** Team and org routines show their owner on the Overview tab. An admin can choose **Change owner** to name a person. That person is added to the default owners.
+
+**Dry run.** On the **Tests** tab, an owner can choose **Dry run**. Hearth runs the routine on the input of its last run and shows the new output next to the old one. Nothing is sent and nothing is saved. Tools that post, send, create or save are switched off. To try a change first, edit the prompt in the box, then dry run. A routine that has never run cannot be dry run yet. Results stay for 24 hours and only you see yours.
+
+**Tests.** When an owner approves a fix to a routine, Hearth saves a test case. It holds the words the fix added, for example "Support queue". Owners can add, edit and delete test cases too.
+
+- If a later edit, restore or approved fix would remove those words from the prompt, Hearth stops it and shows which test case it breaks. Keep the words, change the test case, or choose **Save anyway**. Saving anyway is recorded in the audit log.
+- **Run tests** dry-runs the routine and checks that the output contains each test case's words. Each case shows its last result.
+
+| Who | Versions | Restore | Dry run and tests |
+|---|---|---|---|
+| Owners | Read | Yes | Yes |
+| Members and viewers | Read | No | See test cases only |
+
 ## Health and Analytics
 
 Admins can review routine health, alerts, top consumers, run history, and failures. For platform controls, see [Analytics](/admin/analytics) and the admin routine endpoints in the developer docs.

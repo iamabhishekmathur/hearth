@@ -44,6 +44,8 @@ For a routine, a card only changes the routine's instructions. It never changes 
 
 If someone changed the item after the card was made, Hearth shows the text that is there now. Check it, then approve again to apply the change on top of it.
 
+When you approve a fix to a routine, Hearth also saves a [test case](/guide/routines#versions-dry-runs-and-tests) with the words the fix added. If a later card would remove words an earlier fix added, Hearth shows which test case it breaks. Edit the text to keep them, or choose **Approve anyway**.
+
 Everything works with the keyboard: Tab to a button, Enter to press it, Escape to cancel an edit or a rejection.
 
 ## Daily summary and reminder
