@@ -63,6 +63,7 @@ import { bootstrapIntegrations } from './mcp/bootstrap.js';
 import { requestContextMiddleware } from './middleware/request-context.js';
 import { bootstrapCompliance } from './compliance/bootstrap.js';
 import { applyApiExtensions } from './extensions/register.js';
+import { runAsSystem } from './lib/tenant-context.js';
 
 const app: Express = express();
 const httpServer = createServer(app);
@@ -217,10 +218,14 @@ import('./agent/run-registry.js')
 
 // Start server — skip listen when running under tests
 if (process.env.NODE_ENV !== 'test') {
-  loadProviders()
-    .then(() => bootstrapCompliance())
-    .catch((err) => logger.warn({ err }, 'Provider load or compliance bootstrap failed at startup'));
-  bootstrapIntegrations().catch((err) => logger.warn({ err }, 'Integration bootstrap failed at startup'));
+  // Startup bootstrap is a system operation across every org (RLS bypass) —
+  // with no tenant context a non-superuser DB role would see no integrations.
+  runAsSystem(() => loadProviders().then(() => bootstrapCompliance())).catch((err) =>
+    logger.warn({ err }, 'Provider load or compliance bootstrap failed at startup'),
+  );
+  runAsSystem(() => bootstrapIntegrations()).catch((err) =>
+    logger.warn({ err }, 'Integration bootstrap failed at startup'),
+  );
   httpServer.listen(env.API_PORT, () => {
     logger.info({ port: env.API_PORT }, 'Hearth API server started');
   });

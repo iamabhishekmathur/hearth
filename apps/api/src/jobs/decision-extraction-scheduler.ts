@@ -1,4 +1,4 @@
-import { Queue, Worker } from 'bullmq';
+import { Queue, Worker, type Job } from 'bullmq';
 import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
@@ -7,6 +7,7 @@ import { extractDecision } from '../services/decision-extractor.js';
 import { createDecision } from '../services/decision-service.js';
 import { processMeetingIngestion } from '../services/meeting-ingestion-service.js';
 import { emitToUser } from '../ws/socket-manager.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'decision-extraction';
 const connection = { url: env.REDIS_URL };
@@ -24,7 +25,7 @@ export const decisionExtractionQueue = new Queue(QUEUE_NAME, {
 export function createDecisionExtractionWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job) => {
+    withJobContext(async (job: Job) => {
       switch (job.name) {
         case 'chat_session':
           return processSessionExtraction(job.data);
@@ -33,7 +34,7 @@ export function createDecisionExtractionWorker() {
         default:
           logger.warn({ jobName: job.name }, 'Unknown decision extraction job type');
       }
-    },
+    }),
     {
       connection,
       concurrency: 2,

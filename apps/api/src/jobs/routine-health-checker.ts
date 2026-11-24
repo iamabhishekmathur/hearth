@@ -3,6 +3,7 @@ import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { checkRoutineHealth } from '../services/routine-health-service.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'routine-health-check';
 const connection = { url: env.REDIS_URL };
@@ -18,7 +19,7 @@ export const healthCheckQueue = new Queue(QUEUE_NAME, {
 export function createHealthCheckerWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async () => {
+    withJobContext(async () => {
       logger.info('Running routine health checks');
 
       // Get all orgs that have routines
@@ -41,7 +42,7 @@ export function createHealthCheckerWorker() {
       }
 
       logger.info({ orgCount: orgs.length }, 'Routine health checks complete');
-    },
+    }),
     { connection, concurrency: 1 },
   );
 

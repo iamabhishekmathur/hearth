@@ -3,6 +3,7 @@ import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { extractCognitivePatterns, rebuildCognitiveProfile, isCognitiveEnabledForOrg } from '../services/cognitive-profile-service.js';
 import { prisma } from '../lib/prisma.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'cognitive-extraction';
 const connection = { url: env.REDIS_URL };
@@ -30,7 +31,7 @@ interface RebuildJobData {
 export function createCognitiveExtractionWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<ExtractionJobData | RebuildJobData>) => {
+    withJobContext(async (job: Job<ExtractionJobData | RebuildJobData>) => {
       if (job.name === 'daily-profile-rebuild') {
         await runDailyProfileRebuild();
         return { processed: true };
@@ -40,7 +41,7 @@ export function createCognitiveExtractionWorker() {
       const data = job.data as ExtractionJobData;
       await extractCognitivePatterns(data);
       return { processed: true };
-    },
+    }),
     { connection, concurrency: 2 },
   );
 

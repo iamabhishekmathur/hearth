@@ -8,6 +8,7 @@ import { agentLoop } from '../agent/agent-runtime.js';
 import { emitToTask } from '../ws/socket-manager.js';
 import { enqueueExecution } from './task-executor.js';
 import { serializeTaskContext } from './task-context-service.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'task-planning';
 const connection = { url: env.REDIS_URL };
@@ -122,7 +123,7 @@ async function buildPlanningPrompt(
 export function createTaskPlanningWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<TaskPlanningJobData>) => {
+    withJobContext(async (job: Job<TaskPlanningJobData>) => {
       const { taskId, userId, reviewFeedback } = job.data;
       logger.info({ taskId, userId, jobId: job.id }, 'Starting task planning');
 
@@ -220,7 +221,7 @@ export function createTaskPlanningWorker() {
 
         throw err;
       }
-    },
+    }),
     {
       connection,
       concurrency: 3,

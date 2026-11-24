@@ -62,7 +62,25 @@ const storage = new AsyncLocalStorage<TenantContext>();
  * `next()`, use `enterTenant()` instead.
  */
 export function runWithTenant<T>(ctx: TenantContext, fn: () => Promise<T>): Promise<T> {
-  return storage.run(ctx, fn);
+  // Await inside the scope: Prisma query promises are lazy thenables that
+  // only execute when `.then` is called. `runWithTenant(ctx, () =>
+  // prisma.x.findMany())` would otherwise run the query after the context
+  // has been exited — with no RLS GUC.
+  return storage.run(ctx, async () => await fn());
+}
+
+/**
+ * Run `fn` as a trusted system operation: no org, RLS bypassed. This is the
+ * context background work runs in (BullMQ job processors via
+ * `withJobContext`, worker/API startup bootstrap). Without any context the
+ * tenant extension sets no GUC, so under a non-superuser DB role every
+ * tenant-table read returns zero rows and every write fails the RLS check.
+ *
+ * Code running here is responsible for filtering by org/user itself (job
+ * processors already do — they act on ids from their payload).
+ */
+export function runAsSystem<T>(fn: () => Promise<T>): Promise<T> {
+  return runWithTenant({ orgId: null, userId: null, bypass: true }, fn);
 }
 
 /**

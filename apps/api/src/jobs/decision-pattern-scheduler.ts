@@ -4,6 +4,7 @@ import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { extractAllPatterns } from '../services/decision-pattern-service.js';
 import { distillAllPrinciples } from '../services/org-principle-service.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'decision-pattern-synthesis';
 const connection = { url: env.REDIS_URL };
@@ -19,9 +20,9 @@ export const decisionPatternQueue = new Queue(QUEUE_NAME, {
 export function createDecisionPatternWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async () => {
+    withJobContext(async () => {
       await runPatternSynthesis();
-    },
+    }),
     { connection, concurrency: 1 },
   );
 

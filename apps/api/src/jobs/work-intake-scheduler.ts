@@ -7,6 +7,7 @@ import { synthesizeForUser } from '../services/synthesis-service.js';
 import { mcpGateway } from '../mcp/gateway.js';
 import { capture } from '../lib/analytics.js';
 import type { TaskSource } from '@hearth/shared';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'work-intake';
 const connection = { url: env.REDIS_URL };
@@ -125,7 +126,7 @@ const BACKFILL_PULLS: BackfillPull[] = [
 export function createWorkIntakeWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<IntakeJobData>) => {
+    withJobContext(async (job: Job<IntakeJobData>) => {
       const { type, userId, message, integrationId } = job.data;
 
       // Resolve orgId from the user's team. Skip job if user has no org.
@@ -208,7 +209,7 @@ export function createWorkIntakeWorker() {
         default:
           return { skipped: true };
       }
-    },
+    }),
     { connection, concurrency: 3 },
   );
 

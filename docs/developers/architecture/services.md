@@ -104,6 +104,8 @@ Jobs and schedulers live in `apps/api/src/jobs/`.
 
 Jobs run on a schedule using BullMQ with Redis as the backing store. Each job is a standalone module in `apps/api/src/jobs/`.
 
+Every job processor is wrapped in `withJobContext` (`apps/api/src/lib/job-context.ts`), so it runs in the RLS-bypass system context. Without it, the production database role sees no tenant rows. See [Tenancy and Row-Level Security](/developers/architecture/database#tenancy-and-row-level-security).
+
 | Job | File | Description |
 |---|---|---|
 | routine-scheduler | `routine-scheduler.ts` | Cron-based routine execution -- evaluates all enabled routines on each tick and enqueues those whose cron expressions match. |

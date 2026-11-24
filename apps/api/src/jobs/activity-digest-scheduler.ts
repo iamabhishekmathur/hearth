@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { generateDigest } from '../services/activity-feed-service.js';
 import * as notificationService from '../services/notification-service.js';
 import * as emailService from '../services/email-service.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'activity-digest';
 const connection = { url: env.REDIS_URL };
@@ -37,7 +38,7 @@ function getUserLocalHour(preferences: unknown): number {
 export function createActivityDigestWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<{ orgId?: string }>) => {
+    withJobContext(async (job: Job<{ orgId?: string }>) => {
       logger.info('Running activity digest job');
 
       const orgs = job.data.orgId
@@ -112,7 +113,7 @@ export function createActivityDigestWorker() {
       }
 
       return { processed: true };
-    },
+    }),
     { connection, concurrency: 1 },
   );
 

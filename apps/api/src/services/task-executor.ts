@@ -9,6 +9,7 @@ import { agentLoop } from '../agent/agent-runtime.js';
 import { emitToTask } from '../ws/socket-manager.js';
 import { enqueueSkillProposal } from '../jobs/skill-proposal-job.js';
 import { serializeTaskContext } from './task-context-service.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'task-execution';
 const connection = { url: env.REDIS_URL };
@@ -34,7 +35,7 @@ interface TaskExecutionJobData {
 export function createTaskExecutionWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<TaskExecutionJobData>) => {
+    withJobContext(async (job: Job<TaskExecutionJobData>) => {
       const { taskId, userId } = job.data;
       logger.info({ taskId, userId, jobId: job.id }, 'Starting task execution');
 
@@ -191,7 +192,7 @@ export function createTaskExecutionWorker() {
 
         throw err;
       }
-    },
+    }),
     {
       connection,
       concurrency: 3,
