@@ -3,12 +3,38 @@ import type { RequestHandler } from 'express';
 import type { ChatEvent } from '@hearth/shared';
 import { logger } from '../lib/logger.js';
 import { getSession } from '../services/chat-service.js';
+import { runWithTenant } from '../lib/tenant-context.js';
 
 let ioInstance: SocketIOServer | null = null;
 
 interface SocketWithUser extends Socket {
   userId?: string;
   userName?: string;
+  /** The user's org (via their team), resolved at handshake like attachUser. */
+  orgId?: string | null;
+}
+
+/**
+ * Register a socket event handler that runs inside the socket user's tenant
+ * context — the WebSocket equivalent of what attachUser does per HTTP
+ * request. Without it, handler queries run with no RLS GUC and, under the
+ * production (non-superuser) DB role, tenant tables look empty: join:task /
+ * join:session would deny every user. This is a scoped org context, never a
+ * bypass: these are user requests.
+ *
+ * Every handler in this file must be registered through this; a unit test
+ * (socket-manager.test.ts) enforces it.
+ */
+function onScoped<A extends unknown[]>(
+  socket: SocketWithUser,
+  event: string,
+  handler: (...args: A) => unknown,
+): void {
+  socket.on(event, (...args: A) => {
+    runWithTenant({ orgId: socket.orgId ?? null, userId: socket.userId ?? null }, async () =>
+      handler(...args),
+    ).catch((err) => logger.error({ err, event, socketId: socket.id }, 'Socket handler failed'));
+  });
 }
 
 // In-memory presence tracking per session room
@@ -94,16 +120,20 @@ export function setupSocketManager(
 
     (socket as SocketWithUser).userId = userId;
 
-    // Look up user name for presence
+    // Look up the user's name (presence) and org (tenant context for every
+    // handler — resolved the same way as attachUser: the user's team's org).
+    // `users` / `teams` have no RLS, so this works before any context exists.
     try {
       const { prisma } = await import('../lib/prisma.js');
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { name: true },
+        select: { name: true, team: { select: { orgId: true } } },
       });
       (socket as SocketWithUser).userName = user?.name ?? 'Unknown';
+      (socket as SocketWithUser).orgId = user?.team?.orgId ?? null;
     } catch {
       (socket as SocketWithUser).userName = 'Unknown';
+      (socket as SocketWithUser).orgId = null;
     }
 
     next();
@@ -113,7 +143,7 @@ export function setupSocketManager(
     logger.info({ socketId: socket.id, userId: socket.userId }, 'Client connected');
 
     // Join a session room — allows owner, collaborators, and org members for org-visible sessions
-    socket.on('join:session', async (sessionId: string) => {
+    onScoped(socket, 'join:session', async (sessionId: string) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
@@ -176,7 +206,7 @@ export function setupSocketManager(
     });
 
     // Leave a session room
-    socket.on('leave:session', (sessionId: string) => {
+    onScoped(socket, 'leave:session', (sessionId: string) => {
       if (typeof sessionId !== 'string') return;
       const room = `session:${sessionId}`;
       socket.leave(room);
@@ -193,7 +223,7 @@ export function setupSocketManager(
     // abort is broadcast over Redis so whichever instance owns the run aborts
     // it (cross-instance). `runId` is optional — without it we stop all of the
     // session's locally-tracked runs.
-    socket.on('chat:stop', async (payload: { sessionId?: string; runId?: string }) => {
+    onScoped(socket, 'chat:stop', async (payload: { sessionId?: string; runId?: string }) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
@@ -231,7 +261,7 @@ export function setupSocketManager(
     // run already finished/aborted is a harmless no-op (resolvePermission
     // returns false, never throws). Permission mirrors stop: the run initiator
     // or a session owner/contributor may answer; a pure viewer may not.
-    socket.on('permission_response', async (payload: { sessionId?: string; callId?: string; decision?: string }) => {
+    onScoped(socket, 'permission_response', async (payload: { sessionId?: string; callId?: string; decision?: string }) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
@@ -264,7 +294,7 @@ export function setupSocketManager(
     });
 
     // Typing indicator (short TTL, no DB)
-    socket.on('presence:typing', (sessionId: string) => {
+    onScoped(socket, 'presence:typing', (sessionId: string) => {
       if (!socket.userId || typeof sessionId !== 'string') return;
       const room = `session:${sessionId}`;
       // Only emit if the socket is actually in the room (was access-checked at join).
@@ -285,7 +315,7 @@ export function setupSocketManager(
     });
 
     // Composing indicator (longer TTL — signals "I'm about to send a prompt")
-    socket.on('presence:composing', (payload: { sessionId: string; charCount: number }) => {
+    onScoped(socket, 'presence:composing', (payload: { sessionId: string; charCount: number }) => {
       if (!socket.userId || !payload || typeof payload.sessionId !== 'string') return;
       const room = `session:${payload.sessionId}`;
       if (!socket.rooms.has(room)) return;
@@ -310,13 +340,13 @@ export function setupSocketManager(
     });
 
     // Heartbeat — refresh lastActiveAt so the idle sweep doesn't demote.
-    socket.on('presence:heartbeat', (sessionId: string) => {
+    onScoped(socket, 'presence:heartbeat', (sessionId: string) => {
       if (typeof sessionId !== 'string') return;
       bumpActive(socket as SocketWithUser, `session:${sessionId}`);
     });
 
     // Join a task room for real-time task updates — verifies ownership
-    socket.on('join:task', async (taskId: string) => {
+    onScoped(socket, 'join:task', async (taskId: string) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
@@ -351,7 +381,7 @@ export function setupSocketManager(
     });
 
     // Leave a task room
-    socket.on('leave:task', (taskId: string) => {
+    onScoped(socket, 'leave:task', (taskId: string) => {
       if (typeof taskId !== 'string') return;
       const room = `task:${taskId}`;
       socket.leave(room);
@@ -364,7 +394,7 @@ export function setupSocketManager(
     }
 
     // Join org room for activity feed
-    socket.on('join:org', async (orgId: string) => {
+    onScoped(socket, 'join:org', async (orgId: string) => {
       if (!socket.userId) {
         socket.emit('error', { message: 'Not authenticated' });
         return;
@@ -393,12 +423,12 @@ export function setupSocketManager(
       }
     });
 
-    socket.on('leave:org', (orgId: string) => {
+    onScoped(socket, 'leave:org', (orgId: string) => {
       if (typeof orgId !== 'string') return;
       socket.leave(`org:${orgId}`);
     });
 
-    socket.on('disconnect', () => {
+    onScoped(socket, 'disconnect', () => {
       // Clean up presence from all session rooms this socket was in
       for (const [room, members] of roomPresence.entries()) {
         if (members.has(socket.id)) {

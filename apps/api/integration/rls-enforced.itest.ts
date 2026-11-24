@@ -115,6 +115,11 @@ import { createTaskExecutionWorker } from '../src/services/task-executor.js';
 import { createTaskContextExtractionWorker } from '../src/jobs/task-context-extraction-job.js';
 import { createKnowledgeSignalCleanupWorker } from '../src/jobs/knowledge-signal-cleanup-scheduler.js';
 import { searchMemory } from '../src/services/memory-service.js';
+import { httpServer } from '../src/index.js';
+import { emitToTask } from '../src/ws/socket-manager.js';
+import request from 'supertest';
+import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
+import type { AddressInfo } from 'node:net';
 
 const su = rls.su;
 let fx: AuthFixture;
@@ -588,5 +593,118 @@ describe('explicit transactions are unchanged', () => {
       withTenantTx((tx) => tx.memoryEntry.findMany()),
     );
     expect(rows).toHaveLength(2);
+  });
+});
+
+// ── 4. Socket.io handlers run in the socket user's org context ───────────────
+
+describe('Socket.io handlers under RLS (real client, session cookie)', () => {
+  let baseUrl = '';
+  const clients: ClientSocket[] = [];
+
+  async function ensureListening() {
+    if (!httpServer.listening) {
+      await new Promise<void>((r) => httpServer.listen(0, '127.0.0.1', () => r()));
+    }
+    baseUrl = `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
+  }
+
+  async function connectAs(email: string): Promise<ClientSocket> {
+    await ensureListening();
+    const res = await request(httpServer)
+      .post('/api/v1/auth/login')
+      .send({ email, password: fx.password });
+    expect(res.status).toBe(200);
+    const cookie = (res.headers['set-cookie'] as unknown as string[])
+      .map((c) => c.split(';')[0])
+      .join('; ');
+    const socket = ioClient(baseUrl, {
+      path: '/ws',
+      transports: ['websocket'],
+      extraHeaders: { cookie },
+      reconnection: false,
+    });
+    clients.push(socket);
+    await new Promise<void>((resolve, reject) => {
+      socket.once('connect', () => resolve());
+      socket.once('connect_error', reject);
+    });
+    return socket;
+  }
+
+  /** Emit and wait for the first of: a server 'error', or `okEvent`. */
+  function outcome(socket: ClientSocket, okEvent: string, emit: () => void) {
+    return new Promise<{ ok: true; payload: unknown } | { ok: false; message: string }>(
+      (resolve) => {
+        const onErr = (e: { message: string }) => {
+          socket.off(okEvent, onOk);
+          resolve({ ok: false, message: e.message });
+        };
+        const onOk = (payload: unknown) => {
+          socket.off('error', onErr);
+          resolve({ ok: true, payload });
+        };
+        socket.once('error', onErr);
+        socket.once(okEvent, onOk);
+        emit();
+      },
+    );
+  }
+
+  async function seedSessionAndTask(orgId: string, userId: string) {
+    const session = await su.chatSession.create({ data: { orgId, userId, title: 's' } });
+    const task = await su.task.create({
+      data: { orgId, userId, title: 't', source: 'manual', status: 'backlog', context: {} },
+    });
+    return { session, task };
+  }
+
+  afterAll(async () => {
+    for (const c of clients) c.disconnect();
+    if (httpServer.listening) await new Promise((r) => httpServer.close(() => r(null)));
+  });
+
+  it('join:session — own org’s session joins; a rival org’s session is denied', async () => {
+    const own = await seedSessionAndTask(fx.primary.orgId, fx.users.member.id);
+    const rival = await seedSessionAndTask(fx.rival.orgId, fx.users.rival.id);
+    const socket = await connectAs(fx.users.member.email);
+
+    const joined = await outcome(socket, 'presence:list', () =>
+      socket.emit('join:session', own.session.id),
+    );
+    expect(joined).toMatchObject({ ok: true });
+
+    const denied = await outcome(socket, 'presence:list', () =>
+      socket.emit('join:session', rival.session.id),
+    );
+    expect(denied).toEqual({ ok: false, message: 'Session not found' });
+  });
+
+  it('join:task — own task joins (receives task events); a rival org’s task is denied', async () => {
+    const own = await seedSessionAndTask(fx.primary.orgId, fx.users.member.id);
+    const rival = await seedSessionAndTask(fx.rival.orgId, fx.users.rival.id);
+    const socket = await connectAs(fx.users.member.email);
+
+    // A successful join emits nothing; prove membership by receiving a room event.
+    socket.emit('join:task', own.task.id);
+    const got = await new Promise<unknown>((resolve, reject) => {
+      socket.once('error', (e: { message: string }) => reject(new Error(e.message)));
+      socket.once('task:event', resolve);
+      const ping = setInterval(() => emitToTask(own.task.id, { type: 'ping' }), 25);
+      socket.once('task:event', () => clearInterval(ping));
+    });
+    expect(got).toEqual({ type: 'ping' });
+
+    const denied = await outcome(socket, 'task:event', () =>
+      socket.emit('join:task', rival.task.id),
+    );
+    expect(denied).toEqual({ ok: false, message: 'Task not found' });
+  });
+
+  it('the rival user cannot join the primary org’s task either', async () => {
+    const own = await seedSessionAndTask(fx.primary.orgId, fx.users.member.id);
+    const socket = await connectAs(fx.users.rival.email);
+    const denied = await outcome(socket, 'task:event', () => socket.emit('join:task', own.task.id));
+    expect(denied).toEqual({ ok: false, message: 'Task not found' });
   });
 });

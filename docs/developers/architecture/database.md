@@ -630,6 +630,7 @@ Tenant tables carry an `org_id` and have RLS **enabled and forced**. Each policy
 The settings are transaction-local (`SET LOCAL`). They come from the tenant context in AsyncLocalStorage (`apps/api/src/lib/tenant-context.ts`):
 
 - **HTTP requests**: auth middleware enters `{ orgId, userId }` for the signed-in user.
+- **Socket.io events**: the handshake resolves the user's org the same way. Each event handler is registered through `onScoped` in `ws/socket-manager.ts`, which runs it in `{ orgId, userId }` (an org context, not a bypass). A unit test fails if a handler is registered with a bare `socket.on`. Server-side emits (`emitToSession`, `emitToTask`, …) do not query the database.
 - **Prisma model queries**: the tenant extension (`prisma-tenant-extension.ts`) runs each query in its own transaction that sets `app.org_id`, or `app.bypass_rls` for a bypass context.
 - **Raw SQL** (`$queryRaw`, `$queryRawUnsafe`, `$executeRaw`, `$executeRawUnsafe`): the extension wraps these the same way. Memory, decision and experience vector search, and embedding updates, all depend on this.
 - **Explicit transactions**: inside `withTenantTx` / `withRlsBypass`, queries on the `tx` client run in that transaction with its setting and roll back together. Queries there must use `tx`.
