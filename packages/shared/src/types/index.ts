@@ -1,4 +1,5 @@
 import type { StopReason } from './llm.js';
+import type { KnowledgeChangeSource } from './memory.js';
 
 export * from './llm.js';
 export * from './agent.js';
@@ -372,11 +373,40 @@ export interface Routine {
   parameters?: RoutineParameter[];
   // Feature 5: Checkpoints
   checkpoints?: ApprovalCheckpointDef[];
+  // Knowledge loop: current version and explicit owner (null = default owner)
+  version?: number;
+  ownerId?: string | null;
   // Relations
   runs?: RoutineRun[];
   triggers?: RoutineTrigger[];
   chainsFrom?: RoutineChain[];
   chainsTo?: RoutineChain[];
+}
+
+/** The versioned part of a routine. Run state and enable/disable are not versioned. */
+export interface RoutineSnapshot {
+  name: string;
+  description: string | null;
+  prompt: string;
+  schedule: string | null;
+  context: Record<string, unknown>;
+  delivery: Record<string, unknown>;
+  stateConfig: RoutineStateConfig | Record<string, unknown>;
+  scope: RoutineScope;
+  teamId: string | null;
+  parameters: RoutineParameter[];
+  checkpoints: ApprovalCheckpointDef[];
+}
+
+export interface RoutineVersion {
+  id: string;
+  routineId: string;
+  version: number;
+  snapshot: RoutineSnapshot;
+  changeSource: KnowledgeChangeSource;
+  changedById: string | null;
+  restoredFrom: number | null;
+  createdAt: string;
 }
 
 export interface RoutineRun {

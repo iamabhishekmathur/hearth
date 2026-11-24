@@ -165,7 +165,23 @@ export async function truncateAll(): Promise<void> {
   `;
   if (rows.length === 0) return;
   const list = rows.map((r) => `"${r.tablename}"`).join(', ');
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
+
+  // TRUNCATE needs an ACCESS EXCLUSIVE lock on every table. Fire-and-forget
+  // work from the previous test (audit-log writes, socket fan-out, queued jobs)
+  // can still hold row locks, and Postgres then aborts one side with a deadlock
+  // (40P01) — a harness race, not a product bug. Retry with a short backoff.
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
+      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const retryable = /40P01|deadlock detected|55P03|lock timeout/i.test(msg);
+      if (!retryable || attempt >= MAX_ATTEMPTS) throw err;
+      await new Promise((r) => setTimeout(r, 100 * attempt));
+    }
+  }
 }
 
 /** Close the harness's Prisma connection — call in an afterAll if desired. */

@@ -1,6 +1,6 @@
 /**
  * Tasks integration tests — create, GET, PATCH status transitions, and
- * ownership scoping. Pins several known defects (see DEFECT comments).
+ * ownership scoping. Pins remaining known defects (see DEFECT comments).
  *
  * Routes under test (mounted at /api/v1/tasks, see src/routes/tasks.ts):
  *   POST   /tasks
@@ -171,38 +171,85 @@ describe('tasks — review gate', () => {
 });
 
 describe('tasks — sub-resource ownership scoping', () => {
-  it('DEFECT (TASK-Z-02): comments route has NO ownership check — peer comments on another user’s task', async () => {
+  // Fixed TASK-Z-02 / TASK-Z-03: every task sub-route now requires the caller
+  // to own the task (or be its assignee in the same org). Anyone else gets 404,
+  // so a foreign task id reveals nothing.
+
+  it('TASK-Z-02 (fixed): a peer cannot comment on another user’s task → 404, nothing written', async () => {
     const adminTask = await seedTask(fx.primary.orgId, fx.users.admin.id);
     const member = await loginAgent('member');
 
-    // The route looks the task up by id only (addComment never verifies the
-    // caller owns / can access the task), so a non-owner comment succeeds.
     const res = await member.post(`/api/v1/tasks/${adminTask.id}/comments`, { content: 'I can comment on your task' });
-    // DEFECT (TASK-Z-02): pins current behavior — cross-user comment is accepted.
-    expect(res.status).toBe(201);
-    const comment = await prisma.taskComment.findFirst({ where: { taskId: adminTask.id } });
-    expect(comment?.userId).toBe(fx.users.member.id);
+    expect(res.status).toBe(404);
+    expect(await prisma.taskComment.count({ where: { taskId: adminTask.id } })).toBe(0);
   });
 
-  it('DEFECT (TASK-Z-03): subtasks route has NO ownership check — peer subtasks another user’s task', async () => {
+  it('TASK-Z-02 (fixed): another org cannot comment on, or read comments of, a task → 404', async () => {
+    const primaryTask = await seedTask(fx.primary.orgId, fx.users.admin.id);
+    const rival = await loginAgent('rival');
+    expect((await rival.post(`/api/v1/tasks/${primaryTask.id}/comments`, { content: 'cross-org comment' })).status).toBe(404);
+    expect((await rival.get(`/api/v1/tasks/${primaryTask.id}/comments`)).status).toBe(404);
+    expect(await prisma.taskComment.count({ where: { taskId: primaryTask.id } })).toBe(0);
+  });
+
+  it('TASK-Z-03 (fixed): a peer cannot add a subtask to another user’s task → 404, nothing written', async () => {
     const adminTask = await seedTask(fx.primary.orgId, fx.users.admin.id);
     const member = await loginAgent('member');
 
-    // createSubtask resolves the parent by id only — no caller ownership gate.
     const res = await member.post(`/api/v1/tasks/${adminTask.id}/subtasks`, { title: 'sneaky subtask' });
-    // DEFECT (TASK-Z-03): pins current behavior — cross-user subtask is accepted,
-    // and the subtask is even attributed to the (non-owner) caller.
-    expect(res.status).toBe(201);
-    const sub = await prisma.task.findFirst({ where: { parentTaskId: adminTask.id } });
-    expect(sub).toBeTruthy();
+    expect(res.status).toBe(404);
+    expect(await prisma.task.count({ where: { parentTaskId: adminTask.id } })).toBe(0);
+  });
+
+  it('the owner can still comment and add subtasks; a subtask belongs to the parent’s owner', async () => {
+    const t = await seedTask(fx.primary.orgId, fx.users.member.id);
+    const member = await loginAgent('member');
+
+    expect((await member.post(`/api/v1/tasks/${t.id}/comments`, { content: 'note to self' })).status).toBe(201);
+    expect((await member.get(`/api/v1/tasks/${t.id}/comments`)).body.data).toHaveLength(1);
+
+    expect((await member.post(`/api/v1/tasks/${t.id}/subtasks`, { title: 'step 1' })).status).toBe(201);
+    const sub = await prisma.task.findFirst({ where: { parentTaskId: t.id } });
     expect(sub?.userId).toBe(fx.users.member.id);
   });
 
-  it('cross-org peer ALSO comments on a foreign-org task (no tenant scope on comments)', async () => {
-    const primaryTask = await seedTask(fx.primary.orgId, fx.users.admin.id);
+  it('the assignee (same org) can comment; the subtask they add belongs to the owner', async () => {
+    const t = await seedTask(fx.primary.orgId, fx.users.admin.id);
+    await prisma.task.update({ where: { id: t.id }, data: { assigneeId: fx.users.member.id } });
+    const member = await loginAgent('member');
+
+    expect((await member.post(`/api/v1/tasks/${t.id}/comments`, { content: 'on it' })).status).toBe(201);
+    expect((await member.post(`/api/v1/tasks/${t.id}/subtasks`, { title: 'part A' })).status).toBe(201);
+    const sub = await prisma.task.findFirst({ where: { parentTaskId: t.id } });
+    expect(sub?.userId).toBe(fx.users.admin.id);
+  });
+
+  it('every other sub-route answers 404 to a non-owner', async () => {
+    const t = await seedTask(fx.primary.orgId, fx.users.admin.id);
+    const item = await prisma.taskContextItem.create({
+      data: { orgId: fx.primary.orgId, taskId: t.id, type: 'note', rawValue: 'secret', createdBy: fx.users.admin.id },
+    });
+    const member = await loginAgent('member');
     const rival = await loginAgent('rival');
-    // DEFECT (TASK-Z-02): pins current behavior — even a different *org* can comment.
-    const res = await rival.post(`/api/v1/tasks/${primaryTask.id}/comments`, { content: 'cross-org comment' });
-    expect(res.status).toBe(201);
+
+    for (const agent of [member, rival]) {
+      expect((await agent.get(`/api/v1/tasks/${t.id}/steps`)).status).toBe(404);
+      expect((await agent.get(`/api/v1/tasks/${t.id}/reviews`)).status).toBe(404);
+      expect((await agent.get(`/api/v1/tasks/${t.id}/context-items`)).status).toBe(404);
+      expect((await agent.patch(`/api/v1/tasks/${t.id}/context-items/${item.id}`, { label: 'x' })).status).toBe(404);
+      expect((await agent.post(`/api/v1/tasks/${t.id}/context-items/${item.id}/refresh`)).status).toBe(404);
+      expect((await agent.post(`/api/v1/tasks/${t.id}/context-items/${item.id}/analyze`)).status).toBe(404);
+      expect((await agent.del(`/api/v1/tasks/${t.id}/context-items/${item.id}`)).status).toBe(404);
+    }
+    const after = await prisma.taskContextItem.findUnique({ where: { id: item.id } });
+    expect(after).toMatchObject({ rawValue: 'secret' });
+    expect(after?.label ?? null).not.toBe('x');
+  });
+
+  it('an unknown task id → 404 on sub-routes', async () => {
+    const member = await loginAgent('member');
+    const missing = '00000000-0000-4000-8000-000000000000';
+    expect((await member.get(`/api/v1/tasks/${missing}/comments`)).status).toBe(404);
+    expect((await member.post(`/api/v1/tasks/${missing}/subtasks`, { title: 'x' })).status).toBe(404);
   });
 });

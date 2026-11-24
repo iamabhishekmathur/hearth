@@ -19,6 +19,26 @@ import { prisma } from '../lib/prisma.js';
 const router: ReturnType<typeof Router> = Router();
 
 /**
+ * Sub-resource guard: the caller must own the task (or be its assignee in the
+ * same org). 404 — not 403 — so a foreign task id reveals nothing.
+ */
+const requireTaskAccess: import('express').RequestHandler = async (req, res, next) => {
+  try {
+    const ok = await taskService.canAccessTask(req.params.id as string, {
+      id: req.user!.id,
+      orgId: req.user!.orgId ?? null,
+    });
+    if (!ok) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * GET /tasks — list tasks with optional status filter
  */
 router.get('/', requireAuth, async (req, res, next) => {
@@ -204,7 +224,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
 /**
  * GET /tasks/:id/comments
  */
-router.get('/:id/comments', requireAuth, async (req, res, next) => {
+router.get('/:id/comments', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const comments = await taskService.listComments(req.params.id as string);
     res.json({ data: comments });
@@ -216,7 +236,7 @@ router.get('/:id/comments', requireAuth, async (req, res, next) => {
 /**
  * POST /tasks/:id/comments
  */
-router.post('/:id/comments', requireAuth, async (req, res, next) => {
+router.post('/:id/comments', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const { content } = req.body as { content?: string };
     if (!content) {
@@ -252,7 +272,7 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
 /**
  * GET /tasks/:id/steps
  */
-router.get('/:id/steps', requireAuth, async (req, res, next) => {
+router.get('/:id/steps', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const steps = await taskService.listExecutionSteps(req.params.id as string);
     res.json({ data: steps });
@@ -292,7 +312,7 @@ router.post('/:id/context', requireAuth, async (req, res, next) => {
 /**
  * GET /tasks/:id/reviews
  */
-router.get('/:id/reviews', requireAuth, async (req, res, next) => {
+router.get('/:id/reviews', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const reviews = await taskService.listReviews(req.params.id as string);
     res.json({ data: reviews });
@@ -443,7 +463,7 @@ router.post('/:id/replan', requireAuth, async (req, res, next) => {
 /**
  * POST /tasks/:id/subtasks
  */
-router.post('/:id/subtasks', requireAuth, async (req, res, next) => {
+router.post('/:id/subtasks', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const { title, description } = req.body as { title?: string; description?: string };
     if (!title) {
@@ -473,7 +493,7 @@ const VALID_CONTEXT_TYPES: TaskContextItemType[] = [
 /**
  * GET /tasks/:id/context-items — list all context items for a task
  */
-router.get('/:id/context-items', requireAuth, async (req, res, next) => {
+router.get('/:id/context-items', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const items = await contextService.listContextItems(req.params.id as string);
     res.json({ data: items });
@@ -626,7 +646,7 @@ router.post('/:id/context-items/upload', requireAuth, requireOrg, uploadFile, as
 /**
  * PATCH /tasks/:id/context-items/:itemId — update label or sortOrder
  */
-router.patch('/:id/context-items/:itemId', requireAuth, async (req, res, next) => {
+router.patch('/:id/context-items/:itemId', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const { label, sortOrder } = req.body as { label?: string; sortOrder?: number };
     const item = await contextService.getContextItem(req.params.itemId as string);
@@ -646,7 +666,7 @@ router.patch('/:id/context-items/:itemId', requireAuth, async (req, res, next) =
 /**
  * DELETE /tasks/:id/context-items/:itemId — remove context item
  */
-router.delete('/:id/context-items/:itemId', requireAuth, async (req, res, next) => {
+router.delete('/:id/context-items/:itemId', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const item = await contextService.getContextItem(req.params.itemId as string);
     if (!item || item.taskId !== req.params.id) {
@@ -671,7 +691,7 @@ router.delete('/:id/context-items/:itemId', requireAuth, async (req, res, next) 
 /**
  * POST /tasks/:id/context-items/:itemId/refresh — re-run extraction
  */
-router.post('/:id/context-items/:itemId/refresh', requireAuth, async (req, res, next) => {
+router.post('/:id/context-items/:itemId/refresh', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const item = await contextService.getContextItem(req.params.itemId as string);
     if (!item || item.taskId !== req.params.id) {
@@ -694,7 +714,7 @@ router.post('/:id/context-items/:itemId/refresh', requireAuth, async (req, res, 
 /**
  * POST /tasks/:id/context-items/:itemId/analyze — trigger vision analysis for images
  */
-router.post('/:id/context-items/:itemId/analyze', requireAuth, async (req, res, next) => {
+router.post('/:id/context-items/:itemId/analyze', requireAuth, requireTaskAccess, async (req, res, next) => {
   try {
     const item = await contextService.getContextItem(req.params.itemId as string);
     if (!item || item.taskId !== req.params.id) {

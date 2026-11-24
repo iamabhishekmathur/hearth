@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { createMemoryVersioned } from './knowledge-versions.js';
 import { generateEmbedding } from './embedding-service.js';
 import { chunkText } from '../lib/chunker.js';
 import { logger } from '../lib/logger.js';
@@ -91,8 +92,8 @@ export async function synthesizeForUser(userId: string, integrationId?: string) 
         const embedding = await generateEmbedding(chunk.text);
         if (!embedding) {
           // No embedding service — skip dedup, just create
-          await prisma.memoryEntry.create({
-            data: {
+          await createMemoryVersioned(
+            {
               orgId,
               userId,
               layer: 'user',
@@ -102,7 +103,8 @@ export async function synthesizeForUser(userId: string, integrationId?: string) 
                 ? (chunk.sourceRef as Prisma.InputJsonValue)
                 : Prisma.DbNull,
             },
-          });
+            { changeSource: 'synthesis', changedById: null },
+          );
           created++;
           return;
         }
@@ -129,8 +131,8 @@ export async function synthesizeForUser(userId: string, integrationId?: string) 
         }
 
         // Create new memory entry with embedding
-        const entry = await prisma.memoryEntry.create({
-          data: {
+        const entry = await createMemoryVersioned(
+          {
             orgId,
             userId,
             layer: 'user',
@@ -140,7 +142,8 @@ export async function synthesizeForUser(userId: string, integrationId?: string) 
               ? (chunk.sourceRef as Prisma.InputJsonValue)
               : Prisma.DbNull,
           },
-        });
+          { changeSource: 'synthesis', changedById: null },
+        );
 
         // Store embedding
         await prisma.$executeRawUnsafe(

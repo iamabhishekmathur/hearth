@@ -1,5 +1,5 @@
 {
-  "generatedRoutes": 201,
+  "generatedRoutes": 236,
   "routes": [
     {
       "method": "GET",
@@ -369,6 +369,19 @@
       ]
     },
     {
+      "method": "GET",
+      "path": "/api/v1/auth/chatgpt/callback",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/chatgpt/start",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/v1/auth/login",
       "guards": []
@@ -475,6 +488,28 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/chat/commands",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/commands/resolve",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/chat/features",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/chat/integrations/active",
       "guards": [
         "requireAuth"
@@ -567,6 +602,13 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/messages/:messageId/approve-build",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/chat/sessions/:id/messages/:messageId/feedback",
       "guards": [
         "requireAuth"
@@ -588,7 +630,21 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/permission",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/chat/sessions/:id/read",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/chat/sessions/:id/share",
       "guards": [
         "requireAuth"
       ]
@@ -596,6 +652,13 @@
     {
       "method": "POST",
       "path": "/api/v1/chat/sessions/:id/share",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/:id/stop",
       "guards": [
         "requireAuth"
       ]
@@ -694,6 +757,11 @@
       "guards": []
     },
     {
+      "method": "GET",
+      "path": "/api/v1/decisions/:id/conflicts",
+      "guards": []
+    },
+    {
       "method": "POST",
       "path": "/api/v1/decisions/:id/dependencies",
       "guards": []
@@ -745,6 +813,27 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/graph/edges",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/graph/navigate",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/graph/persons",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/health",
       "guards": []
     },
@@ -765,6 +854,88 @@
     {
       "method": "POST",
       "path": "/api/v1/intake/dismiss/:taskId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/integrations/",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/integrations/",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/integrations/:id",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/integrations/:id/health",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/invitations/",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/invitations/",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/invitations/:id",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/invitations/token/:token",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/invitations/token/:token/accept",
+      "guards": []
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/me/chatgpt-plan/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/chatgpt-plan/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/me/chatgpt-plan/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me/chatgpt-plan/models",
       "guards": [
         "requireAuth"
       ]
@@ -820,10 +991,39 @@
       ]
     },
     {
+      "method": "PATCH",
+      "path": "/api/v1/memory/:id/owner",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/memory/:id/rollback",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/memory/:id/versions",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/v1/memory/search",
       "guards": [
         "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/models/",
+      "guards": [
+        "requireAuth",
+        "requireOrg"
       ]
     },
     {
@@ -843,6 +1043,20 @@
     {
       "method": "POST",
       "path": "/api/v1/notifications/read-all",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/onboarding/",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/onboarding/",
       "guards": [
         "requireAuth"
       ]
@@ -918,6 +1132,20 @@
       ]
     },
     {
+      "method": "PATCH",
+      "path": "/api/v1/routines/:id/owner",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/routines/:id/rollback",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/v1/routines/:id/run-now",
       "guards": [
@@ -976,6 +1204,13 @@
     {
       "method": "DELETE",
       "path": "/api/v1/routines/:id/triggers/:triggerId",
+      "guards": [
+        "requireAuth"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/routines/:id/versions",
       "guards": [
         "requireAuth"
       ]

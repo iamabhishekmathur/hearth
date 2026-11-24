@@ -139,6 +139,9 @@ Update a routine.
 | `parameters` | array | No | Updated parameter schema |
 | `checkpoints` | array | No | Updated approval checkpoints |
 | `delivery` | object | No | Updated delivery configuration with optional rules |
+| `expectedVersion` | number | No | Reject the update with `409` if the routine is no longer at this version |
+
+A change to the definition (name, description, prompt, schedule, context, delivery, state config, scope, team, parameters, checkpoints) saves a new version and increases `version` by 1. Run state and enable/disable do not. `409 Conflict` carries `currentVersion` when `expectedVersion` is stale.
 
 **Response:** `200 OK`
 
@@ -234,6 +237,67 @@ Trigger an immediate execution of a routine, regardless of its schedule.
 ```
 
 ---
+
+### Versions and owners
+
+#### GET /api/v1/routines/:id/versions
+
+The definition history of a routine, newest first. Anyone who can view the routine can read its history. Query: `page` (default `1`), `pageSize` (default `20`, max `100`).
+
+**Response:** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "rv_2",
+      "routineId": "routine_abc123",
+      "version": 2,
+      "snapshot": {
+        "name": "Weekly customer update",
+        "prompt": "Post the update in #customer-updates",
+        "schedule": "0 9 * * 1",
+        "scope": "team",
+        "teamId": "team_1"
+      },
+      "changeSource": "user",
+      "changedById": "usr_lead",
+      "restoredFrom": null,
+      "createdAt": "2026-11-24T10:05:00Z"
+    }
+  ],
+  "total": 2,
+  "page": 1,
+  "pageSize": 20,
+  "currentVersion": 2
+}
+```
+
+The snapshot holds every definition field; the example is shortened.
+
+#### POST /api/v1/routines/:id/rollback
+
+Restore the definition of an earlier version as a **new** version. Scope and team are not restored, so a rollback never moves a routine to another audience. The schedule is re-registered. Owners only.
+
+**Request Body:** `{ "version": 1 }`
+
+**Response:** `200 OK` — `{ "data": <Routine>, "changed": true }`
+
+**Errors:** `400` bad body · `403` not an owner · `404` routine or version not found · `409` the routine changed during the rollback.
+
+#### PATCH /api/v1/routines/:id/owner
+
+Name an explicit owner, or `null` for the default. Admins only. The owner must be in the same organization, must not be a viewer, and must be on the team for a team routine. A personal routine is owned by its person.
+
+**Request Body:** `{ "ownerId": "usr_123" }` or `{ "ownerId": null }`
+
+| Scope | Default owners |
+|-------|----------------|
+| `personal` | The person who made it |
+| `team` | Admins and team leads on that team |
+| `org` | Every admin |
+
+Agents may change only personal routines. A team or org routine changes only through its owner.
 
 ### State
 
@@ -707,8 +771,23 @@ interface Routine {
   // Timestamps
   lastRunAt: string | null;
   lastRunStatus: RoutineRunStatus | null;
+  // Versions
+  version: number;
+  ownerId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface RoutineVersion {
+  id: string;
+  routineId: string;
+  version: number;
+  snapshot: RoutineSnapshot; // name, description, prompt, schedule, context, delivery,
+                             // stateConfig, scope, teamId, parameters, checkpoints
+  changeSource: "user" | "agent" | "rollback" | "migration" | "curator";
+  changedById: string | null;
+  restoredFrom: number | null;
+  createdAt: string;
 }
 
 interface RoutineStateConfig {

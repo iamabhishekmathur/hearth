@@ -27,7 +27,9 @@ export type AuditAction =
   | 'decision_outcome_updated'
   | 'pattern_extracted'
   | 'principle_proposed'
-  | 'tool_permission_decision';
+  | 'tool_permission_decision'
+  | 'knowledge_rollback'
+  | 'knowledge_owner_change';
 
 export type AuditEntityType =
   | 'session'

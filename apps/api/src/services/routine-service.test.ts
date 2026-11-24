@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock Prisma
-vi.mock('../lib/prisma.js', () => ({
-  prisma: {
+// Mock Prisma. `$transaction` runs the callback against the same mock, so the
+// versioned create/update paths (knowledge-versions.ts) hit these spies.
+vi.mock('../lib/prisma.js', () => {
+  const prisma: Record<string, unknown> = {
+    routineVersion: {
+      create: vi.fn(),
+    },
     routine: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -33,8 +37,10 @@ vi.mock('../lib/prisma.js', () => ({
     routineHealthAlert: {
       deleteMany: vi.fn(),
     },
-  },
-}));
+  };
+  prisma.$transaction = vi.fn((fn: (tx: unknown) => unknown) => fn(prisma));
+  return { prisma };
+});
 
 import { prisma } from '../lib/prisma.js';
 import * as routineService from './routine-service.js';
@@ -83,6 +89,30 @@ describe('routine-service', () => {
         }),
       );
       expect(result).toEqual(mockRoutine);
+    });
+
+    it('writes version 1 with the creator as author', async () => {
+      const mockRoutine = { id: 'r1', name: 'Test', prompt: 'Do something', scope: 'personal' };
+      (prisma.routine.create as ReturnType<typeof vi.fn>).mockResolvedValue(mockRoutine);
+
+      await routineService.createRoutine('u1', { name: 'Test', prompt: 'Do something' });
+
+      expect(prisma.routine.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ version: 1 }) }),
+      );
+      const versionCreate = (prisma as unknown as { routineVersion: { create: ReturnType<typeof vi.fn> } })
+        .routineVersion.create;
+      expect(versionCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            routineId: 'r1',
+            version: 1,
+            changeSource: 'user',
+            changedById: 'u1',
+            snapshot: expect.objectContaining({ name: 'Test', prompt: 'Do something' }),
+          }),
+        }),
+      );
     });
   });
 

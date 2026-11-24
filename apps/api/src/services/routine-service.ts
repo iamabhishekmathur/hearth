@@ -1,6 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import type { RoutineScope, RoutineStateConfig, RoutineParameter, ApprovalCheckpointDef } from '@hearth/shared';
 import { prisma } from '../lib/prisma.js';
+import {
+  createRoutineVersioned,
+  updateRoutineVersioned,
+  type ChangeMeta,
+} from './knowledge-versions.js';
 
 // ── Feature 3: Permission checking ──
 
@@ -136,11 +141,14 @@ export async function createRoutine(
     parameters?: RoutineParameter[];
     checkpoints?: ApprovalCheckpointDef[];
     enabled?: boolean;
+    createdVia?: string;
   },
+  meta?: Partial<ChangeMeta>,
 ) {
-  return prisma.routine.create({
-    data: {
+  return createRoutineVersioned(
+    {
       userId,
+      ...(data.createdVia !== undefined && { createdVia: data.createdVia }),
       name: data.name,
       description: data.description ?? null,
       prompt: data.prompt,
@@ -155,7 +163,8 @@ export async function createRoutine(
       parameters: (data.parameters ?? []) as unknown as Prisma.InputJsonValue,
       checkpoints: (data.checkpoints ?? []) as unknown as Prisma.InputJsonValue,
     },
-  });
+    { changeSource: meta?.changeSource ?? 'user', changedById: meta?.changedById ?? userId },
+  );
 }
 
 export async function updateRoutine(
@@ -176,14 +185,16 @@ export async function updateRoutine(
     checkpoints?: ApprovalCheckpointDef[];
     enabled?: boolean;
   },
+  options?: { expectedVersion?: number; meta?: Partial<ChangeMeta> },
 ) {
   const routine = await prisma.routine.findUnique({ where: { id } });
   if (!routine) return null;
   if (!canAccessRoutine(routine, user, 'edit')) return null;
 
-  return prisma.routine.update({
-    where: { id },
-    data: {
+  const actorId = typeof user === 'string' ? user : user.userId;
+  return updateRoutineVersioned(
+    id,
+    {
       ...(data.enabled !== undefined && { enabled: data.enabled }),
       ...(data.name !== undefined && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
@@ -198,7 +209,12 @@ export async function updateRoutine(
       ...(data.parameters !== undefined && { parameters: data.parameters as unknown as Prisma.InputJsonValue }),
       ...(data.checkpoints !== undefined && { checkpoints: data.checkpoints as unknown as Prisma.InputJsonValue }),
     },
-  });
+    {
+      changeSource: options?.meta?.changeSource ?? 'user',
+      changedById: options?.meta?.changedById ?? actorId,
+    },
+    options?.expectedVersion,
+  );
 }
 
 export async function deleteRoutine(id: string, userId: string) {

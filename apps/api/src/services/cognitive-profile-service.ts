@@ -3,6 +3,7 @@ import { providerRegistry } from '../llm/provider-registry.js';
 import { generateEmbedding } from './embedding-service.js';
 import { logAudit } from './audit-service.js';
 import { logger } from '../lib/logger.js';
+import { extractJsonObject } from '../lib/llm-json.js';
 import type { Prisma } from '@prisma/client';
 import type { CognitiveProfileData, ThoughtPatternCategory } from '@hearth/shared';
 
@@ -518,22 +519,6 @@ async function callExtractionLLM(transcript: string): Promise<ExtractionResult |
     logger.error({ err }, 'Failed to parse cognitive extraction LLM response');
     return null;
   }
-}
-
-/**
- * Extract a JSON object string from a raw LLM response that may be wrapped in
- * markdown code fences or surrounding prose. Returns null when no object is found.
- */
-function extractJsonObject(raw: string): string | null {
-  const trimmed = raw.trim();
-
-  // 1. Prefer the contents of a ```json ... ``` (or bare ``` ... ```) fence.
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1].trim() : trimmed;
-
-  // 2. Narrow to the first balanced-ish {...} span in case of leading/trailing prose.
-  const objectMatch = candidate.match(/\{[\s\S]*\}/);
-  return objectMatch ? objectMatch[0] : null;
 }
 
 const PROFILE_REBUILD_PROMPT = `Given these observed thought patterns about a person, synthesize a cognitive profile summary.

@@ -6,6 +6,8 @@ Tasks represent units of work tracked by Hearth. They can be created manually, b
 
 All endpoints require an authenticated session (HTTP-only cookie).
 
+Task sub-resources — comments, execution steps, reviews, subtasks and context items under `/tasks/:id/…` — are available only to the task's owner, or to its assignee in the same organization. Anyone else gets `404 Not Found`, so a task id from another user or organization reveals nothing. A subtask always belongs to the parent task's owner, whoever creates it.
+
 ## Endpoints
 
 ### Core

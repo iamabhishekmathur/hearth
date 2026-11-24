@@ -77,6 +77,7 @@ This file maps source code areas to their corresponding documentation pages. Whe
 | `apps/api/src/routes/chatgpt-plan.ts`, `apps/api/src/services/chatgpt-plan-service.ts`, `apps/api/src/llm/chatgpt-plan-provider.ts` | `docs/developers/api/chatgpt-plan.md`, `docs/guide/chatgpt-plan.md`, `docs/self-hosting/configuration.md` when env vars change |
 | `apps/api/src/routes/tasks.ts`, `apps/api/src/services/task-context-service.ts`, `apps/api/src/services/task-context-extractor.ts` | `docs/developers/api/tasks.md` |
 | `apps/api/src/routes/memory.ts` | `docs/developers/api/memory.md` |
+| `apps/api/src/services/knowledge-versions.ts`, `apps/api/src/services/knowledge-owner.ts` | `docs/developers/api/memory.md`, `docs/developers/api/routines.md`, `docs/developers/architecture/database.md` |
 | `apps/api/src/routes/skills.ts` | `docs/developers/api/skills.md` |
 | `apps/api/src/routes/routines.ts`, `apps/api/src/routes/chains.ts` | `docs/developers/api/routines.md` |
 | `apps/api/src/routes/activity.ts` | `docs/developers/api/activity.md` |

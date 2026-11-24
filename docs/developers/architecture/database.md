@@ -158,8 +158,27 @@ MemoryEntry
   ├── source: manual | synthesis | session | integration
   ├── source_ref (JSONB: optional reference to origin)
   ├── embedding: vector  (pgvector, flexible dimension)
-  └── expires_at? (null = permanent)
+  ├── expires_at? (null = permanent)
+  ├── version (current version number, starts at 1)
+  ├── owner_id? (explicit owner; null = default owner for the layer)
+  └── MemoryVersion[]
+
+MemoryVersion  (immutable history)
+  ├── memory_id, org_id
+  ├── version (unique per memory entry)
+  ├── content (the content at that version)
+  ├── change_source: user | agent | synthesis | rollback | migration | curator
+  ├── changed_by_id? (user id; null for system writes)
+  └── restored_from? (for a rollback: the version whose content was restored)
 ```
+
+#### Versions and owners
+
+Every change to the **content** of an `org`, `team` or `user` entry writes a `MemoryVersion` row in the same transaction and bumps `version`. Session notes are not versioned, and metadata changes (`source`, `expires_at`) do not make a version. A rollback never rewrites history: it writes a new version that carries the old content (`change_source = rollback`, `restored_from = N`). Deleting an entry deletes its versions (`ON DELETE CASCADE`); the audit log keeps the record of rollbacks and owner changes.
+
+Updates use compare-and-set on `version`. A client that sends `expectedVersion` gets `409` if someone saved first; a client that does not is retried on the newer version, so concurrent writers never lose a version.
+
+Default owners come from the layer: `org` → admins, `team` → admins and that team's team leads, `user` → the person. An admin can name an explicit `owner_id`, which is added to the default owners. `owner_id` is not a foreign key on purpose — a removed owner falls back to the default. Rules live in `apps/api/src/services/knowledge-owner.ts`.
 
 Memory entries are scoped by layer:
 
@@ -276,6 +295,11 @@ Routine
   │
   │  ── Approval Gates ──
   ├── checkpoints (JSONB array: checkpoint definitions)
+  │
+  │  ── Versions (knowledge loop) ──
+  ├── version (current definition version, starts at 1)
+  ├── owner_id? (explicit owner; null = default owner for the scope)
+  ├── RoutineVersion[]
   │
   ├── RoutineRun[]
   ├── RoutineTrigger[]
@@ -657,6 +681,20 @@ npx prisma migrate reset
 npx prisma migrate status
 ```
 
+#### Routine versions
+
+```
+RoutineVersion  (immutable history)
+  ├── routine_id, version (unique per routine)
+  ├── snapshot (JSONB: name, description, prompt, schedule, context, delivery,
+  │             stateConfig, scope, teamId, parameters, checkpoints)
+  ├── change_source: user | agent | rollback | migration | curator
+  ├── changed_by_id?
+  └── restored_from?
+```
+
+A change to any snapshot field writes a version; run state, enable/disable and last-run fields do not. A rollback restores the definition but **not** `scope` or `team_id`, so rolling back a prompt never moves a routine to another audience. Agents may edit only personal routines; team and org routines change only through their owners. `routine_versions` has no `org_id`; its RLS policy follows its routine, like `routine_runs`.
+
 ### Migration History
 
 | Migration | Description |
@@ -679,6 +717,7 @@ npx prisma migrate status
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
 | `20261117000000_user_llm_credentials` | Per-user LLM credentials (`user_llm_credentials`) for Sign in with ChatGPT plan usage, RLS-isolated by `org_id` |
+| `20261124000000_knowledge_versions` | Knowledge loop Phase 0: `memory_versions` and `routine_versions` (immutable history), `version` + `owner_id` on `memory_entries` and `routines`, RLS on both new tables, and a backfill of version 1 for existing rows (runs with `app.bypass_rls` so a non-superuser migration role sees every row) |
 | `20260615000000_skills_as_commands` | W6: adds `invocable_as_command`, `command_slug`, `command_params` to skills + a per-org unique index on `command_slug` so a slash command can't collide |
 
 ### Migration Best Practices
