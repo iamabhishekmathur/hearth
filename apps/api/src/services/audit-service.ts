@@ -29,7 +29,10 @@ export type AuditAction =
   | 'principle_proposed'
   | 'tool_permission_decision'
   | 'knowledge_rollback'
-  | 'knowledge_owner_change';
+  | 'knowledge_owner_change'
+  | 'knowledge_proposal_approved'
+  | 'knowledge_proposal_edited'
+  | 'knowledge_proposal_rejected';
 
 export type AuditEntityType =
   | 'session'

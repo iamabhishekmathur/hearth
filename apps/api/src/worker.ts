@@ -13,6 +13,7 @@ import { createTaskContextExtractionWorker, taskContextExtractionQueue } from '.
 import { createDecisionExtractionWorker, decisionExtractionQueue } from './jobs/decision-extraction-scheduler.js';
 import { createDecisionStalenessWorker, scheduleDecisionStalenessCheck, decisionStalenessQueue } from './jobs/decision-staleness-scheduler.js';
 import { createKnowledgeSignalCleanupWorker, scheduleKnowledgeSignalCleanup, knowledgeSignalCleanupQueue } from './jobs/knowledge-signal-cleanup-scheduler.js';
+import { createKnowledgeCuratorWorker, scheduleKnowledgeCurator, knowledgeCuratorQueue } from './jobs/knowledge-curator-scheduler.js';
 import { createDecisionPatternWorker, schedulePatternSynthesis, decisionPatternQueue } from './jobs/decision-pattern-scheduler.js';
 import { bootstrapIntegrations } from './mcp/bootstrap.js';
 import { loadProviders } from './llm/provider-loader.js';
@@ -104,7 +105,12 @@ async function main() {
   await scheduleKnowledgeSignalCleanup();
   logger.info('Registered knowledge-signal-cleanup worker');
 
-  logger.info('Hearth worker started with 15 queues: memory-synthesis, task-execution, task-planning, routine-execution, skill-proposal, work-intake, meeting-prep, activity-digest, routine-health-check, cognitive-extraction, task-context-extraction, decision-extraction, decision-staleness, decision-pattern-synthesis, knowledge-signal-cleanup');
+  // Knowledge loop, Phase 2: nightly curator (orgs with the knowledgeLoop flag)
+  const knowledgeCuratorWorker = createKnowledgeCuratorWorker();
+  await scheduleKnowledgeCurator();
+  logger.info('Registered knowledge-curator worker');
+
+  logger.info('Hearth worker started with 16 queues: memory-synthesis, task-execution, task-planning, routine-execution, skill-proposal, work-intake, meeting-prep, activity-digest, routine-health-check, cognitive-extraction, task-context-extraction, decision-extraction, decision-staleness, decision-pattern-synthesis, knowledge-signal-cleanup, knowledge-curator');
 
   // Graceful shutdown
   const shutdown = async () => {
@@ -139,6 +145,8 @@ async function main() {
     await decisionPatternQueue.close();
     await knowledgeSignalCleanupWorker.close();
     await knowledgeSignalCleanupQueue.close();
+    await knowledgeCuratorWorker.close();
+    await knowledgeCuratorQueue.close();
     process.exit(0);
   };
 

@@ -95,6 +95,11 @@ export interface OrgFeatureFlags {
   modelPicker?: boolean;
   /** W6 — extensible slash commands. */
   slashCommands?: boolean;
+  /**
+   * Knowledge loop, Phase 2 — the nightly curator and the owners' Review
+   * inbox. Off by default.
+   */
+  knowledgeLoop?: boolean;
 }
 
 export type OrgFeatureFlag = keyof OrgFeatureFlags;

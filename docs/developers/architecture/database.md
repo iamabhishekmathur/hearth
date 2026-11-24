@@ -705,7 +705,8 @@ KnowledgeSignal  (knowledge loop, Phase 1 — never shown to members)
   ├── session_id?, message_id?, routine_id?, routine_run_id?, task_id?
   ├── text? (redacted: secrets, then the PII pack; at most 500 characters)
   ├── detail? (JSONB, small, redacted: merged queries, the "before" of an edit…)
-  ├── processed_at? (set by the curator, Phase 2)
+  ├── processed_at? (set by the curator when it has used the signal)
+  ├── proposal_id? → KnowledgeProposal (the card this signal is evidence for; SET NULL on delete)
   └── created_at
 ```
 
@@ -716,6 +717,27 @@ A signal is a background record that the AI may be missing something. Writers ne
 - **regenerate**, **edited_output** (an owner rewrote a routine's output before approving it), **run_failed**, and **correction** (an explicit correction found by the post-chat reflection, once per session).
 
 `routine_runs.search_log` stores `{ tool, found }` for each knowledge search in a run — no query text. Signals are deleted after 90 days by the `knowledge-signal-cleanup` worker job (4:30am UTC), which runs with the RLS bypass because it sweeps every org.
+
+### Knowledge Proposals
+
+```
+KnowledgeProposal  (knowledge loop, Phase 2 — the owners' Review inbox)
+  ├── org_id
+  ├── target_type: memory | routine
+  ├── target_id (not a FK: a deleted target drops the card instead of blocking the delete)
+  ├── target_scope (memory layer org|team|user, or routine scope org|team|personal)
+  ├── target_team_id?, target_user_id?, target_name (snapshots for display and owner fallback)
+  ├── target_version (the target's version when proposed — approval is a compare-and-set on it)
+  ├── before, after (memory content, or the routine prompt — nothing else is ever proposed)
+  ├── reason
+  ├── affected (JSONB: { audience: org|team|person, teamName?, personName?, routines? })
+  ├── status: pending | approved | edited | rejected | superseded | dropped
+  ├── available_at (when the card shows; daily cap of 5 new cards per owner)
+  ├── reviewed_by_id?, reviewed_at?, reject_reason?, edited_after?, result_version?
+  └── created_at, updated_at
+```
+
+A partial unique index allows **one `pending` card per target** (`org_id, target_type, target_id WHERE status = 'pending'`), so new signals join the open card. RLS by `org_id` (ENABLE + FORCE), cascades on org delete. The nightly `knowledge-curator` job (04:00 UTC) reads and writes with the RLS bypass because it has no tenant context; every query names one org. Owners are worked out at read time from the live target, so cards follow role and team changes. Approving claims the card and writes the new target version in one transaction (change source `curator`). See [Knowledge API](/developers/api/knowledge).
 
 ### Migration History
 
@@ -739,6 +761,7 @@ A signal is a background record that the AI may be missing something. Writers ne
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
 | `20261117000000_user_llm_credentials` | Per-user LLM credentials (`user_llm_credentials`) for Sign in with ChatGPT plan usage, RLS-isolated by `org_id` |
+| `20261126000000_knowledge_proposals` | Knowledge loop Phase 2: `knowledge_proposals` (RLS by `org_id`, one pending card per target via a partial unique index) and `knowledge_signals.proposal_id` |
 | `20261125000000_knowledge_signals` | Knowledge loop Phase 1: `knowledge_signals` (RLS by `org_id`, cascades on org delete) and `routine_runs.search_log` |
 | `20261124000000_knowledge_versions` | Knowledge loop Phase 0: `memory_versions` and `routine_versions` (immutable history), `version` + `owner_id` on `memory_entries` and `routines`, RLS on both new tables, and a backfill of version 1 for existing rows (runs with `app.bypass_rls` so a non-superuser migration role sees every row) |
 | `20260615000000_skills_as_commands` | W6: adds `invocable_as_command`, `command_slug`, `command_params` to skills + a per-org unique index on `command_slug` so a slash command can't collide |

@@ -40,7 +40,13 @@ const MAX_CAS_ATTEMPTS = 3;
  * is active (HTTP requests, jobs that call runWithTenant). Outside a context
  * (scripts, some tests) it is a plain transaction.
  */
-export async function knowledgeTx<T>(fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+export async function knowledgeTx<T>(
+  fn: (tx: TenantTx) => Promise<T>,
+  outer?: TenantTx,
+): Promise<T> {
+  // A caller already inside a transaction (e.g. approving a curator proposal)
+  // passes it in so the change and its own writes commit or roll back together.
+  if (outer) return fn(outer);
   const ctx = getTenant();
   if (ctx && (ctx.bypass || ctx.orgId)) return withTenantTx(fn);
   return prisma.$transaction((tx) => fn(tx));
@@ -84,6 +90,7 @@ export async function updateMemoryVersioned(
   data: Prisma.MemoryEntryUpdateManyMutationInput,
   meta: ChangeMeta,
   expectedVersion?: number,
+  outerTx?: TenantTx,
 ): Promise<MemoryEntry | null> {
   return knowledgeTx(async (tx) => {
     for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt++) {
@@ -129,7 +136,7 @@ export async function updateMemoryVersioned(
     }
     const latest = await tx.memoryEntry.findUnique({ where: { id }, select: { version: true } });
     throw new VersionConflictError(latest?.version ?? 0);
-  });
+  }, outerTx);
 }
 
 export async function listMemoryVersions(memoryId: string, page = 1, pageSize = 20) {
@@ -258,6 +265,7 @@ export async function updateRoutineVersioned(
   data: Prisma.RoutineUncheckedUpdateManyInput,
   meta: ChangeMeta,
   expectedVersion?: number,
+  outerTx?: TenantTx,
 ): Promise<Routine | null> {
   return knowledgeTx(async (tx) => {
     for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt++) {
@@ -301,7 +309,7 @@ export async function updateRoutineVersioned(
     }
     const latest = await tx.routine.findUnique({ where: { id }, select: { version: true } });
     throw new VersionConflictError(latest?.version ?? 0);
-  });
+  }, outerTx);
 }
 
 export async function listRoutineVersions(routineId: string, page = 1, pageSize = 20) {

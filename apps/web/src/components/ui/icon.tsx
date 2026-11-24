@@ -68,6 +68,7 @@ export function HIcon({ name, size = 16, color = 'currentColor', strokeWidth = 1
     case 'play':     return <svg {...p}><path d="M5 3.5v9l7-4.5z"/></svg>;
     case 'pause':    return <svg {...p}><rect x="4.5" y="3.5" width="2" height="9" rx="0.5"/><rect x="9.5" y="3.5" width="2" height="9" rx="0.5"/></svg>;
     case 'dot':      return <svg {...p}><circle cx="8" cy="8" r="2" fill={color} stroke="none"/></svg>;
+    case 'review':   return <svg {...p}><path d="M2.5 9.5l1.6-5.2a1 1 0 011-.8h5.8a1 1 0 011 .8l1.6 5.2V12a1 1 0 01-1 1h-9a1 1 0 01-1-1z"/><path d="M2.5 9.5h3l1 1.5h3l1-1.5h3"/></svg>;
     case 'decisions': return <svg {...p}><path d="M8 2v4M8 10v4M4 8H2M14 8h-2M5 5L3.5 3.5M12.5 12.5L11 11M5 11l-1.5 1.5M12.5 3.5L11 5"/><circle cx="8" cy="8" r="2"/></svg>;
     default: return <svg {...p}/>;
   }

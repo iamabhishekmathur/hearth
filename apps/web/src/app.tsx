@@ -18,6 +18,7 @@ const AcceptInvitePage = lazy(() => import('@/pages/accept-invite').then((m) => 
 const RoutinesPage = lazy(() => import('@/pages/routines').then((m) => ({ default: m.RoutinesPage })));
 const ActivityPage = lazy(() => import('@/pages/activity').then((m) => ({ default: m.ActivityPage })));
 const DecisionsPage = lazy(() => import('@/pages/decisions').then((m) => ({ default: m.DecisionsPage })));
+const ReviewPage = lazy(() => import('@/pages/review').then((m) => ({ default: m.ReviewPage })));
 const ConnectTools = lazy(() => import('@/components/integrations/connect-tools').then((m) => ({ default: m.ConnectTools })));
 
 function PageFallback() {
@@ -174,6 +175,7 @@ function Router() {
                 {route === '/routines' && <RoutinesPage />}
                 {route === '/activity' && <ActivityPage />}
                 {route === '/decisions' && <DecisionsPage />}
+                {route === '/review' && <ReviewPage />}
                 {route.startsWith('/integrations') && <ConnectTools />}
                 {route.startsWith('/settings') && <SettingsPage initialTab={route.split('/')[2]} />}
               </>

@@ -1,5 +1,5 @@
 {
-  "generatedRoutes": 236,
+  "generatedRoutes": 241,
   "routes": [
     {
       "method": "GET",
@@ -910,6 +910,31 @@
     {
       "method": "POST",
       "path": "/api/v1/invitations/token/:token/accept",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge/curator/run",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/proposals",
+      "guards": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/proposals/:id",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge/proposals/:id/approve",
+      "guards": []
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge/proposals/:id/reject",
       "guards": []
     },
     {
