@@ -88,8 +88,9 @@ This file maps source code areas to their corresponding documentation pages. Whe
 | `apps/api/src/routes/admin/*` | `docs/developers/api/admin.md` |
 | `apps/api/src/routes/webhooks/*`, `apps/api/src/routes/uploads.ts` | `docs/developers/api/webhooks.md` |
 | `apps/api/src/routes/decisions.ts`, `apps/api/src/routes/meetings.ts` | `docs/developers/api/decisions.md` |
-| `apps/api/src/ws/socket-manager.ts` | `docs/developers/websocket-events.md` |
+| `apps/api/src/ws/socket-manager.ts` | `docs/developers/websocket-events.md`, `docs/developers/architecture/database.md` (Tenancy and Row-Level Security) |
 | `apps/api/src/agent/*` | `docs/developers/architecture/agent.md` |
 | `apps/api/prisma/schema.prisma` | `docs/developers/architecture/database.md` |
+| `apps/api/src/lib/tenant-context.ts`, `apps/api/src/lib/prisma-tenant-extension.ts`, `apps/api/src/lib/job-context.ts` | `docs/developers/architecture/database.md` (Tenancy and Row-Level Security) |
 | `apps/api/src/services/*` | `docs/developers/architecture/services.md` |
 | `apps/web/src/lib/analytics.ts`, `apps/web/src/lib/analytics-events.ts`, `apps/api/src/lib/analytics.ts` | `docs/growth/EVENTS.md` |

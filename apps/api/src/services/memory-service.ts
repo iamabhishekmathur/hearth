@@ -203,9 +203,10 @@ export async function searchMemory(
     limit?: number;
     embedding?: number[];
     /**
-     * Run the queries inside this transaction. Raw queries skip the tenant
-     * extension, so a caller without an HTTP tenant context (the curator
-     * worker) passes a transaction that already carries the RLS setting.
+     * Run the queries inside this transaction (e.g. the curator's
+     * withRlsBypass tx) so they commit/roll back with the caller's work.
+     * Without it, the tenant extension runs each raw query in its own
+     * transaction carrying the current context's RLS setting.
      */
     tx?: TenantTx;
   },

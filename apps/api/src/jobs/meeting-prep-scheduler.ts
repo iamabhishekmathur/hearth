@@ -3,6 +3,7 @@ import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { getUserCadence, shouldSendPrepNow, generateMeetingPrep, deliverPrepNudge } from '../services/meeting-prep-service.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'meeting-prep';
 const connection = { url: env.REDIS_URL };
@@ -34,7 +35,7 @@ interface MeetingPrepJobData {
 export function createMeetingPrepWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<MeetingPrepJobData>) => {
+    withJobContext(async (job: Job<MeetingPrepJobData>) => {
       const { type } = job.data;
 
       switch (type) {
@@ -113,7 +114,7 @@ export function createMeetingPrepWorker() {
         default:
           return { skipped: true };
       }
-    },
+    }),
     { connection, concurrency: 2 },
   );
 

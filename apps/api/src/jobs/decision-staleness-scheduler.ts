@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'decision-staleness';
 const connection = { url: env.REDIS_URL };
@@ -17,9 +18,9 @@ export const decisionStalenessQueue = new Queue(QUEUE_NAME, {
 export function createDecisionStalenessWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async () => {
+    withJobContext(async () => {
       await checkStaleness();
-    },
+    }),
     { connection, concurrency: 1 },
   );
 

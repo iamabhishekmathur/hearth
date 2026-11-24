@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { cleanupOldSignals, SIGNAL_RETENTION_DAYS } from '../services/knowledge-signals.js';
+import { withJobContext } from '../lib/job-context.js';
 
 /**
  * Knowledge loop, Phase 1: removes gap signals older than the retention window
@@ -21,13 +22,13 @@ export const knowledgeSignalCleanupQueue = new Queue(QUEUE_NAME, {
 export function createKnowledgeSignalCleanupWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async () => {
+    withJobContext(async () => {
       const removed = await cleanupOldSignals();
       logger.info(
         { removed, retentionDays: SIGNAL_RETENTION_DAYS },
         'Knowledge signal cleanup done',
       );
-    },
+    }),
     { connection, concurrency: 1 },
   );
 

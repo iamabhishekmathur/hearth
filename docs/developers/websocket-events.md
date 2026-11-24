@@ -23,7 +23,7 @@ socket.on("connect_error", (err) => {
 });
 ```
 
-The server shares the Express session middleware with Socket.io via `io.engine.use(sessionMiddleware)`. On connection, the middleware extracts `session.userId` from the cookie. If no valid session exists, the socket receives a `connect_error` with message `"Unauthorized"`.
+The server shares the Express session middleware with Socket.io via `io.engine.use(sessionMiddleware)`. On connection, the middleware extracts `session.userId` from the cookie. If no valid session exists, the socket receives a `connect_error` with message `"Unauthorized"`. The handshake also resolves the user's org (through their team). Every event handler then runs in that org's tenant context, so database row-level security limits what the handler can see to that org.
 
 ---
 

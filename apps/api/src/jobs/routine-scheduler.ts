@@ -13,6 +13,7 @@ import { resolveDefaults, resolvePromptTemplate, validateParameterValues } from 
 import { getDownstreamChains } from '../services/chain-service.js';
 import { createPipelineRun, addRunToPipeline } from '../services/pipeline-service.js';
 import { recordSignal } from '../services/knowledge-signals.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'routine-execution';
 const connection = { url: env.REDIS_URL };
@@ -217,10 +218,11 @@ export async function processRoutineJob(job: Pick<Job<RoutineJobData>, 'data' | 
 }
 
 export function createRoutineWorker() {
-  const worker = new Worker(QUEUE_NAME, (job: Job<RoutineJobData>) => processRoutineJob(job), {
-    connection,
-    concurrency: 2,
-  });
+  const worker = new Worker(
+    QUEUE_NAME,
+    withJobContext((job: Job<RoutineJobData>) => processRoutineJob(job)),
+    { connection, concurrency: 2 },
+  );
 
   worker.on('failed', (job, err) => {
     logger.error({ jobId: job?.id, err }, 'Routine execution job failed');

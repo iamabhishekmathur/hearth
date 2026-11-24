@@ -623,6 +623,23 @@ Tracks ingested meeting transcripts from external providers (Granola, Otter.ai, 
 
 ---
 
+## Tenancy and Row-Level Security
+
+Tenant tables carry an `org_id` and have RLS **enabled and forced**. Each policy calls `hearth_rls_check(org_id)`, which lets a row through when `app.bypass_rls = 'on'` or when `org_id` equals `app.org_id`. In production the app connects as a role with `NOSUPERUSER NOBYPASSRLS`, so the policies are enforced. A superuser connection (local dev, most integration tests) skips them.
+
+The settings are transaction-local (`SET LOCAL`). They come from the tenant context in AsyncLocalStorage (`apps/api/src/lib/tenant-context.ts`):
+
+- **HTTP requests**: auth middleware enters `{ orgId, userId }` for the signed-in user.
+- **Socket.io events**: the handshake resolves the user's org the same way. Each event handler is registered through `onScoped` in `ws/socket-manager.ts`, which runs it in `{ orgId, userId }` (an org context, not a bypass). A unit test fails if a handler is registered with a bare `socket.on`. Server-side emits (`emitToSession`, `emitToTask`, …) do not query the database.
+- **Prisma model queries**: the tenant extension (`prisma-tenant-extension.ts`) runs each query in its own transaction that sets `app.org_id`, or `app.bypass_rls` for a bypass context.
+- **Raw SQL** (`$queryRaw`, `$queryRawUnsafe`, `$executeRaw`, `$executeRawUnsafe`): the extension wraps these the same way. Memory, decision and experience vector search, and embedding updates, all depend on this.
+- **Explicit transactions**: inside `withTenantTx` / `withRlsBypass`, queries on the `tx` client run in that transaction with its setting and roll back together. Queries there must use `tx`.
+- **Background jobs**: every BullMQ processor is wrapped in `withJobContext` (`lib/job-context.ts`). The wrapper runs the processor in the system context, `{ orgId: null, bypass: true }`. Jobs are trusted system work. They act on ids from their payload or sweep every org, and some rows (legacy routines) have a NULL `org_id` that an org context could never match. This gives jobs the same view they get on a superuser connection. A unit test fails if a `Worker` processor is not wrapped. Worker and API startup (integration bootstrap, routine schedule sync) also run in the system context via `runAsSystem`.
+
+With no context at all, queries run with no setting: tenant tables return zero rows and writes fail the policy check. `integration/rls-enforced.itest.ts` runs the app as a non-superuser role to cover all of the above.
+
+---
+
 ## pgvector
 
 pgvector adds vector data types and similarity search operators to PostgreSQL. Hearth uses it for:

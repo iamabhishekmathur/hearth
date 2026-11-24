@@ -4,6 +4,7 @@ import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import * as proposalService from '../services/skill-proposal-service.js';
 import { emitToUser } from '../ws/socket-manager.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'skill-proposal';
 const connection = { url: env.REDIS_URL };
@@ -27,7 +28,7 @@ interface SkillProposalJobData {
 export function createSkillProposalWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<SkillProposalJobData>) => {
+    withJobContext(async (job: Job<SkillProposalJobData>) => {
       const { taskId, userId, orgId } = job.data;
       logger.info({ taskId, userId }, 'Evaluating task for skill proposal');
 
@@ -66,7 +67,7 @@ export function createSkillProposalWorker() {
       });
 
       return { skillId: skill.id };
-    },
+    }),
     { connection, concurrency: 2 },
   );
 

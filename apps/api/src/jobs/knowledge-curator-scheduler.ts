@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { runCurator } from '../services/knowledge-curator.js';
+import { withJobContext } from '../lib/job-context.js';
 
 /**
  * Knowledge loop, Phase 2: the nightly curator. Runs at 4:00am UTC, before
@@ -22,7 +23,7 @@ export const knowledgeCuratorQueue = new Queue(QUEUE_NAME, {
 export function createKnowledgeCuratorWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async () => {
+    withJobContext(async () => {
       const results = await runCurator();
       const total = results.reduce(
         (acc, r) => ({
@@ -35,7 +36,7 @@ export function createKnowledgeCuratorWorker() {
         { orgs: 0, modelCalls: 0, proposed: 0, attached: 0, failed: 0 },
       );
       logger.info(total, 'Knowledge curator run done');
-    },
+    }),
     { connection, concurrency: 1 },
   );
 

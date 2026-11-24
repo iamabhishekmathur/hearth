@@ -8,6 +8,7 @@ import {
   generateEmbeddingForItem,
 } from '../services/task-context-service.js';
 import { emitToTask } from '../ws/socket-manager.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'task-context-extraction';
 const connection = { url: env.REDIS_URL };
@@ -30,7 +31,7 @@ interface ExtractionJobData {
 export function createTaskContextExtractionWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<ExtractionJobData>) => {
+    withJobContext(async (job: Job<ExtractionJobData>) => {
       const { itemId, taskId } = job.data;
       logger.info({ itemId, taskId, jobId: job.id }, 'Starting context item extraction');
 
@@ -98,7 +99,7 @@ export function createTaskContextExtractionWorker() {
         emitToTask(taskId, { type: 'task:context_item_updated', item: updated });
         throw err;
       }
-    },
+    }),
     {
       connection,
       concurrency: 5,

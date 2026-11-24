@@ -3,6 +3,7 @@ import { env } from '../config.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { synthesizeForUser } from '../services/synthesis-service.js';
+import { withJobContext } from '../lib/job-context.js';
 
 const QUEUE_NAME = 'memory-synthesis';
 const connection = { url: env.REDIS_URL };
@@ -24,7 +25,7 @@ export const synthesisQueue = new Queue(QUEUE_NAME, {
 export function createSynthesisWorker() {
   const worker = new Worker(
     QUEUE_NAME,
-    async (job: Job<{ userId: string }>) => {
+    withJobContext(async (job: Job<{ userId: string }>) => {
       const { userId } = job.data;
       logger.info({ userId, jobId: job.id }, 'Starting synthesis for user');
 
@@ -32,7 +33,7 @@ export function createSynthesisWorker() {
 
       logger.info({ userId, jobId: job.id, ...result }, 'Synthesis completed');
       return result;
-    },
+    }),
     {
       connection,
       concurrency: 2,

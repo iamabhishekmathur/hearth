@@ -1,4 +1,5 @@
 import { logger } from './lib/logger.js';
+import { runAsSystem } from './lib/tenant-context.js';
 import { createSynthesisWorker, scheduleDailySynthesis, enqueueAllUsers, synthesisQueue } from './jobs/synthesis-scheduler.js';
 import { createTaskExecutionWorker, taskExecutionQueue } from './services/task-executor.js';
 import { createTaskPlanningWorker, taskPlanningQueue } from './services/task-planner.js';
@@ -29,9 +30,12 @@ async function main() {
   logger.info('Registered memory-synthesis worker');
 
   // Handle the daily trigger job — it enqueues individual user synthesis jobs
+  // Event listeners don't reliably inherit the startup context, so the
+  // fan-out gets its own system context (it only reads users, but keep every
+  // background DB path explicit).
   synthesisWorker.on('completed', async (job) => {
     if (job.name === 'daily-synthesis-trigger') {
-      await enqueueAllUsers();
+      await runAsSystem(() => enqueueAllUsers());
     }
   });
 
@@ -154,7 +158,12 @@ async function main() {
   process.on('SIGTERM', shutdown);
 }
 
-main().catch((err) => {
+// Startup runs as a trusted system operation (RLS bypass): bootstrapping
+// integrations and syncing routine schedules read every org's rows. With no
+// tenant context, a non-superuser DB role sees zero rows, so no routine would
+// ever be scheduled. Each job processor gets its own context via
+// withJobContext (lib/job-context.ts).
+runAsSystem(main).catch((err) => {
   logger.error({ err }, 'Worker failed to start');
   process.exit(1);
 });
