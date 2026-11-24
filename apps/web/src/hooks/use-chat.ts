@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { regenerateOfFor } from '@/lib/regenerate';
 import { api } from '@/lib/api-client';
 import { trackEvent, AnalyticsEvent } from '@/lib/analytics-events';
 import {
@@ -636,7 +637,7 @@ export function useChat(sessionId: string | null): UseChatReturn {
   }, [sessionId]);
 
   const sendMessage = useCallback(
-    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode) => {
+    async (content: string, overrideSessionId?: string, activeArtifactId?: string, attachmentIds?: string[], cognitiveQuery?: CognitiveQueryMeta, modelOverride?: { model: string; providerId?: string }, agentMode?: AgentMode, options?: { regenerate?: boolean; regenerateOf?: string }) => {
       const sid = overrideSessionId ?? sessionId;
       if (!sid) return;
 
@@ -691,6 +692,13 @@ export function useChat(sessionId: string | null): UseChatReturn {
         // W4: plan/build mode. Only sent when the caller chose a mode (flag on).
         if (agentMode) {
           body.agentMode = agentMode;
+        }
+
+        // Knowledge loop: tell the server which answer this regenerates, so it
+        // can record a silent "that answer missed" signal. Nothing is shown.
+        if (options?.regenerate) {
+          body.regenerate = true;
+          if (options.regenerateOf) body.regenerateOf = options.regenerateOf;
         }
 
         await api.post(`/chat/sessions/${sid}/messages`, body);
@@ -814,10 +822,18 @@ export function useChat(sessionId: string | null): UseChatReturn {
       while (userIdx >= 0 && prev[userIdx].role !== 'user') userIdx--;
       if (userIdx < 0) return prev;
       const userContent = prev[userIdx].content;
+      const regenerateOf = regenerateOfFor(prev[lastAssistantIdx].id);
       // Remove the assistant message
       const updated = prev.slice(0, lastAssistantIdx);
       // Trigger re-send after state update
-      setTimeout(() => sendMessage(userContent), 0);
+      setTimeout(
+        () =>
+          sendMessage(userContent, undefined, undefined, undefined, undefined, undefined, undefined, {
+            regenerate: true,
+            regenerateOf,
+          }),
+        0,
+      );
       return updated;
     });
   }, [sendMessage]);

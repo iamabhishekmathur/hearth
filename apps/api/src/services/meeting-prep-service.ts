@@ -67,6 +67,7 @@ export async function generateMeetingPrep(
 ): Promise<string> {
   try {
     const context = await buildAgentContext(userId, `meeting-prep-${event.id}`);
+    context.signalSource = 'other';
 
     const attendeeList = event.attendees
       ?.map((a) => a.displayName ?? a.email)

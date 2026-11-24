@@ -3,6 +3,8 @@ import { providerRegistry } from '../llm/provider-registry.js';
 import { generateEmbedding } from './embedding-service.js';
 import { logger } from '../lib/logger.js';
 import type { ExperienceOutcome, Prisma } from '@prisma/client';
+import { extractJsonObject } from '../lib/llm-json.js';
+import { recordSignal, redactSignalText } from './knowledge-signals.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -25,6 +27,8 @@ interface ReflectionResult {
   tags: string[];
   quality: number;
   shouldProposeSkill: boolean;
+  /** Knowledge loop: facts the user corrected. Optional — older replies lack it. */
+  corrections?: Array<{ wrong?: string; correct?: string }>;
 }
 
 export interface ExperienceRecord {
@@ -64,7 +68,8 @@ Extract the following as a JSON object:
   "toolsUsed": ["tool_name_1", "tool_name_2", ...],
   "tags": ["semantic_tag_1", "semantic_tag_2", ...],
   "quality": 0.0-1.0 confidence rating of how well the task was handled,
-  "shouldProposeSkill": true/false — whether this approach is novel, reusable, and high-quality enough to save as a skill
+  "shouldProposeSkill": true/false — whether this approach is novel, reusable, and high-quality enough to save as a skill,
+  "corrections": [{"wrong": "what the assistant said or assumed", "correct": "what the user said is true"}]
 }
 
 Rules:
@@ -73,6 +78,7 @@ Rules:
 - Tags should be semantic categories useful for future retrieval (e.g., "data-analysis", "code-review", "jira-integration")
 - Set shouldProposeSkill=true only if: quality >= 0.8, the approach involved 3+ tool calls, and the pattern would genuinely help on similar future tasks
 - Keep learnings concise but specific — avoid generic advice
+- corrections: ONLY facts or instructions the user explicitly corrected (a moved channel, a new owner, a changed step, a wrong number). Not style preferences, not new requests. One short sentence each. Use [] when there are none.
 
 Respond with ONLY the JSON object, no markdown fences or explanation.`;
 
@@ -93,10 +99,17 @@ export async function reflectOnSession(input: ReflectionInput): Promise<void> {
       select: { role: true, content: true, metadata: true },
     });
 
-    // Skip trivial sessions
+    // Skip trivial sessions — unless a follow-up message looks like the user
+    // correcting the assistant (knowledge loop: the common correction is a
+    // short "no, it moved to X" chat that would otherwise be skipped).
     const userMessages = messages.filter(m => m.role === 'user');
     const toolMessages = messages.filter(m => m.role === 'tool');
-    if (toolMessages.length < MIN_TOOL_CALLS_FOR_REFLECTION && userMessages.length < MIN_MESSAGE_TURNS_FOR_REFLECTION) {
+    const correctionLikely = userMessages.slice(1).some(m => looksLikeCorrection(m.content));
+    if (
+      !correctionLikely &&
+      toolMessages.length < MIN_TOOL_CALLS_FOR_REFLECTION &&
+      userMessages.length < MIN_MESSAGE_TURNS_FOR_REFLECTION
+    ) {
       logger.debug({ sessionId }, 'Skipping reflection — session too short');
       return;
     }
@@ -119,6 +132,9 @@ export async function reflectOnSession(input: ReflectionInput): Promise<void> {
       logger.warn({ sessionId }, 'Reflection LLM call returned no result');
       return;
     }
+
+    // Knowledge loop: each explicit correction becomes a silent signal.
+    await recordCorrectionSignals(input, reflection.corrections);
 
     // Generate embedding from task summary + learnings
     const embeddingText = `${reflection.taskSummary}. ${reflection.learnings.join('. ')}`;
@@ -166,6 +182,69 @@ export async function reflectOnSession(input: ReflectionInput): Promise<void> {
   } catch (err) {
     logger.error({ err, sessionId }, 'Post-session reflection failed');
   }
+}
+
+// ─── Knowledge loop: corrections ─────────────────────────────────────
+
+/**
+ * Cheap pre-check for "the user is correcting the assistant". It only decides
+ * whether a short session is worth reflecting on; the reflection model makes
+ * the real call. False positives cost one reflection; they never make a signal.
+ */
+const CORRECTION_PATTERNS = [
+  /^\s*(no|nope|not quite|wrong|incorrect)\b[\s,.!:-]/i,
+  /\b(that'?s|this is|it'?s) (not right|wrong|incorrect|outdated|out of date)\b/i,
+  /\bactually,? (it|they|we|the)\b/i,
+  /\b(it|that|this) (has )?(moved|changed) to\b/i,
+  /\b(use|post (it )?in|send (it )?to) [#@]?[\w.-]+ instead\b/i,
+  /\bnot \S+[,;]? (it'?s|use|but)\b/i,
+  /\b(no longer|not anymore|isn'?t used anymore)\b/i,
+];
+
+export function looksLikeCorrection(text: string): boolean {
+  const t = text.slice(0, 500);
+  return CORRECTION_PATTERNS.some((re) => re.test(t));
+}
+
+const MAX_CORRECTIONS_PER_REFLECTION = 5;
+
+/**
+ * Writes one `correction` signal per explicit correction. Reflection re-runs
+ * over the whole session after each turn, so the same correction is written
+ * once per session (matched on its redacted text).
+ */
+export async function recordCorrectionSignals(
+  input: Pick<ReflectionInput, 'sessionId' | 'userId' | 'orgId'>,
+  corrections: ReflectionResult['corrections'],
+): Promise<number> {
+  if (!Array.isArray(corrections) || corrections.length === 0) return 0;
+  let written = 0;
+  for (const c of corrections.slice(0, MAX_CORRECTIONS_PER_REFLECTION)) {
+    const correct = typeof c?.correct === 'string' ? c.correct.trim() : '';
+    if (!correct) continue;
+    const text = redactSignalText(correct);
+    if (!text) continue;
+    try {
+      const dup = await prisma.knowledgeSignal.findFirst({
+        where: { orgId: input.orgId, sessionId: input.sessionId, kind: 'correction', text },
+        select: { id: true },
+      });
+      if (dup) continue;
+    } catch {
+      continue;
+    }
+    const id = await recordSignal({
+      orgId: input.orgId,
+      kind: 'correction',
+      source: 'chat',
+      userId: input.userId,
+      sessionId: input.sessionId,
+      text: correct,
+      detail: typeof c?.wrong === 'string' && c.wrong.trim() ? { wrong: c.wrong } : undefined,
+    });
+    if (id) written++;
+  }
+  return written;
 }
 
 // ─── Core: Experience Search ─────────────────────────────────────────
@@ -373,7 +452,11 @@ async function callReflectionLLM(transcript: string): Promise<ReflectionResult |
       }
     }
 
-    return JSON.parse(result.trim()) as ReflectionResult;
+    // Tolerate ```json fences / prose around the object (a bare JSON.parse
+    // threw on those and the whole reflection was lost).
+    const json = extractJsonObject(result);
+    if (!json) throw new Error('No JSON object in reflection response');
+    return JSON.parse(json) as ReflectionResult;
   } catch (err) {
     logger.error({ err }, 'Failed to parse reflection LLM response');
     return null;

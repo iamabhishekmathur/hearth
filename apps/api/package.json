@@ -25,7 +25,8 @@
     "sim-seed": "tsx prisma/sim-seed.ts",
     "route-manifest": "tsx integration/generate-route-manifest.ts",
     "lint": "eslint src/",
-    "seed:gtm-demo": "tsx src/scripts/seed-gtm-demo.ts"
+    "seed:gtm-demo": "tsx src/scripts/seed-gtm-demo.ts",
+    "signals:sample": "tsx src/scripts/sample-knowledge-signals.ts"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "5.0.113",

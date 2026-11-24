@@ -50,6 +50,8 @@ export function createTaskExecutionWorker() {
       try {
         // Build agent context for the task
         const context = await buildAgentContext(userId, taskId);
+        context.signalSource = 'task';
+        context.taskId = taskId;
 
         // Create the initial execution step
         const step = await taskService.addExecutionStep(taskId, {

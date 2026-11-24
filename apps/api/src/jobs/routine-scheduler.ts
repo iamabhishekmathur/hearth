@@ -12,6 +12,7 @@ import { deliverRoutineOutput, findApprovalGate, pauseRunForApproval } from '../
 import { resolveDefaults, resolvePromptTemplate, validateParameterValues } from '../services/routine-parameter-service.js';
 import { getDownstreamChains } from '../services/chain-service.js';
 import { createPipelineRun, addRunToPipeline } from '../services/pipeline-service.js';
+import { recordSignal } from '../services/knowledge-signals.js';
 
 const QUEUE_NAME = 'routine-execution';
 const connection = { url: env.REDIS_URL };
@@ -37,6 +38,15 @@ interface RoutineJobData {
   triggeredBy?: 'schedule' | 'manual' | 'event' | 'chain';
   // Feature 7: Pipeline tracking
   pipelineId?: string;
+}
+
+/** Org of a user (through their team) — for legacy routines with no org_id. */
+async function orgIdOfUser(userId: string): Promise<string | null> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { team: { select: { orgId: true } } },
+  });
+  return u?.team?.orgId ?? null;
 }
 
 export function createRoutineWorker() {
@@ -108,6 +118,8 @@ export function createRoutineWorker() {
           triggerEvent,
           routineId,
         });
+        // Knowledge loop: the run's knowledge-search log is stored on this run.
+        context.routineRunId = run.id;
 
         // Run agent loop
         let output = '';
@@ -167,6 +179,21 @@ export function createRoutineWorker() {
           error: err instanceof Error ? err.message : 'Unknown error',
           durationMs,
         });
+
+        // Knowledge loop: a failed run is a silent signal for the curator.
+        const signalOrgId = routine.orgId ?? (await orgIdOfUser(userId).catch(() => null));
+        if (signalOrgId) {
+          void recordSignal({
+            orgId: signalOrgId,
+            kind: 'run_failed',
+            source: 'routine',
+            userId,
+            teamId: routine.teamId,
+            routineId,
+            routineRunId: run.id,
+            text: err instanceof Error ? err.message : 'Unknown error',
+          });
+        }
 
         await prisma.routine.update({
           where: { id: routineId },

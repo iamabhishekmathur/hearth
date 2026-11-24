@@ -17,6 +17,7 @@ import { awaitPermission } from './run-registry.js';
 import { logAudit } from '../services/audit-service.js';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+import { SearchSignalTracker } from '../services/knowledge-signals.js';
 
 // Default per-run budgets, used when the caller doesn't set one on
 // AgentContext. The hard `throw` at the iteration cap is gone — at the cap we
@@ -44,9 +45,44 @@ const DOOM_LOOP_THRESHOLD = 3;
  *   of throwing.
  * - validated model resolution: `resolveModel` replaces the silent fallback.
  */
+/**
+ * Runs the agent. Wraps the loop with the knowledge-loop search tracker: every
+ * knowledge-search result is observed, and when the run ends — finished,
+ * stopped, errored or abandoned by its consumer — at most one silent
+ * empty-search signal is written (and, for a routine run, its search log).
+ */
 export async function* agentLoop(
   context: AgentContext,
   messages: LLMMessage[],
+): AsyncGenerator<ChatEvent> {
+  const signalSource = context.signalSource ?? (context.routineId ? 'routine' : 'chat');
+  const tracker =
+    context.orgId && context.userId
+      ? new SearchSignalTracker({
+          orgId: context.orgId,
+          userId: context.userId,
+          teamId: context.teamId ?? null,
+          // Task, routine and meeting-prep runs reuse their own id as the
+          // "session id"; only a real chat session is recorded as one.
+          sessionId: signalSource === 'chat' ? context.sessionId || null : null,
+          source: signalSource,
+          routineId: context.routineId ?? null,
+          routineRunId: context.routineRunId ?? null,
+          taskId: context.taskId ?? null,
+        })
+      : null;
+  try {
+    yield* agentLoopInner(context, messages, tracker);
+  } finally {
+    // Fire-and-forget: never delay or fail the run on signal bookkeeping.
+    if (tracker) void tracker.flush();
+  }
+}
+
+async function* agentLoopInner(
+  context: AgentContext,
+  messages: LLMMessage[],
+  tracker: SearchSignalTracker | null,
 ): AsyncGenerator<ChatEvent> {
   const signal = context.abortSignal;
   const maxIterations = context.maxIterations ?? DEFAULT_MAX_ITERATIONS;
@@ -321,6 +357,7 @@ export async function* agentLoop(
         const startTime = Date.now();
         const result = await executeTool(toolCall.name, toolCall.input, toolMap, context.userId, signal);
         const durationMs = Date.now() - startTime;
+        tracker?.observe(toolCall.name, toolCall.input, result.output, result.error);
         return { toolCall, result, durationMs };
       }),
     );

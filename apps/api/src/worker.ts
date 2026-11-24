@@ -12,6 +12,7 @@ import { createCognitiveExtractionWorker, scheduleCognitiveProfileRebuild, cogni
 import { createTaskContextExtractionWorker, taskContextExtractionQueue } from './jobs/task-context-extraction-job.js';
 import { createDecisionExtractionWorker, decisionExtractionQueue } from './jobs/decision-extraction-scheduler.js';
 import { createDecisionStalenessWorker, scheduleDecisionStalenessCheck, decisionStalenessQueue } from './jobs/decision-staleness-scheduler.js';
+import { createKnowledgeSignalCleanupWorker, scheduleKnowledgeSignalCleanup, knowledgeSignalCleanupQueue } from './jobs/knowledge-signal-cleanup-scheduler.js';
 import { createDecisionPatternWorker, schedulePatternSynthesis, decisionPatternQueue } from './jobs/decision-pattern-scheduler.js';
 import { bootstrapIntegrations } from './mcp/bootstrap.js';
 import { loadProviders } from './llm/provider-loader.js';
@@ -98,7 +99,12 @@ async function main() {
   await schedulePatternSynthesis();
   logger.info('Registered decision-pattern-synthesis worker');
 
-  logger.info('Hearth worker started with 14 queues: memory-synthesis, task-execution, task-planning, routine-execution, skill-proposal, work-intake, meeting-prep, activity-digest, routine-health-check, cognitive-extraction, task-context-extraction, decision-extraction, decision-staleness, decision-pattern-synthesis');
+  // Knowledge loop: daily removal of gap signals past the 90-day window
+  const knowledgeSignalCleanupWorker = createKnowledgeSignalCleanupWorker();
+  await scheduleKnowledgeSignalCleanup();
+  logger.info('Registered knowledge-signal-cleanup worker');
+
+  logger.info('Hearth worker started with 15 queues: memory-synthesis, task-execution, task-planning, routine-execution, skill-proposal, work-intake, meeting-prep, activity-digest, routine-health-check, cognitive-extraction, task-context-extraction, decision-extraction, decision-staleness, decision-pattern-synthesis, knowledge-signal-cleanup');
 
   // Graceful shutdown
   const shutdown = async () => {
@@ -131,6 +137,8 @@ async function main() {
     await decisionExtractionQueue.close();
     await decisionStalenessQueue.close();
     await decisionPatternQueue.close();
+    await knowledgeSignalCleanupWorker.close();
+    await knowledgeSignalCleanupQueue.close();
     process.exit(0);
   };
 

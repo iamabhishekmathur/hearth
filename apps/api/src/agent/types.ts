@@ -45,6 +45,13 @@ export interface AgentContext {
   agentProfileId?: string | null;
   /** Override the ask timeout (ms). Defaults to run-registry's default. */
   permissionTimeoutMs?: number;
+  // Knowledge loop, Phase 1: where this run's silent gap signals come from.
+  // Defaults to 'routine' when routineId is set, else 'chat'.
+  signalSource?: 'chat' | 'routine' | 'task' | 'other';
+  /** Routine run being executed — its knowledge-search log is stored on it. */
+  routineRunId?: string;
+  /** Task being planned/executed, for signal attribution. */
+  taskId?: string;
   // Routine-specific context (Features 1, 2)
   routineRunContext?: RoutineRunContext;
   triggerEvent?: NormalizedEvent;

@@ -41,6 +41,9 @@ vi.mock('../lib/prisma.js', () => ({
     org: {
       findUnique: vi.fn(async () => ({ settings: orgSettingsRef.settings })),
     },
+    // Knowledge loop: the run's empty-search signal lands here.
+    knowledgeSignal: { create: vi.fn(async () => ({ id: 'sig-1' })) },
+    routineRun: { update: vi.fn(async () => ({})) },
   },
 }));
 
@@ -52,6 +55,7 @@ vi.mock('../extensions/usage-metering.js', () => ({
 import { agentLoop } from './agent-runtime.js';
 import { providerRegistry } from '../llm/provider-registry.js';
 import { executeTool } from './tool-router.js';
+import { prisma } from '../lib/prisma.js';
 
 const mockedChatWithFallback = vi.mocked(providerRegistry.chatWithFallback);
 const mockedExecuteTool = vi.mocked(executeTool);
@@ -145,6 +149,54 @@ describe('agentLoop', () => {
     expect(mockedExecuteTool).toHaveBeenCalledOnce();
     // Signal is threaded (undefined here — no abort).
     expect(mockedExecuteTool).toHaveBeenCalledWith('search', { q: 'foo' }, expect.any(Map), 'user-1', undefined);
+  });
+
+  it('knowledge loop: an empty memory search in a run writes one silent signal when the run ends', async () => {
+    mockedExecuteTool.mockResolvedValue({ output: { results: [] } });
+    mockedChatWithFallback.mockReturnValueOnce(
+      streamEvents([
+        { type: 'tool_call_start', id: 'tc-1', tool: 'recall_memory', input: {} },
+        { type: 'tool_call_delta', id: 'tc-1', input: '{"query":"customer update channel"}' },
+        { type: 'tool_call_end', id: 'tc-1' },
+        { type: 'done', usage: { inputTokens: 10, outputTokens: 5 } },
+      ]),
+    );
+    mockedChatWithFallback.mockReturnValueOnce(
+      streamEvents([
+        { type: 'text_delta', content: 'Where should I post it?' },
+        { type: 'done', usage: { inputTokens: 20, outputTokens: 10 } },
+      ]),
+    );
+
+    const events = await collectEvents(
+      agentLoop(makeContext({ tools: [tool('recall_memory')] }), [{ role: 'user', content: 'Draft the update' }]),
+    );
+
+    // Nothing about the signal reaches the user's stream.
+    expect(events.some((e) => JSON.stringify(e).includes('signal'))).toBe(false);
+    await vi.waitFor(() => expect(vi.mocked(prisma.knowledgeSignal.create)).toHaveBeenCalledOnce());
+    expect(vi.mocked(prisma.knowledgeSignal.create).mock.calls[0][0]).toMatchObject({
+      data: {
+        kind: 'empty_search',
+        source: 'chat',
+        orgId: 'org-1',
+        userId: 'user-1',
+        sessionId: 'session-1',
+        text: 'customer update channel',
+      },
+    });
+  });
+
+  it('knowledge loop: a run that never searches knowledge writes no signal', async () => {
+    mockedChatWithFallback.mockReturnValue(
+      streamEvents([
+        { type: 'text_delta', content: 'Hi' },
+        { type: 'done', usage: { inputTokens: 1, outputTokens: 1 } },
+      ]),
+    );
+    await collectEvents(agentLoop(makeContext(), [{ role: 'user', content: 'Hi' }]));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(vi.mocked(prisma.knowledgeSignal.create)).not.toHaveBeenCalled();
   });
 
   it('yields error + done{error} when the LLM streams an error event', async () => {
