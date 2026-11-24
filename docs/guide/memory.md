@@ -43,6 +43,12 @@ Hearth keeps every version of an org, team or personal memory entry. Session not
 
 Owners follow the layer: admins own org memory, admins and team leads own their team's memory, and each person owns their own memory. An admin can also name one more owner for an org or team entry.
 
+## How Hearth Learns From Gaps
+
+Hearth notices, in the background, when the AI may be missing something: a search of memory that finds nothing, a thumbs-down, a regenerate, a person correcting the AI, or an owner editing a routine's output before approving it. Nothing changes in your chat, and these notes are never shown to other members.
+
+Hearth removes secrets and personal data such as emails and phone numbers before it saves a note, keeps at most 500 characters, and deletes notes after 90 days. In a later release, owners will review proposed fixes built from these notes.
+
 ## Synthesis
 
 Background synthesis can extract useful patterns from chat and work history. This helps organizational knowledge compound without requiring every useful fact to be manually saved.

@@ -35,6 +35,7 @@ import * as chatgptPlan from '../services/chatgpt-plan-service.js';
 import { parseCommandInput, CommandResolveError } from '../services/command-registry.js';
 import { markStepComplete, getState } from '../services/onboarding-service.js';
 import { createContextualInvite, findOrgUserByEmail } from '../services/task-service.js';
+import { recordSignal, setThumbsDownSignal } from '../services/knowledge-signals.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -267,7 +268,11 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
   try {
     const sessionId = req.params.id as string;
     const userId = req.user!.id;
-    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery, timezone, agentMode } = req.body as {
+    const { content, model, providerId, activeArtifactId, attachmentIds, cognitiveQuery, timezone, agentMode, regenerate, regenerateOf } = req.body as {
+      /** Knowledge loop: this send regenerates the last answer. */
+      regenerate?: boolean;
+      /** The answer being regenerated, when the client knows its server id. */
+      regenerateOf?: string;
       content?: string;
       model?: string;
       providerId?: string;
@@ -434,6 +439,39 @@ router.post('/sessions/:id/messages', requireAuth, async (req, res, next) => {
           messageId: userMessage.id, messageRole: 'user', content,
         }).catch(err => logger.error({ err }, 'Governance evaluation failed'));
       }
+    }
+
+    // Knowledge loop: a regenerate is a silent signal that the last answer
+    // missed. Only for an assistant message in THIS session; never blocks.
+    if (orgId && regenerate === true) {
+      void (async () => {
+        const named =
+          typeof regenerateOf === 'string' && regenerateOf.length > 0
+            ? await prisma.chatMessage.findFirst({
+                where: { id: regenerateOf, sessionId, role: 'assistant' },
+                select: { id: true },
+              })
+            : null;
+        // Fallback: the latest answer in this session before the re-sent question.
+        const target =
+          named ??
+          (await prisma.chatMessage.findFirst({
+            where: { sessionId, role: 'assistant', createdAt: { lte: userMessage.createdAt } },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true },
+          }));
+        if (!target) return;
+        await recordSignal({
+          orgId,
+          kind: 'regenerate',
+          source: 'chat',
+          userId,
+          teamId: req.user!.teamId,
+          sessionId,
+          messageId: target.id,
+          text: content,
+        });
+      })().catch(() => undefined);
     }
 
     // Respond immediately with 202
@@ -774,6 +812,14 @@ router.post('/sessions/:id/messages/:messageId/feedback', requireAuth, async (re
       return;
     }
     const messageId = req.params.messageId as string;
+    // Only someone who can write in the session (owner or contributor) may
+    // rate its messages. Before this, any member of the org could rate any
+    // message — and, with the knowledge loop, plant thumbs-down signals.
+    const access = await chatService.getSessionWriteAccess(req.params.id as string, req.user!.id);
+    if (!access) {
+      res.status(404).json({ error: 'Message not found' });
+      return;
+    }
     const { prisma } = await import('../lib/prisma.js');
     const message = await prisma.chatMessage.findFirst({
       where: { id: messageId, session: { id: req.params.id as string } },
@@ -787,6 +833,32 @@ router.post('/sessions/:id/messages/:messageId/feedback', requireAuth, async (re
       where: { id: messageId },
       data: { metadata: { ...metadata, feedback: rating } as never },
     });
+
+    // Knowledge loop: a thumbs-down on an answer is a silent gap signal; the
+    // text is the question it answered. Latest rating wins (see setThumbsDownSignal).
+    const signalOrgId = req.user!.orgId;
+    if (signalOrgId && message.role === 'assistant') {
+      void (async () => {
+        const question = await prisma.chatMessage.findFirst({
+          where: { sessionId: message.sessionId, role: 'user', createdAt: { lte: message.createdAt } },
+          orderBy: { createdAt: 'desc' },
+          select: { content: true },
+        });
+        await setThumbsDownSignal(
+          {
+            orgId: signalOrgId,
+            source: 'chat',
+            userId: req.user!.id,
+            teamId: req.user!.teamId,
+            sessionId: message.sessionId,
+            messageId,
+            text: question?.content ?? null,
+          },
+          rating === 'negative',
+        );
+      })().catch(() => undefined);
+    }
+
     res.json({ data: { messageId, rating } });
   } catch (err) {
     next(err);

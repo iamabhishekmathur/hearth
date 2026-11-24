@@ -228,10 +228,24 @@ Send a message to a session and trigger the AI agent. The response is delivered 
 | `activeArtifactId` | string | No | Artifact currently open in the UI for context |
 | `attachmentIds` | string[] | No | IDs of uploaded files to attach |
 | `agentMode` | string | No | `plan` or `build` (requires the `planMode` feature flag). See [Plan → Build mode](#plan-build-mode-planmode). Ignored when the flag is off. |
+| `regenerate` | boolean | No | `true` when this send regenerates the last answer. Hearth records a silent knowledge-loop signal on that answer; nothing changes in the response. |
+| `regenerateOf` | string | No | With `regenerate`: the id of the answer being regenerated. Ignored unless it is an assistant message in this session; without it Hearth uses the session's latest answer. |
 
 **Response:** `202 Accepted`
 
 The agent processes the message asynchronously. Streaming responses and tool calls are delivered via WebSocket events on the session channel.
+
+---
+
+#### POST /api/v1/chat/sessions/:id/messages/:messageId/feedback
+
+Rate an answer. The latest rating wins.
+
+**Request Body:** `{ "rating": "positive" }` or `{ "rating": "negative" }`
+
+Only the session owner or a contributor can rate; anyone else gets `404`. A negative rating on an assistant message records a silent knowledge-loop signal with the question it answered; switching to positive removes it.
+
+**Response:** `200 OK` — `{ "data": { "messageId": "...", "rating": "negative" } }`
 
 ---
 

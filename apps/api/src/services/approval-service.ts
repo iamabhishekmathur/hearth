@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { emitToUser } from '../ws/socket-manager.js';
+import { recordSignal } from './knowledge-signals.js';
 
 export async function createApprovalRequest(data: {
   runId: string;
@@ -121,6 +122,28 @@ export async function resolveApproval(
       checkpoint: { select: { name: true } },
     },
   });
+
+  // Knowledge loop: an owner rewriting the agent's output before approving it
+  // is a strong silent signal that the routine got something wrong.
+  if (
+    decision === 'edited' &&
+    opts?.editedOutput &&
+    opts.editedOutput.trim() !== (request.agentOutput ?? '').trim()
+  ) {
+    const orgId = await approvalOrgId(request).catch(() => null);
+    if (orgId) {
+      void recordSignal({
+        orgId,
+        kind: 'edited_output',
+        source: 'routine',
+        userId: reviewerId,
+        routineId: request.run.routineId,
+        routineRunId: request.run.id,
+        text: opts.editedOutput,
+        detail: { before: (request.agentOutput ?? '').slice(0, 300) },
+      });
+    }
+  }
 
   return updated;
 }

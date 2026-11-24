@@ -695,6 +695,28 @@ RoutineVersion  (immutable history)
 
 A change to any snapshot field writes a version; run state, enable/disable and last-run fields do not. A rollback restores the definition but **not** `scope` or `team_id`, so rolling back a prompt never moves a routine to another audience. Agents may edit only personal routines; team and org routines change only through their owners. `routine_versions` has no `org_id`; its RLS policy follows its routine, like `routine_runs`.
 
+### Knowledge Signals
+
+```
+KnowledgeSignal  (knowledge loop, Phase 1 — never shown to members)
+  ├── org_id, user_id?, team_id?
+  ├── kind: empty_search | correction | thumbs_down | regenerate | edited_output | run_failed
+  ├── source: chat | routine | task | other
+  ├── session_id?, message_id?, routine_id?, routine_run_id?, task_id?
+  ├── text? (redacted: secrets, then the PII pack; at most 500 characters)
+  ├── detail? (JSONB, small, redacted: merged queries, the "before" of an edit…)
+  ├── processed_at? (set by the curator, Phase 2)
+  └── created_at
+```
+
+A signal is a background record that the AI may be missing something. Writers never block or fail the work that produced the signal. Rules:
+
+- **empty_search** — written once per agent run, when the run's *last* knowledge search (`recall_memory`, `session_search`, `recall_decisions`) found nothing. Several empty searches merge into one signal; a later successful search cancels it. Tool output is never stored.
+- **thumbs_down** — one per answer; switching the rating to positive removes it unless the curator already used it. `text` is the question the answer replied to. Every role counts, viewers included.
+- **regenerate**, **edited_output** (an owner rewrote a routine's output before approving it), **run_failed**, and **correction** (an explicit correction found by the post-chat reflection, once per session).
+
+`routine_runs.search_log` stores `{ tool, found }` for each knowledge search in a run — no query text. Signals are deleted after 90 days by the `knowledge-signal-cleanup` worker job (4:30am UTC), which runs with the RLS bypass because it sweeps every org.
+
 ### Migration History
 
 | Migration | Description |
@@ -717,6 +739,7 @@ A change to any snapshot field writes a version; run state, enable/disable and l
 | `20260419100000_add_task_context_items` | Rich task context items (notes, links, files, images, text blocks, MCP references) with async extraction pipeline and vector embeddings |
 | `20260420000000_add_context_graph` | Context Graph — 9 enums, 9 tables (decisions, decision_contexts, decision_links, decision_outcomes, decision_patterns, decision_pattern_links, org_principles, org_principle_evidence, meeting_ingestions), vector/FTS/B-tree indexes |
 | `20261117000000_user_llm_credentials` | Per-user LLM credentials (`user_llm_credentials`) for Sign in with ChatGPT plan usage, RLS-isolated by `org_id` |
+| `20261125000000_knowledge_signals` | Knowledge loop Phase 1: `knowledge_signals` (RLS by `org_id`, cascades on org delete) and `routine_runs.search_log` |
 | `20261124000000_knowledge_versions` | Knowledge loop Phase 0: `memory_versions` and `routine_versions` (immutable history), `version` + `owner_id` on `memory_entries` and `routines`, RLS on both new tables, and a backfill of version 1 for existing rows (runs with `app.bypass_rls` so a non-superuser migration role sees every row) |
 | `20260615000000_skills_as_commands` | W6: adds `invocable_as_command`, `command_slug`, `command_params` to skills + a per-org unique index on `command_slug` so a slash command can't collide |
 

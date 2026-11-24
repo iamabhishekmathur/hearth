@@ -140,6 +140,8 @@ export function createTaskPlanningWorker() {
 
       try {
         const context = await buildAgentContext(userId, taskId);
+        context.signalSource = 'task';
+        context.taskId = taskId;
         const prompt = await buildPlanningPrompt(
           { id: taskId, title: task.title, description: task.description, context: task.context },
           reviewFeedback,

@@ -357,6 +357,7 @@ model Org {
   toolPermissionPolicies ToolPermissionPolicy[]
   userLlmCredentials   UserLlmCredential[]
   invitations          Invitation[]
+  knowledgeSignals     KnowledgeSignal[]
 
   @@map("orgs")
 }
@@ -998,6 +999,41 @@ model Routine {
   @@map("routines")
 }
 
+/// Knowledge loop, Phase 1 — a silent record that the AI may have a gap in
+/// what it knows. Written in the background; never shown to members. The
+/// nightly curator (Phase 2) groups signals into proposals for owners.
+/// Kept for 90 days. `text` is always redacted (secrets + PII) and short.
+model KnowledgeSignal {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  userId       String?   @map("user_id")
+  teamId       String?   @map("team_id")
+  /// empty_search | correction | thumbs_down | regenerate | edited_output | run_failed
+  kind         String
+  /// chat | routine | task | other
+  source       String
+  sessionId    String?   @map("session_id")
+  messageId    String?   @map("message_id")
+  routineId    String?   @map("routine_id")
+  routineRunId String?   @map("routine_run_id")
+  taskId       String?   @map("task_id")
+  /// Redacted, at most 500 characters: the search text, the correction, the
+  /// question that got a thumbs-down, …
+  text         String?
+  /// Small structured extras (e.g. merged search queries, tool names). Redacted.
+  detail       Json?
+  /// Set by the curator when it has used the signal.
+  processedAt  DateTime? @map("processed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, processedAt])
+  @@index([messageId, kind])
+  @@map("knowledge_signals")
+}
+
 /// One row per saved version of a routine's definition (name, prompt,
 /// schedule, delivery, parameters…). Run state and enable/disable are not
 /// versioned. Rows are never edited; a rollback writes a new version.
@@ -1042,6 +1078,10 @@ model RoutineRun {
 
   // Feature 5: Approval Gates
   pausedState Json? @map("paused_state")
+
+  // Knowledge loop, Phase 1: one entry per knowledge-search tool call in the
+  // run — `{ tool, found }` only. Never the query text or tool output.
+  searchLog Json? @map("search_log")
 
   routine          Routine            @relation(fields: [routineId], references: [id])
   trigger          RoutineTrigger?    @relation(fields: [triggerId], references: [id])
