@@ -279,6 +279,41 @@ describe('ProposalCard — errors', () => {
     expect(onDone).toHaveBeenCalledWith('p1');
   });
 
+  it('a fix that breaks a routine test case stays, explains why, and can be approved anyway', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onApprove = vi
+      .fn()
+      .mockRejectedValueOnce({
+        status: 409,
+        message: 'This change removes text that a test case needs.',
+        body: {
+          code: 'tests_failed',
+          failures: [
+            {
+              testCaseId: 't1',
+              description: 'Keeps the Support queue',
+              missing: ['Support queue'],
+              reason: 'The new prompt no longer says "Support queue".',
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({});
+    const { onDone } = render({ onApprove });
+    await act(async () => button('Approve')!.click());
+    await flush();
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(onDone).not.toHaveBeenCalled();
+    expect(text()).toContain('Keeps the Support queue');
+    expect(text()).toContain('no longer says "Support queue"');
+    await act(async () => button('Approve anyway')!.click());
+    await flush();
+    expect(onApprove).toHaveBeenLastCalledWith('p1', { overrideTests: true });
+    expect(onDone).toHaveBeenCalledWith('p1');
+  });
+
   it('already decided elsewhere: says so, then leaves the inbox', async () => {
     vi.useFakeTimers();
     const onApprove = vi
