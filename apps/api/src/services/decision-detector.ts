@@ -1,5 +1,6 @@
 import { providerRegistry } from '../llm/provider-registry.js';
 import { logger } from '../lib/logger.js';
+import { extractJsonObject } from '../lib/llm-json.js';
 
 interface DetectionResult {
   isDecision: boolean;
@@ -81,7 +82,11 @@ Respond with ONLY a JSON object:
       if (event.type === 'text_delta') result += event.content;
     }
 
-    const parsed = JSON.parse(result.trim());
+    // Tolerate ```json fences and prose around the object; a bare JSON.parse
+    // threw on those and the catch below silently dropped real decisions.
+    const json = extractJsonObject(result);
+    if (!json) throw new Error('No JSON object in classifier response');
+    const parsed = JSON.parse(json);
     return {
       isDecision: parsed.isDecision ?? false,
       confidence: parsed.confidence ?? 0,

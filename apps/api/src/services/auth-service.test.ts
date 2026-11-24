@@ -20,6 +20,7 @@ vi.mock('../lib/prisma.js', () => ({
     },
     org: {
       upsert: vi.fn(),
+      findFirst: vi.fn(),
     },
     team: {
       findFirst: vi.fn(),
@@ -45,6 +46,8 @@ beforeEach(() => {
   getOAuthProvisioner.mockReturnValue(null);
   // Sensible org/team defaults for first-user creation paths.
   asMock(prisma.org.upsert).mockResolvedValue({ id: 'org-1', slug: 'default' });
+  // Non-first signups join the OLDEST org (resolveDefaultTeam).
+  asMock(prisma.org.findFirst).mockResolvedValue({ id: 'org-1' });
   asMock(prisma.team.findFirst).mockResolvedValue({ id: 'team-1', orgId: 'org-1' });
   asMock(prisma.team.create).mockResolvedValue({ id: 'team-1', orgId: 'org-1' });
   asMock(prisma.user.create).mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -115,15 +118,35 @@ describe('register (AUTH-H-02/H-03, AUTH-ER-05)', () => {
     expect(prisma.org.upsert).not.toHaveBeenCalled();
   });
 
-  it('assigns a non-first user to the first available team', async () => {
+  it("assigns a non-first user to the oldest org's oldest team", async () => {
     asMock(prisma.user.findUnique).mockResolvedValue(null);
     asMock(prisma.user.count).mockResolvedValue(3);
-    asMock(prisma.team.findFirst).mockResolvedValue({ id: 'team-9', orgId: 'org-1' });
+    asMock(prisma.org.findFirst).mockResolvedValue({ id: 'org-oldest' });
+    asMock(prisma.team.findFirst).mockResolvedValue({ id: 'team-9', orgId: 'org-oldest' });
 
     await register('member@example.com', 'pw', 'Member');
 
+    expect(prisma.org.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { createdAt: 'asc' } }),
+    );
+    // The team lookup is scoped to that org — never the first team in the whole DB.
+    expect(prisma.team.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { orgId: 'org-oldest' }, orderBy: { createdAt: 'asc' } }),
+    );
     const createArg = asMock(prisma.user.create).mock.calls[0][0];
     expect(createArg.data.teamId).toBe('team-9');
+  });
+
+  it('gives a non-first user no team when no org exists yet', async () => {
+    asMock(prisma.user.findUnique).mockResolvedValue(null);
+    asMock(prisma.user.count).mockResolvedValue(3);
+    asMock(prisma.org.findFirst).mockResolvedValue(null);
+
+    await register('early@example.com', 'pw', 'Early');
+
+    expect(prisma.team.findFirst).not.toHaveBeenCalled();
+    const createArg = asMock(prisma.user.create).mock.calls[0][0];
+    expect(createArg.data.teamId).toBeNull();
   });
 
   it('tolerates no team existing for a subsequent user (teamId null)', async () => {
